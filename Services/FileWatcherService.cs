@@ -39,13 +39,18 @@ public class FileWatcherService : BackgroundService
             {
                 foreach (var baseFolder in _options.FoldersToScan)
                 {
-                    _logger.LogDebug("Scanning base folder: {BaseFolder}", baseFolder);
-                    var currentFolders = new HashSet<string>(Directory.GetDirectories(baseFolder));
-                    _logger.LogDebug("Found {Count} folders in {BaseFolder}", currentFolders.Count, baseFolder);
+                    // Get the full path of the base folder 
+                    var fullPath = Path.GetFullPath(baseFolder);
+                    _logger.LogDebug("Scanning base folder: {BaseFolder}", fullPath);
 
+                    // Get the current folders in the base folder
+                    var currentFolders = new HashSet<string>(Directory.GetDirectories(fullPath));
+                    _logger.LogDebug("Found {Count} folders in {BaseFolder}", currentFolders.Count, fullPath);
+
+                    // Get the new folders that are not in the known folders list
                     var newFolders = currentFolders.Except(_knownFolders[baseFolder]);
                     var newFolderCount = newFolders.Count();
-                    _logger.LogDebug("Detected {Count} new folders in {BaseFolder}", newFolderCount, baseFolder);
+                    _logger.LogDebug("Detected {Count} new folders in {BaseFolder}", newFolderCount, fullPath);
 
                     foreach (var newFolder in newFolders)
                     {
