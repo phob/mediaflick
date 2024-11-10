@@ -12,9 +12,18 @@ public partial class MediaDetectionService : IMediaDetectionService
     private readonly TMDbClient _tmdbClient;
     
     // Common patterns for media files
-    private static readonly Regex MoviePattern = MyRegex();
+    private static readonly Regex MoviePattern = new(
+        @"^(?<title>.+?)[\. \[]?(?<year>\d{4}).*\.(mkv|mp4|avi)$",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
     
-    private static readonly Regex TvShowPattern = MyRegex1();
+    private static readonly Regex TvShowPattern = new(
+        @"^(?<title>.+?)[\. \[]?[Ss](?<season>\d{1,2})[eE](?<episode>\d{1,2})?[-]?(?:[-eE](?<episode2>\d{1,2}))?.*\.(mkv|mp4|avi)$",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly Regex TitleCleanupPattern = new(
+        @"^(?<title>.+?)(?:\s\(?(?<year>\d{4})\)?)?\s?[-\s]*$",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
 
     public MediaDetectionService(
         ILogger<MediaDetectionService> logger, 
@@ -52,12 +61,14 @@ public partial class MediaDetectionService : IMediaDetectionService
 
     private async Task<MediaInfo?> DetectMovieAsync(string fileName)
     {
+        _logger.LogDebug("Attempting to detect movie pattern for: {FileName}", fileName);
         var match = MoviePattern.Match(fileName);
         if (!match.Success)
         {
             _logger.LogDebug("Filename does not match movie pattern: {FileName}", fileName);
             return null;
         }
+        _logger.LogDebug("Detected movie pattern - Title: {Title}", match.Groups["title"].Value);
 
         var title = match.Groups["title"].Value.Replace(".", " ").Trim();
         var yearStr = match.Groups["year"].Value;
@@ -87,16 +98,28 @@ public partial class MediaDetectionService : IMediaDetectionService
 
     private async Task<MediaInfo?> DetectTvShowAsync(string fileName)
     {
+        _logger.LogDebug("Attempting to detect TV show pattern for: {FileName}", fileName);
         var match = TvShowPattern.Match(fileName);
         if (!match.Success)
         {
             _logger.LogDebug("Filename does not match TV show pattern: {FileName}", fileName);
             return null;
         }
+        _logger.LogDebug("Detected TV show pattern - Title: {Title}", match.Groups["title"].Value);
+        var titleMatch = TitleCleanupPattern.Match(match.Groups["title"].Value.Replace(".", " ").Trim());
+        if (!titleMatch.Success)
+        {
+            _logger.LogWarning("Failed to clean title for TV show: {FileName}", fileName);
+            return null;
+        }
+        _logger.LogDebug("Cleaned title for TV show: {Title}", titleMatch.Groups["title"].Value);
 
-        var title = match.Groups["title"].Value.Replace(".", " ").Trim();
+        var title = titleMatch.Groups["title"].Value;
         var season = int.Parse(match.Groups["season"].Value);
         var episode = int.Parse(match.Groups["episode"].Value);
+        int? episode2 = match.Groups["episode2"].Success 
+            ? int.Parse(match.Groups["episode2"].Value) 
+            : (int?)null;
 
         _logger.LogDebug("Detected TV show pattern - Title: {Title}, S{Season:D2}E{Episode:D2}", 
             title, season, episode);
@@ -123,9 +146,4 @@ public partial class MediaDetectionService : IMediaDetectionService
             EpisodeTitle = episodeInfo?.Name
         };
     }
-
-    [GeneratedRegex("^(?<title>.+?)[\\. \\[]?(?<year>\\d{4}).*\\.(mkv|mp4|avi)$", RegexOptions.IgnoreCase | RegexOptions.Compiled, "en-DE")]
-    private static partial Regex MyRegex();
-    [GeneratedRegex("^(?<title>.+?)[\\. \\[]?[sS](?<season>\\d{1,2})[eE](?<episode>\\d{1,2}).*\\.(mkv|mp4|avi)$", RegexOptions.IgnoreCase | RegexOptions.Compiled, "en-DE")]
-    private static partial Regex MyRegex1();
 } 
