@@ -4,3 +4,14 @@ publish/
 # Docker
 .docker/
 docker-compose.override.yml
+
+## Ignore config directory
+config/
+
+## .NET
+*.user
+*.userosscache
+*.suo
+*.userprefs
+.vs/
+.vscode/

@@ -20,33 +20,39 @@ public class PlexHandler : IPlexHandler
 
     private async Task<string> GetSectionIdForPathAsync(string folderPath)
     {
-        var url = $"{_options.ApiEndpoint}/library/sections?X-Plex-Token={_options.PlexToken}";
-        var response = await _httpClient.GetStringAsync(url);
-        
-        // Basic XML parsing to find matching section
-        var doc = new System.Xml.XmlDocument();
-        doc.LoadXml(response);
-        
-        var directories = doc.SelectNodes("//Directory");
-        if (directories == null) return "all";
-        
-        foreach (System.Xml.XmlNode dir in directories)
+        try
         {
-            var locations = dir.SelectNodes("Location");
-            if (locations == null) continue;
+            var url = $"{_options.ApiEndpoint}/library/sections?X-Plex-Token={_options.PlexToken}";
+            var response = await _httpClient.GetStringAsync(url);
             
-            foreach (System.Xml.XmlNode loc in locations)
+            var doc = new System.Xml.XmlDocument();
+            doc.LoadXml(response);
+            
+            var directories = doc.SelectNodes("//Directory");
+            if (directories == null) return "all";
+            
+            foreach (System.Xml.XmlNode dir in directories)
             {
-                var pathAttr = loc.Attributes?["path"];
-                if (pathAttr?.Value != null && folderPath.StartsWith(pathAttr.Value, StringComparison.OrdinalIgnoreCase))
+                var locations = dir.SelectNodes("Location");
+                if (locations == null) continue;
+                
+                foreach (System.Xml.XmlNode loc in locations)
                 {
-                    var keyAttr = dir.Attributes?["key"];
-                    return keyAttr?.Value ?? "all";
+                    var pathAttr = loc.Attributes?["path"];
+                    if (pathAttr?.Value != null && folderPath.StartsWith(pathAttr.Value, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var keyAttr = dir.Attributes?["key"];
+                        return keyAttr?.Value ?? "all";
+                    }
                 }
             }
         }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Failed to get section ID from Plex, using 'all' as fallback: {Message}", 
+                ex.Message);
+        }
         
-        _logger.LogWarning("No matching section found for path: {FolderPath}, falling back to 'all'", folderPath);
         return "all";
     }
 
@@ -64,18 +70,26 @@ public class PlexHandler : IPlexHandler
             
             _logger.LogDebug("Request URL: {Url}", url.Replace(_options.PlexToken, "REDACTED"));
             
-            _logger.LogDebug("Sending GET request to Plex API...");
             var response = await _httpClient.GetAsync(url);
-            _logger.LogDebug("Response status code: {StatusCode}", response.StatusCode);
             
-            response.EnsureSuccessStatusCode();
-            
-            _logger.LogInformation("Successfully initiated scan for folder: {FolderPath}", folderPath);
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("Successfully initiated scan for folder: {FolderPath}", folderPath);
+            }
+            else
+            {
+                _logger.LogWarning("Failed to initiate Plex scan for folder: {FolderPath}. Status code: {StatusCode}", 
+                    folderPath, response.StatusCode);
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning("Could not connect to Plex server: {Message}", ex.Message);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to add folder for scanning: {FolderPath}", folderPath);
-            throw;
+            _logger.LogWarning("Failed to add folder for scanning: {FolderPath}. Error: {Message}", 
+                folderPath, ex.Message);
         }
     }
 
@@ -93,18 +107,26 @@ public class PlexHandler : IPlexHandler
             
             _logger.LogDebug("Request URL: {Url}", url.Replace(_options.PlexToken, "REDACTED"));
             
-            _logger.LogDebug("Sending DELETE request to Plex API...");
             var response = await _httpClient.DeleteAsync(url);
-            _logger.LogDebug("Response status code: {StatusCode}", response.StatusCode);
             
-            response.EnsureSuccessStatusCode();
-            
-            _logger.LogInformation("Successfully deleted folder from Plex: {FolderPath}", folderPath);
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("Successfully deleted folder from Plex: {FolderPath}", folderPath);
+            }
+            else
+            {
+                _logger.LogWarning("Failed to delete folder from Plex: {FolderPath}. Status code: {StatusCode}", 
+                    folderPath, response.StatusCode);
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning("Could not connect to Plex server: {Message}", ex.Message);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to delete folder from Plex: {FolderPath}", folderPath);
-            throw;
+            _logger.LogWarning("Failed to delete folder from Plex: {FolderPath}. Error: {Message}", 
+                folderPath, ex.Message);
         }
     }
 } 

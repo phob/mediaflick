@@ -3,16 +3,13 @@ version: '3.8'
 services:
   plexlocalscan:
     build: .
-    environment:
-      - PLEX_HOST=plex
-      - PLEX_PORT=32400
-      - PLEX_TOKEN=your_plex_token_here
+    container_name: plexlocalscan
     volumes:
-      - /path/to/your/movies:/media/movies:ro
-      - /path/to/your/shows:/media/shows:ro
-    networks:
-      - plex_network
+      - ./config:/config
+      - /downloads:/downloads
+      - /media:/media
+    restart: unless-stopped
 
 networks:
   plex_network:
-    external: true 
+    external: true
