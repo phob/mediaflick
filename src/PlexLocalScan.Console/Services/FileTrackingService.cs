@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using PlexLocalScan.Data;
-using PlexLocalScan.Models;
-using PlexLocalScan.Options;
-namespace PlexLocalScan.Services;
+using PlexLocalScan.Console.Data;
+using PlexLocalScan.Console.Models;
+using PlexLocalScan.Console.Options;
+namespace PlexLocalScan.Console.Services;
 
 public interface IFileTrackingService
 {

@@ -1,13 +1,13 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Serilog;
-using PlexLocalScan.Options;
-using PlexLocalScan.Services;
-using TMDbLib.Client;
-using Microsoft.EntityFrameworkCore;
-using PlexLocalScan.Data;
 using Microsoft.Extensions.Options;
+using Microsoft.EntityFrameworkCore;
+using Serilog;
+using TMDbLib.Client;
+using PlexLocalScan.Console.Options;
+using PlexLocalScan.Console.Services;
+using PlexLocalScan.Console.Data;
 
 class Program
 {

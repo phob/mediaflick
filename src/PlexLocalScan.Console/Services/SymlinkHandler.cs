@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Logging;
 using System.Runtime.InteropServices;
-using PlexLocalScan.Options;
+using PlexLocalScan.Console.Options;
 
-namespace PlexLocalScan.Services;
+namespace PlexLocalScan.Console.Services;
 
 public class SymlinkHandler : ISymlinkHandler
 {

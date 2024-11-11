@@ -1,4 +1,4 @@
-namespace PlexLocalScan.Services;
+namespace PlexLocalScan.Console.Services;
 
 public interface IPlexHandler
 {

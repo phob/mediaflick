@@ -2,10 +2,10 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TMDbLib.Client;
-using PlexLocalScan.Options;
+using PlexLocalScan.Console.Options;
 using Microsoft.Extensions.Caching.Memory;
 
-namespace PlexLocalScan.Services;
+namespace PlexLocalScan.Console.Services;
 
 public partial class MediaDetectionService : IMediaDetectionService
 {

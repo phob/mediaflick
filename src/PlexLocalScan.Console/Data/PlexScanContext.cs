@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using PlexLocalScan.Models;
+using PlexLocalScan.Console.Models;
 
-namespace PlexLocalScan.Data;
+namespace PlexLocalScan.Console.Data;
 
 public class PlexScanContext : DbContext
 {

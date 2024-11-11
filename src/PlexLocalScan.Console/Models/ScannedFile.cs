@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
-using PlexLocalScan.Options;
+using PlexLocalScan.Console.Options;
 
-namespace PlexLocalScan.Models;
+namespace PlexLocalScan.Console.Models;
 
 public class ScannedFile
 {

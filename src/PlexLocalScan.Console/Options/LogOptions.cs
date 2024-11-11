@@ -1,4 +1,4 @@
-namespace PlexLocalScan.Options;
+namespace PlexLocalScan.Console.Options;
 
 public class LogOptions
 {

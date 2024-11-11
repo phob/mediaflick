@@ -1,10 +1,10 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
-using PlexLocalScan.Options;
+using PlexLocalScan.Console.Options;
 using System.Collections.Concurrent;
 
-namespace PlexLocalScan.Services;
+namespace PlexLocalScan.Console.Services;
 
 public class FileWatcherService : BackgroundService
 {
