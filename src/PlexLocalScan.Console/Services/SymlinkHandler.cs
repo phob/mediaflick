@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Logging;
 using System.Runtime.InteropServices;
-using PlexLocalscan.Options;
+using PlexLocalScan.Options;
 
-namespace PlexLocalscan.Services;
+namespace PlexLocalScan.Services;
 
 public class SymlinkHandler : ISymlinkHandler
 {
@@ -94,13 +94,6 @@ public class SymlinkHandler : ISymlinkHandler
     private bool IsVideoFile(string extension)
     {
         return new[] { ".mkv", ".mp4", ".avi" }.Contains(extension.ToLower());
-    }
-
-    private MediaType DetermineMediaType(string path)
-    {
-        return path.Contains("movies", StringComparison.OrdinalIgnoreCase) 
-            ? MediaType.Movies 
-            : MediaType.TvShows;
     }
 
     private async Task CreateFileLinkAsync(string sourcePath, string destinationPath)

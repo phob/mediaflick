@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  plexlocalscan:
+  PlexLocalScan:
     build: .
-    container_name: plexlocalscan
+    container_name: PlexLocalScan
     volumes:
       - ./config:/config
       - /downloads:/downloads

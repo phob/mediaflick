@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.002.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PlexLocalscan", "PlexLocalscan.csproj", "{7EBE6B44-C3D6-489B-B4E5-893E304E4FDA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PlexLocalScan", "PlexLocalScan.Console\PlexLocalScan.csproj", "{7BDA45C4-0C17-4FF8-9932-896969D2604D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,15 +11,15 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{7EBE6B44-C3D6-489B-B4E5-893E304E4FDA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{7EBE6B44-C3D6-489B-B4E5-893E304E4FDA}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{7EBE6B44-C3D6-489B-B4E5-893E304E4FDA}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{7EBE6B44-C3D6-489B-B4E5-893E304E4FDA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7BDA45C4-0C17-4FF8-9932-896969D2604D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7BDA45C4-0C17-4FF8-9932-896969D2604D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7BDA45C4-0C17-4FF8-9932-896969D2604D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7BDA45C4-0C17-4FF8-9932-896969D2604D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {5726C89D-9BF8-422E-8ABD-7E5A58264912}
+		SolutionGuid = {EBB89AC5-CD0E-4890-8092-8F7E348119BD}
 	EndGlobalSection
 EndGlobal

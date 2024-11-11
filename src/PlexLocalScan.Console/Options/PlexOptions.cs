@@ -1,4 +1,4 @@
-namespace PlexLocalscan.Options;
+namespace PlexLocalScan.Options;
 
 public class PlexOptions
 {

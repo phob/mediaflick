@@ -1,6 +1,4 @@
-using PlexLocalscan.Options;
-
-namespace PlexLocalscan.Services;
+namespace PlexLocalScan.Services;
 
 public interface ISymlinkHandler
 {

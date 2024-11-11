@@ -1,9 +1,9 @@
 using Microsoft.Extensions.Options;
-using PlexLocalscan.Options;
+using PlexLocalScan.Options;
 using Microsoft.Extensions.Logging;
 using System.Web;
 
-namespace PlexLocalscan.Services;
+namespace PlexLocalScan.Services;
 
 public class PlexHandler : IPlexHandler
 {

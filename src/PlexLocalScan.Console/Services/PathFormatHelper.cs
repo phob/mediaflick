@@ -1,4 +1,4 @@
-namespace PlexLocalscan.Services;
+namespace PlexLocalScan.Services;
 
 public static class PathFormatHelper
 {
@@ -12,13 +12,18 @@ public static class PathFormatHelper
 
     public static (string folderPath, string fileName) FormatTvShowPath(MediaInfo mediaInfo)
     {
-        if (string.IsNullOrEmpty(mediaInfo.Title) || !mediaInfo.SeasonNumber.HasValue || !mediaInfo.EpisodeNumber.HasValue)
-            throw new ArgumentException("TV show title, season, and episode are required");
+        if (string.IsNullOrEmpty(mediaInfo.Title) || !mediaInfo.SeasonNumber.HasValue || !mediaInfo.EpisodeNumber.HasValue || !mediaInfo.Year.HasValue)
+            throw new ArgumentException("TV show title, season, episode, and year are required");
 
-        var showFolder = CleanFileName(mediaInfo.Title);
+        var showFolder = $"{CleanFileName(mediaInfo.Title)} ({mediaInfo.Year})";
         var seasonFolder = $"Season {mediaInfo.SeasonNumber:D2}";
         var fileName = $"{CleanFileName(mediaInfo.Title)} - S{mediaInfo.SeasonNumber:D2}E{mediaInfo.EpisodeNumber:D2}";
         
+        if (mediaInfo.EpisodeNumber2.HasValue)
+        {
+            fileName += $" - E{mediaInfo.EpisodeNumber2:D2}";
+        }
+
         if (!string.IsNullOrEmpty(mediaInfo.EpisodeTitle))
         {
             fileName += $" - {CleanFileName(mediaInfo.EpisodeTitle)}";
@@ -30,6 +35,8 @@ public static class PathFormatHelper
     private static string CleanFileName(string fileName)
     {
         var invalid = Path.GetInvalidFileNameChars();
-        return string.Join("", fileName.Select(c => invalid.Contains(c) ? '_' : c)).Trim();
+        return string.Join("", fileName.Select(c => invalid.Contains(c) ? " -" : c.ToString()))
+            .Replace("  ", " ")  // Remove any double spaces that might occur
+            .Trim();
     }
 } 

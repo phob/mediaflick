@@ -1,5 +1,5 @@
-using PlexLocalscan.Options;
-namespace PlexLocalscan.Services;
+using PlexLocalScan.Options;
+namespace PlexLocalScan.Services;
 
 public interface IMediaDetectionService
 {
@@ -15,4 +15,6 @@ public class MediaInfo
     public int? SeasonNumber { get; set; }
     public int? EpisodeNumber { get; set; }
     public string? EpisodeTitle { get; set; }
+    public int? EpisodeNumber2 { get; internal set; }
+    public int? EpisodeTmdbId { get; internal set; }
 } 
