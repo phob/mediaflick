@@ -10,6 +10,7 @@ public class PlexScanContext : DbContext
     public PlexScanContext(DbContextOptions<PlexScanContext> options)
         : base(options)
     {
+        
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

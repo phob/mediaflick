@@ -48,24 +48,29 @@ class Program
         var services = builder.Services;
         services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
                 .AddMemoryCache()
+                .AddSingleton<IPlexHandler, PlexHandler>()
+                .AddSingleton<ISymlinkHandler, SymlinkHandler>()
                 .AddHostedService<FileWatcherService>()
                 .AddHttpClient()
-                .AddScoped<IPlexHandler, PlexHandler>()
-                .AddScoped<ISymlinkHandler, SymlinkHandler>()
                 .AddSingleton(new TMDbClient("your_tmdb_api_key"))
-                .AddScoped<IMediaDetectionService, MediaDetectionService>();
-
-        services.Configure<DatabaseOptions>(builder.Configuration.GetSection(DatabaseOptions.Database));
+                .AddSingleton<IMediaDetectionService, MediaDetectionService>();
 
         services.AddDbContext<PlexScanContext>((serviceProvider, options) =>
         {
-            var databaseOptions = serviceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value;
-            options.UseSqlite(databaseOptions.ConnectionString);
+            var databaseOptions = "Data Source=" + Path.Combine(configDir, "plexscan.db");
+            options.UseSqlite(databaseOptions);
         });
 
         services.AddScoped<IFileTrackingService, FileTrackingService>();
 
         var app = builder.Build();
+
+        using (var scope = app.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<PlexScanContext>();
+            context.Database.EnsureCreated();
+        }
+
         return app.RunAsync();
     }
 

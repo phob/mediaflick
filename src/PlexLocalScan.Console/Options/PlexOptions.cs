@@ -22,5 +22,6 @@ public class FolderMapping
 public enum MediaType
 {
     Movies,
-    TvShows
+    TvShows,
+    Unknown
 }

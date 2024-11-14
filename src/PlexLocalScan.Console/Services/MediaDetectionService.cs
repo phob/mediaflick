@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using TMDbLib.Client;
 using PlexLocalScan.Console.Options;
 using Microsoft.Extensions.Caching.Memory;
+using PlexLocalScan.Console.Models;
 
 namespace PlexLocalScan.Console.Services;
 
@@ -29,13 +30,17 @@ public partial class MediaDetectionService : IMediaDetectionService
     private readonly IMemoryCache _cache;
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(24);
 
+    private readonly IFileTrackingService _fileTrackingService;
+
     public MediaDetectionService(
         ILogger<MediaDetectionService> logger, 
         IOptions<PlexOptions> options,
-        IMemoryCache cache)
+        IMemoryCache cache,
+        IFileTrackingService fileTrackingService)
     {
         _logger = logger;
         _cache = cache;
+        _fileTrackingService = fileTrackingService;
         if (string.IsNullOrEmpty(options.Value.TMDbApiKey))
             throw new ArgumentException("TMDb API key is required but was not provided in configuration");
             
@@ -51,11 +56,15 @@ public partial class MediaDetectionService : IMediaDetectionService
         {
             var result = mediaType switch
             {
-                MediaType.Movies => await DetectMovieAsync(fileName),
-                MediaType.TvShows => await DetectTvShowAsync(fileName),
+                MediaType.Movies => await DetectMovieAsync(fileName, filePath),
+                MediaType.TvShows => await DetectTvShowAsync(fileName, filePath),
                 _ => throw new ArgumentException($"Unsupported media type: {mediaType}")
             };
 
+            if (result == null)
+            {
+                await _fileTrackingService.UpdateStatusAsync(filePath, null, mediaType, null, FileStatus.Failed);
+            }
             return result ?? throw new InvalidOperationException($"Failed to detect media info for {fileName}");
         }
         catch (Exception ex)
@@ -65,12 +74,13 @@ public partial class MediaDetectionService : IMediaDetectionService
         }
     }
 
-    private async Task<MediaInfo?> DetectMovieAsync(string fileName)
+    private async Task<MediaInfo?> DetectMovieAsync(string fileName, string filePath)
     {
         _logger.LogDebug("Attempting to detect movie pattern for: {FileName}", fileName);
         var match = MoviePattern.Match(fileName);
         if (!match.Success)
         {
+            await _fileTrackingService.UpdateStatusAsync(fileName, null, MediaType.Movies, null, FileStatus.Failed);
             _logger.LogDebug("Filename does not match movie pattern: {FileName}", fileName);
             return null;
         }
@@ -95,6 +105,7 @@ public partial class MediaDetectionService : IMediaDetectionService
 
         if (bestMatch == null)
         {
+            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.Movies, null, FileStatus.Failed);
             _logger.LogWarning("No TMDb match found for movie: {Title} ({Year})", title, year);
             return null;
         }
@@ -106,16 +117,19 @@ public partial class MediaDetectionService : IMediaDetectionService
             TmdbId = bestMatch.Id,
             MediaType = MediaType.Movies
         };
+        await _fileTrackingService.UpdateStatusAsync(fileName, null, MediaType.Movies, bestMatch.Id, FileStatus.Working);
+
         _cache.Set(cacheKey, mediaInfo, CacheDuration);
         return mediaInfo;
     }
 
-    private async Task<MediaInfo?> DetectTvShowAsync(string fileName)
+    private async Task<MediaInfo?> DetectTvShowAsync(string fileName, string filePath)
     {
         _logger.LogDebug("Attempting to detect TV show pattern for: {FileName}", fileName);
         var match = TvShowPattern.Match(fileName);
         if (!match.Success)
         {
+            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, FileStatus.Failed);
             _logger.LogDebug("Filename does not match TV show pattern: {FileName}", fileName);
             return null;
         }
@@ -123,6 +137,7 @@ public partial class MediaDetectionService : IMediaDetectionService
         var titleMatch = TitleCleanupPattern.Match(match.Groups["title"].Value.Replace(".", " ").Trim());
         if (!titleMatch.Success)
         {
+            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, FileStatus.Failed);
             _logger.LogWarning("Failed to clean title for TV show: {FileName}", fileName);
             return null;
         }
@@ -157,6 +172,7 @@ public partial class MediaDetectionService : IMediaDetectionService
         _logger.LogDebug("Best match: {BestMatch}", bestMatch?.Name);
         if (bestMatch == null)
         {
+            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, FileStatus.Failed);
             _logger.LogWarning("No TMDb match found for TV show: {Title}", title);
             return null;
         } 
@@ -166,7 +182,7 @@ public partial class MediaDetectionService : IMediaDetectionService
         {
             Title = bestMatch.Name,
             Year = bestMatch.FirstAirDate?.Year,
-            TmdbId = bestMatch.Id,
+            TmdbId = episodeInfo?.Id,
             MediaType = MediaType.TvShows,
             SeasonNumber = season,
             EpisodeNumber = episode,
@@ -174,6 +190,8 @@ public partial class MediaDetectionService : IMediaDetectionService
             EpisodeTitle = episodeInfo?.Name,
             EpisodeTmdbId = episodeInfo?.Id
         };
+        _logger.LogDebug("Updating status for TV show: {mediaInfo}", mediaInfo);
+        await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, mediaInfo.EpisodeTmdbId, FileStatus.Working);
 
         // Cache the result
         _cache.Set(cacheKey, mediaInfo, CacheDuration);

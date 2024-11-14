@@ -1,17 +1,22 @@
 using Microsoft.Extensions.Logging;
 using System.Runtime.InteropServices;
 using PlexLocalScan.Console.Options;
+using PlexLocalScan.Console.Models;
 
 namespace PlexLocalScan.Console.Services;
 
 public class SymlinkHandler : ISymlinkHandler
 {
     private readonly ILogger<SymlinkHandler> _logger;
+    private readonly IFileTrackingService _fileTrackingService;
+    private static readonly string[] sourceArray = [".mkv", ".mp4", ".avi"];
 
     public SymlinkHandler(
-        ILogger<SymlinkHandler> logger)
+        ILogger<SymlinkHandler> logger,
+        IFileTrackingService fileTrackingService)
     {
-        _logger = logger;        
+        _logger = logger;
+        _fileTrackingService = fileTrackingService;        
     }
 
     public async Task CreateSymlinksAsync(string sourceFile, string destinationFolder, MediaInfo mediaInfo)
@@ -24,6 +29,7 @@ public class SymlinkHandler : ISymlinkHandler
 
             if (mediaInfo == null)
             {
+                await _fileTrackingService.UpdateStatusAsync(sourceFile, null, MediaType.Unknown, null, FileStatus.Failed);
                 _logger.LogWarning("Could not detect media info for {SourcePath}, skipping", sourceFile);
                 return;
             }
@@ -91,9 +97,9 @@ public class SymlinkHandler : ISymlinkHandler
         }
     }
 
-    private bool IsVideoFile(string extension)
+    private static bool IsVideoFile(string extension)
     {
-        return new[] { ".mkv", ".mp4", ".avi" }.Contains(extension.ToLower());
+        return sourceArray.Contains(extension.ToLower());
     }
 
     private async Task CreateFileLinkAsync(string sourcePath, string destinationPath)
@@ -120,6 +126,7 @@ public class SymlinkHandler : ISymlinkHandler
                     CreateUnixSymlink(sourcePath, destinationPath);
                 }
             });
+            await _fileTrackingService.UpdateStatusAsync(sourcePath, destinationPath, null, null, FileStatus.Success);
         }
         catch (Exception ex)
         {

@@ -3,7 +3,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using PlexLocalScan.Console.Options;
 using System.Collections.Concurrent;
-
+using PlexLocalScan.Console.Models;
 namespace PlexLocalScan.Console.Services;
 
 public class FileWatcherService : BackgroundService
@@ -14,16 +14,18 @@ public class FileWatcherService : BackgroundService
     private readonly PlexOptions _options;
     private readonly ConcurrentDictionary<string, HashSet<string>> _knownFolders = new();
     private readonly IMediaDetectionService _mediaDetectionService;
-
+    private readonly IFileTrackingService _fileTrackingService;
     public FileWatcherService(
         ILogger<FileWatcherService> logger,
         IPlexHandler plexHandler,
+        IFileTrackingService fileTrackingService,
         ISymlinkHandler symlinkHandler,
         IMediaDetectionService mediaDetectionService,
         IOptions<PlexOptions> options)
     {
         _logger = logger;
         _plexHandler = plexHandler;
+        _fileTrackingService = fileTrackingService;
         _symlinkHandler = symlinkHandler;
         _options = options.Value;
         _mediaDetectionService = mediaDetectionService;
@@ -68,6 +70,7 @@ public class FileWatcherService : BackgroundService
 
                         foreach (var file in Directory.EnumerateFiles(newFolder, "*.*", SearchOption.AllDirectories))
                         {
+                            await _fileTrackingService.TrackFileAsync(file, null, mapping.MediaType, null);
                             var mediaInfo = await _mediaDetectionService.DetectMediaAsync(file, mapping.MediaType);
                             if (mediaInfo != null)
                             {

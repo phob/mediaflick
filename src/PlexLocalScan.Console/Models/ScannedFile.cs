@@ -11,13 +11,11 @@ public class ScannedFile
     [Required]
     public string SourceFile { get; set; } = string.Empty;
     
-    [Required]
-    public string DestFile { get; set; } = string.Empty;
+    public string? DestFile { get; set; } = string.Empty;
     
-    [Required]
-    public MediaType MediaType { get; set; }
+    public MediaType? MediaType { get; set; } = null;
     
-    public int? TmdbId { get; set; }
+    public int? TmdbId { get; set; } = null;
     
     [Required]
     public FileStatus Status { get; set; }
