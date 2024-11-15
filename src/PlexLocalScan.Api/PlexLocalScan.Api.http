@@ -1,0 +1,6 @@
+@PlexLocalScan.Api_HostAddress = http://localhost:5224
+
+GET {{PlexLocalScan.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

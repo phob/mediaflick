@@ -1,5 +1,5 @@
-using PlexLocalScan.Console.Options;
-namespace PlexLocalScan.Console.Services;
+using PlexLocalScan.Data.Models;
+namespace PlexLocalScan.Shared.Services;
 
 public interface IMediaDetectionService
 {

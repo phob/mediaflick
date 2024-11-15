@@ -3,7 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.002.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PlexLocalScan", "PlexLocalScan.Console\PlexLocalScan.csproj", "{7BDA45C4-0C17-4FF8-9932-896969D2604D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PlexLocalScan.Console", "PlexLocalScan.Console\PlexLocalScan.Console.csproj", "{7BDA45C4-0C17-4FF8-9932-896969D2604D}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PlexLocalScan.Data", "PlexLocalScan.Data\PlexLocalScan.Data.csproj", "{D1859793-9DEC-4989-8518-6B1BA1DE6453}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PlexLocalScan.Shared", "PlexLocalScan.Shared\PlexLocalScan.Shared.csproj", "{0003EA60-7B7B-49F5-AC4F-BF7578B2262A}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PlexLocalScan.Api", "PlexLocalScan.Api\PlexLocalScan.Api.csproj", "{BF137365-971C-4282-9035-280442C48905}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +21,18 @@ Global
 		{7BDA45C4-0C17-4FF8-9932-896969D2604D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7BDA45C4-0C17-4FF8-9932-896969D2604D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7BDA45C4-0C17-4FF8-9932-896969D2604D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BF137365-971C-4282-9035-280442C48905}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BF137365-971C-4282-9035-280442C48905}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BF137365-971C-4282-9035-280442C48905}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BF137365-971C-4282-9035-280442C48905}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D1859793-9DEC-4989-8518-6B1BA1DE6453}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D1859793-9DEC-4989-8518-6B1BA1DE6453}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D1859793-9DEC-4989-8518-6B1BA1DE6453}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D1859793-9DEC-4989-8518-6B1BA1DE6453}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0003EA60-7B7B-49F5-AC4F-BF7578B2262A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0003EA60-7B7B-49F5-AC4F-BF7578B2262A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0003EA60-7B7B-49F5-AC4F-BF7578B2262A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0003EA60-7B7B-49F5-AC4F-BF7578B2262A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

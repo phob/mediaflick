@@ -2,25 +2,22 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using PlexLocalScan.Console.Data;
+using PlexLocalScan.Data.Data;
 
 #nullable disable
 
-namespace PlexLocalScan.Migrations
+namespace PlexLocalScan.Data.Migrations
 {
     [DbContext(typeof(PlexScanContext))]
-    [Migration("20241112191432_InitialCreate")]
-    partial class InitialCreate
+    partial class PlexScanContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "7.0.0");
+            modelBuilder.HasAnnotation("ProductVersion", "8.0.10");
 
-            modelBuilder.Entity("PlexLocalScan.Console.Models.ScannedFile", b =>
+            modelBuilder.Entity("PlexLocalScan.Data.Models.ScannedFile", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()

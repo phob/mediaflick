@@ -1,4 +1,4 @@
-namespace PlexLocalScan.Console.Services;
+namespace PlexLocalScan.Shared.Services;
 
 public static class PathFormatHelper
 {

@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
-using PlexLocalScan.Console.Options;
 
-namespace PlexLocalScan.Console.Models;
+
+namespace PlexLocalScan.Data.Models;
 
 public class ScannedFile
 {
@@ -30,4 +30,11 @@ public enum FileStatus
     Working,
     Success,
     Failed
-} 
+}
+
+public enum MediaType
+{
+    Movies,
+    TvShows,
+    Unknown
+}

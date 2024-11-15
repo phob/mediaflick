@@ -1,18 +1,18 @@
 using Microsoft.EntityFrameworkCore;
-using PlexLocalScan.Console.Models;
+using PlexLocalScan.Data.Models;
 
-namespace PlexLocalScan.Console.Data;
+namespace PlexLocalScan.Data.Data;
 
 public class PlexScanContext : DbContext
 {
-    public DbSet<ScannedFile> ScannedFiles { get; set; } = null!;
-
+    public DbSet<ScannedFile> ScannedFiles { get; set; }
+    
     public PlexScanContext(DbContextOptions<PlexScanContext> options)
         : base(options)
     {
-        
+        ScannedFiles = Set<ScannedFile>();
     }
-
+    
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<ScannedFile>()
@@ -27,4 +27,4 @@ public class PlexScanContext : DbContext
             .Property(f => f.Status)
             .HasConversion<string>();
     }
-} 
+}

@@ -1,6 +1,7 @@
-using PlexLocalScan.Console.Models;
-using PlexLocalScan.Console.Options;
-namespace PlexLocalScan.Console.Services;
+using PlexLocalScan.Data.Models;
+using PlexLocalScan.Shared.Options;
+
+namespace PlexLocalScan.Shared.Services;
 
 public interface IFileTrackingService
 {

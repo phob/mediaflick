@@ -1,4 +1,4 @@
-namespace PlexLocalScan.Console.Options;
+namespace PlexLocalScan.Shared.Options;
 
 public class DatabaseOptions
 {

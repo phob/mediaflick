@@ -1,4 +1,5 @@
-namespace PlexLocalScan.Console.Options;
+using PlexLocalScan.Data.Models;
+namespace PlexLocalScan.Shared.Options;
 
 public class PlexOptions
 {
@@ -12,6 +13,11 @@ public class PlexOptions
     public string TMDbApiKey { get; set; } = string.Empty;
 }
 
+public class TMDbOptions
+{
+    public string ApiKey { get; set; } = string.Empty;
+}
+
 public class FolderMapping
 {
     public string SourceFolder { get; set; } = string.Empty;
@@ -19,9 +25,3 @@ public class FolderMapping
     public MediaType MediaType { get; set; }
 }
 
-public enum MediaType
-{
-    Movies,
-    TvShows,
-    Unknown
-}

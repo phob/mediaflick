@@ -1,9 +1,8 @@
 using Microsoft.Extensions.Options;
-using PlexLocalScan.Console.Options;
 using Microsoft.Extensions.Logging;
+using PlexLocalScan.Shared.Options;
 using System.Web;
-
-namespace PlexLocalScan.Console.Services;
+namespace PlexLocalScan.Shared.Services;
 
 public class PlexHandler : IPlexHandler
 {
@@ -65,7 +64,7 @@ public class PlexHandler : IPlexHandler
             var sectionId = await GetSectionIdForPathAsync(baseFolder);
             _logger.LogDebug("Found section ID: {SectionId} for base folder: {BaseFolder}", sectionId, baseFolder);
             
-            var encodedPath = HttpUtility.UrlEncode(folderPath);
+            var encodedPath = Uri.EscapeDataString(folderPath);
             var url = $"{_options.ApiEndpoint}/library/sections/{sectionId}/refresh?path={encodedPath}&X-Plex-Token={_options.PlexToken}";
             
             _logger.LogDebug("Request URL: {Url}", url.Replace(_options.PlexToken, "REDACTED"));

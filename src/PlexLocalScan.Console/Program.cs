@@ -1,26 +1,38 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
-using TMDbLib.Client;
-using PlexLocalScan.Console.Options;
-using PlexLocalScan.Console.Services;
-using PlexLocalScan.Console.Data;
+using PlexLocalScan.Shared.Options;
+using PlexLocalScan.Shared.Services;
+using PlexLocalScan.Data.Data;
 
-class Program
+public static class Program
 {
-    public static Task Main(string[] args)
+    public static async Task<int> Main(string[] args)
+    {
+        try
+        {
+            await MainImpl(args);
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "Application terminated unexpectedly");
+            return 1;
+        }
+        finally
+        {
+            Log.CloseAndFlush();
+        }
+    }
+
+    private static async Task MainImpl(string[] args)
     {
         var builder = Host.CreateApplicationBuilder(args);
         
-        var configPath = "/config/config.yml";
-
-        if (!File.Exists(configPath))
-        {
-            configPath = Path.Combine(AppContext.BaseDirectory, "config", "config.yml");
-        }
+        var configPath = Path.Combine(AppContext.BaseDirectory, "config", "config.yml");
 
         Directory.CreateDirectory(Path.GetDirectoryName(configPath)!);
 
@@ -38,21 +50,25 @@ class Program
             .AddEnvironmentVariables()
             .AddCommandLine(args);
 
-        builder.Services.AddSerilog((hostContext, loggerConfig) =>
+        Log.Logger = new LoggerConfiguration()
+            .ReadFrom.Configuration(builder.Configuration)
+            .Enrich.FromLogContext()
+            .CreateLogger();
+
+        builder.Services.AddLogging(loggingBuilder =>
         {
-            loggerConfig
-                .ReadFrom.Configuration(builder.Configuration)
-                .Enrich.FromLogContext();
+            loggingBuilder.ClearProviders();
+            loggingBuilder.AddSerilog(Log.Logger, dispose: true);
         });
 
         var services = builder.Services;
         services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
+                .Configure<TMDbOptions>(builder.Configuration.GetSection("TMDb"))
                 .AddMemoryCache()
                 .AddSingleton<IPlexHandler, PlexHandler>()
                 .AddSingleton<ISymlinkHandler, SymlinkHandler>()
                 .AddHostedService<FileWatcherService>()
                 .AddHttpClient()
-                .AddSingleton(new TMDbClient("your_tmdb_api_key"))
                 .AddSingleton<IMediaDetectionService, MediaDetectionService>();
 
         services.AddDbContext<PlexScanContext>((serviceProvider, options) =>
@@ -71,7 +87,7 @@ class Program
             context.Database.EnsureCreated();
         }
 
-        return app.RunAsync();
+        await app.RunAsync();
     }
 
     private static void CreateDefaultConfig(string path)
@@ -83,14 +99,15 @@ Serilog:
     Override:
       Microsoft: Warning
       System: Warning
-      PlexLocalScan.Services: Information
+      PlexLocalScan: Information
   WriteTo:
     - Name: Console
       Args:
-        outputTemplate: '{Timestamp:HH:mm:ss} [{Level:u3}] {Message:lj}{NewLine}{Exception}'
+        theme: Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme::Code, Serilog.Sinks.Console
+        outputTemplate: '[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}'
     - Name: File
       Args:
-        path: /config/logs/plexlocalscan.log
+        path: logs/plexlocalscan.log
         rollingInterval: Day
         outputTemplate: '{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}'
         retainedFileCountLimit: 7
@@ -108,6 +125,9 @@ Plex:
       MediaType: TvShows
   PollingInterval: 30
   FileWatcherPeriod: 10000
+
+TMDb:
+  ApiKey: your_tmdb_api_key
 
 Database:
   ConnectionString: ""Data Source=plexscan.db""

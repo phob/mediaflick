@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using PlexLocalScan.Console.Data;
-using PlexLocalScan.Console.Models;
-using PlexLocalScan.Console.Options;
-namespace PlexLocalScan.Console.Services;
+using PlexLocalScan.Data.Models;
+using PlexLocalScan.Data.Data;
+
+namespace PlexLocalScan.Shared.Services;
 
 public class FileTrackingService : IFileTrackingService
 {
@@ -15,6 +15,7 @@ public class FileTrackingService : IFileTrackingService
         _context = context;
         _logger = logger;
     }
+
 
     public async Task<ScannedFile> TrackFileAsync(string sourceFile, string? destFile, MediaType mediaType, int? tmdbId)
     {
@@ -119,4 +120,4 @@ public class FileTrackingService : IFileTrackingService
 
     public async Task<ScannedFile?> GetByDestFileAsync(string destFile)
         => await _context.ScannedFiles.FirstOrDefaultAsync(f => f.DestFile == destFile);
-} 
+}

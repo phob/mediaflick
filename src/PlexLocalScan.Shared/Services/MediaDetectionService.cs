@@ -2,11 +2,11 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TMDbLib.Client;
-using PlexLocalScan.Console.Options;
+using PlexLocalScan.Shared.Options;
 using Microsoft.Extensions.Caching.Memory;
-using PlexLocalScan.Console.Models;
+using PlexLocalScan.Data.Models;
 
-namespace PlexLocalScan.Console.Services;
+namespace PlexLocalScan.Shared.Services;
 
 public partial class MediaDetectionService : IMediaDetectionService
 {
@@ -34,17 +34,17 @@ public partial class MediaDetectionService : IMediaDetectionService
 
     public MediaDetectionService(
         ILogger<MediaDetectionService> logger, 
-        IOptions<PlexOptions> options,
+        IOptions<TMDbOptions> options,
         IMemoryCache cache,
         IFileTrackingService fileTrackingService)
     {
         _logger = logger;
         _cache = cache;
         _fileTrackingService = fileTrackingService;
-        if (string.IsNullOrEmpty(options.Value.TMDbApiKey))
+        if (string.IsNullOrEmpty(options.Value.ApiKey))
             throw new ArgumentException("TMDb API key is required but was not provided in configuration");
             
-        _tmdbClient = new TMDbClient(options.Value.TMDbApiKey);
+        _tmdbClient = new TMDbClient(options.Value.ApiKey);
     }
 
     public async Task<MediaInfo?> DetectMediaAsync(string filePath, MediaType mediaType)
