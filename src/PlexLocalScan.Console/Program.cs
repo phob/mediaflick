@@ -7,7 +7,8 @@ using Serilog;
 using PlexLocalScan.Shared.Options;
 using PlexLocalScan.Shared.Services;
 using PlexLocalScan.Data.Data;
-
+using Microsoft.Extensions.Options;
+using PlexLocalScan.Shared.Interfaces;
 public static class Program
 {
     public static async Task<int> Main(string[] args)
@@ -64,21 +65,30 @@ public static class Program
         var services = builder.Services;
         services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
                 .Configure<TMDbOptions>(builder.Configuration.GetSection("TMDb"))
+                .Configure<MediaDetectionOptions>(builder.Configuration.GetSection("MediaDetection"))
                 .AddMemoryCache()
                 .AddSingleton<IPlexHandler, PlexHandler>()
                 .AddSingleton<ISymlinkHandler, SymlinkHandler>()
                 .AddHostedService<FileWatcherService>()
-                .AddHttpClient()
-                .AddSingleton<IMediaDetectionService, MediaDetectionService>();
+                .AddHttpClient();
 
+        services.AddSingleton<ITMDbClientWrapper>(sp =>
+        {
+            var tmdbOptions = sp.GetRequiredService<IOptions<TMDbOptions>>();
+            return new TMDbClientWrapper(tmdbOptions.Value.ApiKey);
+        });
+
+        services.AddScoped<IMovieDetectionService, MovieDetectionService>();
+        services.AddScoped<ITvShowDetectionService, TvShowDetectionService>();
+        services.AddScoped<IMediaDetectionService, MediaDetectionService>();
+        services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
+        services.AddScoped<IFileSystemService, FileSystemService>();
+        services.AddScoped<IFileTrackingService, FileTrackingService>();
         services.AddDbContext<PlexScanContext>((serviceProvider, options) =>
         {
             var databaseOptions = "Data Source=" + Path.Combine(configDir, "plexscan.db");
             options.UseSqlite(databaseOptions);
         });
-
-        services.AddScoped<IFileTrackingService, FileTrackingService>();
-
         var app = builder.Build();
 
         using (var scope = app.Services.CreateScope())

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using PlexLocalScan.Shared.Options;
 using PlexLocalScan.Data.Models;
+using PlexLocalScan.Shared.Interfaces;
 
 namespace PlexLocalScan.Shared.Services;
 

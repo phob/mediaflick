@@ -1,4 +1,5 @@
-namespace PlexLocalScan.Shared.Services;
+using PlexLocalScan.Shared.Services;
+namespace PlexLocalScan.Shared.Interfaces;
 
 public interface ISymlinkHandler
 {

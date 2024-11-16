@@ -2,6 +2,8 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using PlexLocalScan.Shared.Options;
 using System.Web;
+using PlexLocalScan.Shared.Interfaces;
+
 namespace PlexLocalScan.Shared.Services;
 
 public class PlexHandler : IPlexHandler

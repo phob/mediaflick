@@ -1,12 +1,8 @@
 using PlexLocalScan.Data.Models;
+
 namespace PlexLocalScan.Shared.Services;
 
-public interface IMediaDetectionService
-{
-    Task<MediaInfo?> DetectMediaAsync(string filePath, MediaType mediaType);
-}
-
-public class MediaInfo
+public record MediaInfo
 {
     public string Title { get; set; } = string.Empty;
     public int? Year { get; set; }
@@ -17,4 +13,4 @@ public class MediaInfo
     public string? EpisodeTitle { get; set; }
     public int? EpisodeNumber2 { get; internal set; }
     public int? EpisodeTmdbId { get; internal set; }
-} 
+}

@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using PlexLocalScan.Shared.Services;
+using PlexLocalScan.Shared.Interfaces;
 
 namespace PlexLocalScan.Api.Controllers;
 

@@ -3,6 +3,8 @@ using PlexLocalScan.Data.Data;
 using PlexLocalScan.Shared.Options;
 using PlexLocalScan.Shared.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using PlexLocalScan.Shared.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 var services = builder.Services;
@@ -49,6 +51,17 @@ builder.Services.AddDbContext<PlexScanContext>((serviceProvider, options) =>
 });
 
 builder.Services.AddScoped<IFileTrackingService, FileTrackingService>();
+
+builder.Services.Configure<MediaDetectionOptions>(
+    builder.Configuration.GetSection("MediaDetection"));
+
+builder.Services.AddSingleton<ITMDbClientWrapper>(sp =>
+{
+    var tmdbOptions = sp.GetRequiredService<IOptions<TMDbOptions>>();
+    return new TMDbClientWrapper(tmdbOptions.Value.ApiKey);
+});
+
+builder.Services.AddScoped<IMediaDetectionService, MediaDetectionService>();
 
 var app = builder.Build();
 
