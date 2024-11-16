@@ -18,8 +18,22 @@ public class FileTrackingService : IFileTrackingService
     }
 
 
-    public async Task<ScannedFile> TrackFileAsync(string sourceFile, string? destFile, MediaType mediaType, int? tmdbId)
+    public async Task<ScannedFile?> TrackFileAsync(string sourceFile, string? destFile, MediaType mediaType, int? tmdbId)
     {
+        var existingFile = await _context.ScannedFiles
+            .FirstOrDefaultAsync(f => f.SourceFile == sourceFile);
+
+        if (existingFile != null)
+        {
+            if (existingFile.Status == FileStatus.Success)
+            {
+                _logger.LogInformation("File already tracked and successful: {SourceFile}", sourceFile);
+                return null;
+            }
+            _logger.LogDebug("File already tracked: {SourceFile}", sourceFile);
+            return existingFile;
+        }
+
         var scannedFile = new ScannedFile
         {
             SourceFile = sourceFile,

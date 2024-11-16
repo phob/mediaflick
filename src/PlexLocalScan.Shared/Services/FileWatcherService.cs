@@ -58,42 +58,63 @@ public class FileWatcherService : BackgroundService
 
                     foreach (var newFolder in newFolders)
                     {
-                        _logger.LogInformation("New folder detected: {FolderPath}", newFolder);
-                        
-                        await Task.Delay(_options.FileWatcherPeriod, stoppingToken);
-
-                        if (!Directory.EnumerateFileSystemEntries(newFolder).Any())
+                        try
                         {
-                            _logger.LogInformation("Folder is empty, skipping: {FolderPath}", newFolder);
+                            _logger.LogInformation("New folder detected: {FolderPath}", newFolder);
+                            
+                            await Task.Delay(_options.FileWatcherPeriod, stoppingToken);
+
+                            if (!Directory.EnumerateFileSystemEntries(newFolder).Any())
+                            {
+                                _logger.LogInformation("Folder is empty, skipping: {FolderPath}", newFolder);
+                                continue;
+                            }
+
+                            var destinationFolder = Path.Combine(mapping.DestinationFolder);
+
+                            foreach (var file in Directory.EnumerateFiles(newFolder, "*.*", SearchOption.AllDirectories))
+                            {
+                                try 
+                                {
+                                    var trackedFile = await _fileTrackingService.TrackFileAsync(file, null, mapping.MediaType, null);
+                                    if (trackedFile == null)
+                                    {
+                                        continue;
+                                    }
+
+                                    var mediaInfo = await _mediaDetectionService.DetectMediaAsync(file, mapping.MediaType);
+                                    if (mediaInfo != null)
+                                    {
+                                        _logger.LogInformation("Detected {MediaType}: {Title} ({Year})", 
+                                            mediaInfo.MediaType, 
+                                            mediaInfo.Title,
+                                            mediaInfo.Year?.ToString() ?? "Unknown Year");
+                                        
+                                        if (mediaInfo.MediaType == MediaType.TvShows)
+                                        {
+                                            _logger.LogInformation("Season {Season}, Episode {Episode}, Title: {EpisodeTitle}",
+                                                mediaInfo.SeasonNumber,
+                                                mediaInfo.EpisodeNumber,
+                                                mediaInfo.EpisodeTitle);
+                                        }
+                                        await _symlinkHandler.CreateSymlinksAsync(file, destinationFolder, mediaInfo);
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogError(ex, "Error processing file: {File}", file);
+                                    continue;
+                                }
+                            }
+                            
+                            await _plexHandler.AddFolderForScanningAsync(destinationFolder, mapping.DestinationFolder);
+                            _knownFolders[mapping.SourceFolder].Add(newFolder);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error processing folder: {Folder}", newFolder);
                             continue;
                         }
-
-                        var destinationFolder = Path.Combine(mapping.DestinationFolder);
-
-                        foreach (var file in Directory.EnumerateFiles(newFolder, "*.*", SearchOption.AllDirectories))
-                        {
-                            await _fileTrackingService.TrackFileAsync(file, null, mapping.MediaType, null);
-                            var mediaInfo = await _mediaDetectionService.DetectMediaAsync(file, mapping.MediaType);
-                            if (mediaInfo != null)
-                            {
-                                _logger.LogInformation("Detected {MediaType}: {Title} ({Year})", 
-                                    mediaInfo.MediaType, 
-                                    mediaInfo.Title,
-                                    mediaInfo.Year?.ToString() ?? "Unknown Year");
-                                
-                                if (mediaInfo.MediaType == MediaType.TvShows)
-                                {
-                                    _logger.LogInformation("Season {Season}, Episode {Episode}, Title: {EpisodeTitle}",
-                                        mediaInfo.SeasonNumber,
-                                        mediaInfo.EpisodeNumber,
-                                        mediaInfo.EpisodeTitle);
-                                }
-                                await _symlinkHandler.CreateSymlinksAsync(file, destinationFolder, mediaInfo);
-                            }
-                        }
-                        await _plexHandler.AddFolderForScanningAsync(destinationFolder, mapping.DestinationFolder);
-                        
-                        _knownFolders[mapping.SourceFolder].Add(newFolder);
                     }
                 }
 
