@@ -34,46 +34,44 @@ services.AddSwaggerGen(c =>
     });
 });
 
-// Reuse the same services from Console project
-services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
-    .Configure<TMDbOptions>(builder.Configuration.GetSection("TMDb"))
-    .AddMemoryCache()
-    .AddSingleton<IPlexHandler, PlexHandler>()
-    .AddSingleton<ISymlinkHandler, SymlinkHandler>()
-    .AddHostedService<FileWatcherService>()
-    .AddHttpClient()
-    .AddSingleton<IMediaDetectionService, MediaDetectionService>();
-
-builder.Services.AddDbContext<PlexScanContext>((serviceProvider, options) =>
-{
-    var databaseOptions = "Data Source=" + Path.Combine(builder.Configuration["ConfigDir"]!, "plexscan.db");
-    options.UseSqlite(databaseOptions);
-});
-
-builder.Services.AddScoped<IFileTrackingService, FileTrackingService>();
-
-builder.Services.Configure<MediaDetectionOptions>(
-    builder.Configuration.GetSection("MediaDetection"));
-
-builder.Services.AddSingleton<ITMDbClientWrapper>(sp =>
-{
-    var tmdbOptions = sp.GetRequiredService<IOptions<TMDbOptions>>();
-    return new TMDbClientWrapper(tmdbOptions.Value.ApiKey);
-});
-
-builder.Services.AddScoped<IMediaDetectionService, MediaDetectionService>();
-
+        // Reuse the same services from Console project
+        services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
+                .Configure<TMDbOptions>(builder.Configuration.GetSection("TMDb"))
+                .Configure<MediaDetectionOptions>(builder.Configuration.GetSection("MediaDetection"))
+                .AddSingleton<IPlexHandler, PlexHandler>()
+                .AddScoped<ISymlinkHandler, SymlinkHandler>()
+                .AddScoped<ITMDbClientWrapper>(sp =>
+                {
+                    var tmdbOptions = sp.GetRequiredService<IOptions<TMDbOptions>>();
+                    return new TMDbClientWrapper(tmdbOptions.Value.ApiKey);
+                })
+                .AddScoped<IMovieDetectionService, MovieDetectionService>()
+                .AddScoped<ITvShowDetectionService, TvShowDetectionService>()
+                .AddScoped<IMediaDetectionService, MediaDetectionService>()
+                .AddScoped<IDateTimeProvider, DateTimeProvider>()
+                .AddScoped<IFileSystemService, FileSystemService>()
+                .AddScoped<IFileTrackingService, FileTrackingService>()
+                .AddDbContext<PlexScanContext>((serviceProvider, options) =>
+                {
+                    var databaseOptions = "Data Source=" + Path.Combine(configDir, "plexscan.db");
+                    options.UseSqlite(databaseOptions);
+                })
+                .AddHttpClient()
+                .AddMemoryCache();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment())
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "PlexLocalScan API v1");
+    c.RoutePrefix = "swagger";
+});
 
-app.UseHttpsRedirection();
-app.UseAuthorization();
+app.UseRouting();
+//app.UseHttpsRedirection();
+//app.UseAuthorization();
+
 app.MapControllers();
 
 app.Run();

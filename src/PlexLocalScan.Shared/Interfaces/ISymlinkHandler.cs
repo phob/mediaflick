@@ -3,6 +3,7 @@ namespace PlexLocalScan.Shared.Interfaces;
 
 public interface ISymlinkHandler
 {
-    Task CreateSymlinksAsync(string sourceFolder, string destinationFolder, MediaInfo mediaInfo);
+    Task CreateSymlinksAsync(string sourceFile, string destinationFolder, MediaInfo mediaInfo);
+    Task CleanupDeadSymlinksAsync(string baseFolder);
     bool IsSymlink(string path);
 }

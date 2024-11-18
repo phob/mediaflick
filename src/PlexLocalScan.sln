@@ -11,8 +11,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PlexLocalScan.Shared", "Ple
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PlexLocalScan.Api", "PlexLocalScan.Api\PlexLocalScan.Api.csproj", "{BF137365-971C-4282-9035-280442C48905}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PlexLocalScan.Tests", "PlexLocalScan.Tests\PlexLocalScan.Tests.csproj", "{E18E6B66-13A9-4B29-998E-796B4E0DD048}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

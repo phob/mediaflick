@@ -66,29 +66,27 @@ public static class Program
         services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
                 .Configure<TMDbOptions>(builder.Configuration.GetSection("TMDb"))
                 .Configure<MediaDetectionOptions>(builder.Configuration.GetSection("MediaDetection"))
-                .AddMemoryCache()
                 .AddSingleton<IPlexHandler, PlexHandler>()
                 .AddSingleton<ISymlinkHandler, SymlinkHandler>()
                 .AddHostedService<FileWatcherService>()
-                .AddHttpClient();
-
-        services.AddSingleton<ITMDbClientWrapper>(sp =>
-        {
-            var tmdbOptions = sp.GetRequiredService<IOptions<TMDbOptions>>();
-            return new TMDbClientWrapper(tmdbOptions.Value.ApiKey);
-        });
-
-        services.AddScoped<IMovieDetectionService, MovieDetectionService>();
-        services.AddScoped<ITvShowDetectionService, TvShowDetectionService>();
-        services.AddScoped<IMediaDetectionService, MediaDetectionService>();
-        services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
-        services.AddScoped<IFileSystemService, FileSystemService>();
-        services.AddScoped<IFileTrackingService, FileTrackingService>();
-        services.AddDbContext<PlexScanContext>((serviceProvider, options) =>
-        {
-            var databaseOptions = "Data Source=" + Path.Combine(configDir, "plexscan.db");
-            options.UseSqlite(databaseOptions);
-        });
+                .AddSingleton<ITMDbClientWrapper>(sp =>
+                {
+                    var tmdbOptions = sp.GetRequiredService<IOptions<TMDbOptions>>();
+                    return new TMDbClientWrapper(tmdbOptions.Value.ApiKey);
+                })
+                .AddScoped<IMovieDetectionService, MovieDetectionService>()
+                .AddScoped<ITvShowDetectionService, TvShowDetectionService>()
+                .AddScoped<IMediaDetectionService, MediaDetectionService>()
+                .AddSingleton<IDateTimeProvider, DateTimeProvider>()
+                .AddScoped<IFileSystemService, FileSystemService>()
+                .AddScoped<IFileTrackingService, FileTrackingService>()
+                .AddDbContext<PlexScanContext>((serviceProvider, options) =>
+                {
+                    var databaseOptions = "Data Source=" + Path.Combine(configDir, "plexscan.db");
+                    options.UseSqlite(databaseOptions);
+                })
+                .AddHttpClient()
+                .AddMemoryCache();
         var app = builder.Build();
 
         using (var scope = app.Services.CreateScope())

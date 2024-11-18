@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using System.Runtime.InteropServices;
 using PlexLocalScan.Data.Models;
 using PlexLocalScan.Shared.Interfaces;
+using System.Diagnostics;
 
 namespace PlexLocalScan.Shared.Services;
 
@@ -188,5 +189,111 @@ public class SymlinkHandler : ISymlinkHandler
         
         var fileInfo = new FileInfo(path);
         return fileInfo.Attributes.HasFlag(FileAttributes.ReparsePoint);
+    }
+
+    public async Task CleanupDeadSymlinksAsync(string baseFolder)
+    {
+        try
+        {
+            await Task.Run(() =>
+            {
+                // First remove dead symlinks
+                RemoveDeadSymlinks(baseFolder);
+                
+                // Then remove empty directories
+                RemoveEmptyDirectories(baseFolder);
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cleaning up dead symlinks in {BaseFolder}", baseFolder);
+            throw;
+        }
+    }
+
+    private void RemoveDeadSymlinks(string folder)
+    {
+        try
+        {
+            foreach (var file in Directory.GetFiles(folder, "*.*", SearchOption.AllDirectories))
+            {
+                if (IsSymlink(file))
+                {
+                    if (IsSymbolicLinkDead(file))
+                    {
+                        _logger.LogDebug("Removing dead symlink: {Path}", file);
+                        File.Delete(file);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error removing dead symlinks in {Folder}", folder);
+            throw;
+        }
+    }
+
+    private bool IsSymbolicLinkDead(string symlinkPath)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return IsSymbolicLinkDeadWindows(symlinkPath);
+        }
+        else
+        {
+            return !File.Exists(symlinkPath);
+        }
+    }
+    private bool IsSymbolicLinkDeadWindows(string symlinkPath)
+    {
+        var escapedPath = symlinkPath.Replace("'", "''");
+        string script = $@"
+            $linkPath = '{escapedPath}'
+            $targetPath = (Get-Item $linkPath).Target
+            if (Test-Path $targetPath) {{ 'Valid' }} else {{ 'Dead' }}
+        ";
+        _logger.LogDebug("IsSymbolicLinkDeadWindows script: {Script}", script);
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "powershell.exe",
+            Arguments = $"-NoProfile -Command \"{script}\"",
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        using var process = Process.Start(startInfo);
+        string output = process?.StandardOutput.ReadToEnd()?.Trim() ?? "";
+        _logger.LogDebug("IsSymbolicLinkDeadWindows output: {Output}", output);
+
+        return output == "Dead";
+    }
+    
+    private void RemoveEmptyDirectories(string folder)
+    {
+        try
+        {
+            foreach (var directory in Directory.GetDirectories(folder, "*", SearchOption.AllDirectories)
+                                             .OrderByDescending(x => x.Length))
+            {
+                if (IsDirectoryEmpty(directory))
+                {
+                    _logger.LogInformation("Removing empty directory: {Path}", directory);
+                    Directory.Delete(directory);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error removing empty directories in {Folder}", folder);
+            throw;
+        }
+    }
+
+    private static bool IsDirectoryEmpty(string path)
+    {
+        return !Directory.EnumerateFileSystemEntries(path).Any();
     }
 } 
