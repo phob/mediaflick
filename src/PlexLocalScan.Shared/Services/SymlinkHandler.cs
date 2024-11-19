@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using PlexLocalScan.Data.Models;
 using PlexLocalScan.Shared.Interfaces;
 using System.Diagnostics;
+using System.IO;
 
 namespace PlexLocalScan.Shared.Services;
 
@@ -240,35 +241,52 @@ public class SymlinkHandler : ISymlinkHandler
         {
             return IsSymbolicLinkDeadWindows(symlinkPath);
         }
+        else if (OperatingSystem.IsLinux())
+        {
+            return IsSymbolicLinkDeadLinux(symlinkPath);
+        }
         else
         {
-            return !File.Exists(symlinkPath);
+            _logger.LogWarning("Unsupported OS for symlink check");
+            return false;
         }
     }
     private bool IsSymbolicLinkDeadWindows(string symlinkPath)
     {
-        var escapedPath = symlinkPath.Replace("'", "''");
-        string script = $@"
-            $linkPath = '{escapedPath}'
-            $targetPath = (Get-Item $linkPath).Target
-            if (Test-Path $targetPath) {{ 'Valid' }} else {{ 'Dead' }}
-        ";
-        _logger.LogDebug("IsSymbolicLinkDeadWindows script: {Script}", script);
-
-        var startInfo = new ProcessStartInfo
+        try
         {
-            FileName = "powershell.exe",
-            Arguments = $"-NoProfile -Command \"{script}\"",
-            RedirectStandardOutput = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
+            if (!File.Exists(symlinkPath))
+            {
+                return true;
+            }
 
-        using var process = Process.Start(startInfo);
-        string output = process?.StandardOutput.ReadToEnd()?.Trim() ?? "";
-        _logger.LogDebug("IsSymbolicLinkDeadWindows output: {Output}", output);
+            using var stream = File.OpenRead(symlinkPath);
+            var buffer = new byte[1];
+            return stream.Read(buffer, 0, 1) <= 0;
+        }
+        catch
+        {
+            return true;
+        }
+    }
 
-        return output == "Dead";
+    static bool IsSymbolicLinkDeadLinux(string symlinkPath)
+    {
+        try
+        {
+            if (!File.Exists(symlinkPath))
+            {
+                return true;
+            }
+
+            using var stream = File.OpenRead(symlinkPath);
+            var buffer = new byte[1];
+            return stream.Read(buffer, 0, 1) <= 0;
+        }
+        catch
+        {
+            return true;
+        }
     }
     
     private void RemoveEmptyDirectories(string folder)

@@ -5,6 +5,7 @@ using PlexLocalScan.Shared.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using PlexLocalScan.Shared.Interfaces;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 var services = builder.Services;
@@ -25,14 +26,7 @@ builder.Configuration
 // Add services to the container
 services.AddControllers();
 services.AddEndpointsApiExplorer();
-services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new OpenApiInfo { 
-        Title = "PlexLocalScan API", 
-        Version = "v1",
-        Description = "API for managing Plex local scanning operations"
-    });
-});
+services.AddSwaggerGen();
 
         // Reuse the same services from Console project
         services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
@@ -61,11 +55,13 @@ services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
-app.UseSwagger();
-app.UseSwaggerUI(c =>
+app.UseSwagger(options =>
+    {
+        options.RouteTemplate = "/openapi/{documentName}.json";
+    });
+app.MapScalarApiReference(options =>
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "PlexLocalScan API v1");
-    c.RoutePrefix = "swagger";
+    options.Theme = ScalarTheme.Mars;
 });
 
 app.UseRouting();
