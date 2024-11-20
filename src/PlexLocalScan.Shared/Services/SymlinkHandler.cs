@@ -108,26 +108,12 @@ public class SymlinkHandler : ISymlinkHandler
     {
         try
         {
-            if (File.Exists(destinationPath))
+            if (await Task.Run(() => File.Exists(destinationPath)))
             {
-                File.Delete(destinationPath);
+                await Task.Run(() => File.Delete(destinationPath));
             }
 
-            await Task.Run(() =>
-            {
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                {
-                    _logger.LogDebug("Creating Windows symlink: {Destination} -> {Source}", 
-                        destinationPath, sourcePath);
-                    CreateWindowsSymlink(sourcePath, destinationPath);
-                }
-                else
-                {
-                    _logger.LogDebug("Creating Unix symlink: {Destination} -> {Source}", 
-                        destinationPath, sourcePath);
-                    CreateUnixSymlink(sourcePath, destinationPath);
-                }
-            });
+            await Task.Run(() => File.CreateSymbolicLink(destinationPath, sourcePath));
             await _fileTrackingService.UpdateStatusAsync(sourcePath, destinationPath, null, null, FileStatus.Success);
         }
         catch (Exception ex)
@@ -138,180 +124,11 @@ public class SymlinkHandler : ISymlinkHandler
         }
     }
 
-    private void CreateWindowsSymlink(string sourcePath, string destinationPath)
-    {
-        var process = new System.Diagnostics.Process
-        {
-            StartInfo = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "cmd.exe",
-                Arguments = $"/C mklink \"{destinationPath}\" \"{sourcePath}\"",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                CreateNoWindow = true
-            }
-        };
-        
-        process.Start();
-        process.WaitForExit();
-
-        if (process.ExitCode != 0)
-        {
-            throw new Exception($"Failed to create Windows symlink. Exit code: {process.ExitCode}");
-        }
-    }
-
-    private void CreateUnixSymlink(string sourcePath, string destinationPath)
-    {
-        var process = new System.Diagnostics.Process
-        {
-            StartInfo = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "ln",
-                Arguments = $"-s \"{sourcePath}\" \"{destinationPath}\"",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                CreateNoWindow = true
-            }
-        };
-        
-        process.Start();
-        process.WaitForExit();
-
-        if (process.ExitCode != 0)
-        {
-            throw new Exception($"Failed to create Unix symlink. Exit code: {process.ExitCode}");
-        }
-    }
-
     public bool IsSymlink(string path)
     {
         if (!File.Exists(path)) return false;
         
         var fileInfo = new FileInfo(path);
         return fileInfo.Attributes.HasFlag(FileAttributes.ReparsePoint);
-    }
-
-    public async Task CleanupDeadSymlinksAsync(string baseFolder)
-    {
-        try
-        {
-            await Task.Run(() =>
-            {
-                // First remove dead symlinks
-                RemoveDeadSymlinks(baseFolder);
-                
-                // Then remove empty directories
-                RemoveEmptyDirectories(baseFolder);
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error cleaning up dead symlinks in {BaseFolder}", baseFolder);
-            throw;
-        }
-    }
-
-    private void RemoveDeadSymlinks(string folder)
-    {
-        try
-        {
-            foreach (var file in Directory.GetFiles(folder, "*.*", SearchOption.AllDirectories))
-            {
-                if (IsSymlink(file))
-                {
-                    if (IsSymbolicLinkDead(file))
-                    {
-                        _logger.LogDebug("Removing dead symlink: {Path}", file);
-                        File.Delete(file);
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error removing dead symlinks in {Folder}", folder);
-            throw;
-        }
-    }
-
-    private bool IsSymbolicLinkDead(string symlinkPath)
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            return IsSymbolicLinkDeadWindows(symlinkPath);
-        }
-        else if (OperatingSystem.IsLinux())
-        {
-            return IsSymbolicLinkDeadLinux(symlinkPath);
-        }
-        else
-        {
-            _logger.LogWarning("Unsupported OS for symlink check");
-            return false;
-        }
-    }
-    private bool IsSymbolicLinkDeadWindows(string symlinkPath)
-    {
-        try
-        {
-            if (!File.Exists(symlinkPath))
-            {
-                return true;
-            }
-
-            using var stream = File.OpenRead(symlinkPath);
-            var buffer = new byte[1];
-            return stream.Read(buffer, 0, 1) <= 0;
-        }
-        catch
-        {
-            return true;
-        }
-    }
-
-    static bool IsSymbolicLinkDeadLinux(string symlinkPath)
-    {
-        try
-        {
-            if (!File.Exists(symlinkPath))
-            {
-                return true;
-            }
-
-            using var stream = File.OpenRead(symlinkPath);
-            var buffer = new byte[1];
-            return stream.Read(buffer, 0, 1) <= 0;
-        }
-        catch
-        {
-            return true;
-        }
-    }
-    
-    private void RemoveEmptyDirectories(string folder)
-    {
-        try
-        {
-            foreach (var directory in Directory.GetDirectories(folder, "*", SearchOption.AllDirectories)
-                                             .OrderByDescending(x => x.Length))
-            {
-                if (IsDirectoryEmpty(directory))
-                {
-                    _logger.LogInformation("Removing empty directory: {Path}", directory);
-                    Directory.Delete(directory);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error removing empty directories in {Folder}", folder);
-            throw;
-        }
-    }
-
-    private static bool IsDirectoryEmpty(string path)
-    {
-        return !Directory.EnumerateFileSystemEntries(path).Any();
     }
 } 

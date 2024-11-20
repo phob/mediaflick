@@ -9,16 +9,16 @@ namespace PlexLocalScan.Api.Controllers;
 [Route("api/[controller]")]
 public class SymlinkController : ControllerBase
 {
-    private readonly ISymlinkHandler _symlinkHandler;
+    private readonly ICleanupHandler _cleanupHandler;
     private readonly PlexOptions _plexOptions;
     private readonly ILogger<SymlinkController> _logger;
 
     public SymlinkController(
-        ISymlinkHandler symlinkHandler,
+        ICleanupHandler cleanupHandler,
         IOptions<PlexOptions> plexOptions,
         ILogger<SymlinkController> logger)
     {
-        _symlinkHandler = symlinkHandler;
+        _cleanupHandler = cleanupHandler;
         _plexOptions = plexOptions.Value;
         _logger = logger;
     }
@@ -40,7 +40,7 @@ public class SymlinkController : ControllerBase
             {
                 var destinationFolder = mapping.DestinationFolder;
                 _logger.LogInformation("Starting cleanup of dead symlinks in {DestinationFolder}", destinationFolder);
-                await _symlinkHandler.CleanupDeadSymlinksAsync(destinationFolder);
+                await _cleanupHandler.CleanupDeadSymlinksAsync(destinationFolder);
             }
             return Ok(new { message = "Cleanup completed successfully" });
         }

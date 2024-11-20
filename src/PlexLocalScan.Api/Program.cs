@@ -45,13 +45,16 @@ services.AddSwaggerGen();
                 .AddScoped<IDateTimeProvider, DateTimeProvider>()
                 .AddScoped<IFileSystemService, FileSystemService>()
                 .AddScoped<IFileTrackingService, FileTrackingService>()
+                .AddHostedService<FileWatcherService>()
                 .AddDbContext<PlexScanContext>((serviceProvider, options) =>
                 {
                     var databaseOptions = "Data Source=" + Path.Combine(configDir, "plexscan.db");
                     options.UseSqlite(databaseOptions);
                 })
                 .AddHttpClient()
-                .AddMemoryCache();
+                .AddMemoryCache()
+                .AddScoped<ICleanupHandler, CleanupHandler>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
@@ -67,7 +70,7 @@ app.MapScalarApiReference(options =>
 app.UseRouting();
 //app.UseHttpsRedirection();
 //app.UseAuthorization();
-
+app.MapGet("/", () => "API is running, and FileWatcherService is active!");
 app.MapControllers();
 
 app.Run();

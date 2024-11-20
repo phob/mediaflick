@@ -24,7 +24,6 @@ public class MediaDetectionService : IMediaDetectionService
         _movieDetectionService = movieDetectionService ?? throw new ArgumentNullException(nameof(movieDetectionService));
         _tvShowDetectionService = tvShowDetectionService ?? throw new ArgumentNullException(nameof(tvShowDetectionService));
         _fileTrackingService = fileTrackingService;
-
         _fileSystemService = fileSystemService ?? throw new ArgumentNullException(nameof(fileSystemService));
     }
 
