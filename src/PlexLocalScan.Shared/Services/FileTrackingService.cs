@@ -6,35 +6,36 @@ using PlexLocalScan.Shared.Interfaces;
 
 namespace PlexLocalScan.Shared.Services;
 
-public class FileTrackingService : IFileTrackingService
+public class FileTrackingService(PlexScanContext context, ILogger<FileTrackingService> logger)
+    : IFileTrackingService
 {
-    private readonly PlexScanContext _context;
-    private readonly ILogger<FileTrackingService> _logger;
-
-    public FileTrackingService(PlexScanContext context, ILogger<FileTrackingService> logger)
+    private async Task<ScannedFile?> GetExistingScannedFileAsync(string sourceFile, string? type = null)
     {
-        _context = context;
-        _logger = logger;
-    }
-
-
-    public async Task<ScannedFile?> TrackFileAsync(string sourceFile, string? destFile, MediaType mediaType, int? tmdbId)
-    {
-        var existingFile = await _context.ScannedFiles
+        var scannedFile = await context.ScannedFiles
             .FirstOrDefaultAsync(f => f.SourceFile == sourceFile);
 
-        if (existingFile != null)
+        if (scannedFile != null)
         {
-            if (existingFile.Status == FileStatus.Success)
+            if (scannedFile.Status == FileStatus.Success && type == "add")
             {
-                _logger.LogInformation("File already tracked and successful: {SourceFile}", sourceFile);
+                logger.LogInformation("File already tracked and successful: {SourceFile}", sourceFile);
                 return null;
             }
-            _logger.LogDebug("File already tracked: {SourceFile}", sourceFile);
-            return existingFile;
+            logger.LogDebug("File already tracked: {SourceFile}", sourceFile);
         }
 
-        var scannedFile = new ScannedFile
+        return scannedFile;
+    }
+
+    public async Task<ScannedFile?> AddStatusAsync(string sourceFile, string? destFile, MediaType mediaType, int? tmdbId)
+    {
+        var scannedFile = await GetExistingScannedFileAsync(sourceFile, "add");
+        if (scannedFile != null)
+        {
+            return scannedFile;
+        }
+
+        scannedFile = new ScannedFile
         {
             SourceFile = sourceFile,
             DestFile = destFile,
@@ -43,20 +44,17 @@ public class FileTrackingService : IFileTrackingService
             Status = FileStatus.Working
         };
 
-        _context.ScannedFiles.Add(scannedFile);
-        await _context.SaveChangesAsync();
+        context.ScannedFiles.Add(scannedFile);
+        await context.SaveChangesAsync();
         
-        _logger.LogInformation("Tracked new file: {SourceFile} -> {DestFile}", sourceFile, destFile);
+        logger.LogInformation("Tracked new file: {SourceFile} -> {DestFile}", sourceFile, destFile);
         return scannedFile;
     }
     public async Task<bool> UpdateStatusAsync(string sourceFile, string? destFile, MediaType? mediaType, int? tmdbId, FileStatus status)
     {
-        var scannedFile = await _context.ScannedFiles
-            .FirstOrDefaultAsync(f => f.SourceFile == sourceFile);  
-
+        var scannedFile = await GetExistingScannedFileAsync(sourceFile, "update");
         if (scannedFile == null)
         {
-            _logger.LogWarning("File not found for status update: {File}", sourceFile);
             return false;
         }
 
@@ -69,35 +67,35 @@ public class FileTrackingService : IFileTrackingService
             scannedFile.UpdatedAt = DateTime.UtcNow;
 
             // Explicitly mark the entity as modified
-            _context.Entry(scannedFile).State = EntityState.Modified;
+            context.Entry(scannedFile).State = EntityState.Modified;
             
-            var saveResult = await _context.SaveChangesAsync();
+            var saveResult = await context.SaveChangesAsync();
             
             if (saveResult > 0)
             {
-                _logger.LogInformation("Updated status to {Status} for file: {File}", status, sourceFile);
+                logger.LogInformation("Updated status to {Status} for file: {File}", status, sourceFile);
                 return true;
             }
             
-            _logger.LogWarning("No changes were saved to database for file: {File}", sourceFile);
+            logger.LogWarning("No changes were saved to database for file: {File}", sourceFile);
             return false;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating status for file: {File}", sourceFile);
+            logger.LogError(ex, "Error updating status for file: {File}", sourceFile);
             throw;
         }
     }
 
     public async Task<bool> UpdateStatusByTmdbIdAsync(int tmdbId, FileStatus status)
     {
-        var scannedFiles = await _context.ScannedFiles
+        var scannedFiles = await context.ScannedFiles
             .Where(f => f.TmdbId == tmdbId)
             .ToListAsync();
 
         if (!scannedFiles.Any())
         {
-            _logger.LogWarning("No files found for TMDb ID: {TmdbId}", tmdbId);
+            logger.LogWarning("No files found for TMDb ID: {TmdbId}", tmdbId);
             return false;
         }
 
@@ -108,31 +106,31 @@ public class FileTrackingService : IFileTrackingService
                 file.Status = status;
                 file.UpdatedAt = DateTime.UtcNow;
                 // Explicitly mark each entity as modified
-                _context.Entry(file).State = EntityState.Modified;
+                context.Entry(file).State = EntityState.Modified;
             }
 
-            var saveResult = await _context.SaveChangesAsync();
+            var saveResult = await context.SaveChangesAsync();
             
             if (saveResult > 0)
             {
-                _logger.LogInformation("Updated status to {Status} for {Count} files with TMDb ID: {TmdbId}", 
+                logger.LogInformation("Updated status to {Status} for {Count} files with TMDb ID: {TmdbId}", 
                     status, scannedFiles.Count, tmdbId);
                 return true;
             }
             
-            _logger.LogWarning("No changes were saved to database for TMDb ID: {TmdbId}", tmdbId);
+            logger.LogWarning("No changes were saved to database for TMDb ID: {TmdbId}", tmdbId);
             return false;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating status for TMDb ID: {TmdbId}", tmdbId);
+            logger.LogError(ex, "Error updating status for TMDb ID: {TmdbId}", tmdbId);
             throw;
         }
     }
 
     public async Task<ScannedFile?> GetBySourceFileAsync(string sourceFile)
-        => await _context.ScannedFiles.FirstOrDefaultAsync(f => f.SourceFile == sourceFile);
+        => await context.ScannedFiles.FirstOrDefaultAsync(f => f.SourceFile == sourceFile);
 
     public async Task<ScannedFile?> GetByDestFileAsync(string destFile)
-        => await _context.ScannedFiles.FirstOrDefaultAsync(f => f.DestFile == destFile);
+        => await context.ScannedFiles.FirstOrDefaultAsync(f => f.DestFile == destFile);
 }

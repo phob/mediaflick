@@ -3,19 +3,11 @@ using PlexLocalScan.Shared.Interfaces;
 
 namespace PlexLocalScan.Shared.Services;
 
-public class CleanupHandler : ICleanupHandler
+public class CleanupHandler(
+    ILogger<CleanupHandler> logger,
+    ISymlinkHandler symlinkHandler)
+    : ICleanupHandler
 {
-    private readonly ILogger<CleanupHandler> _logger;
-    private readonly ISymlinkHandler _symlinkHandler;
-
-    public CleanupHandler(
-        ILogger<CleanupHandler> logger,
-        ISymlinkHandler symlinkHandler)
-    {
-        _logger = logger;
-        _symlinkHandler = symlinkHandler;
-    }
-
     public async Task CleanupDeadSymlinksAsync(string baseFolder)
     {
         try
@@ -31,7 +23,7 @@ public class CleanupHandler : ICleanupHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error cleaning up dead symlinks in {BaseFolder}", baseFolder);
+            logger.LogError(ex, "Error cleaning up dead symlinks in {BaseFolder}", baseFolder);
             throw;
         }
     }
@@ -42,11 +34,11 @@ public class CleanupHandler : ICleanupHandler
         {
             foreach (var file in Directory.GetFiles(folder, "*.*", SearchOption.AllDirectories))
             {
-                if (_symlinkHandler.IsSymlink(file))
+                if (symlinkHandler.IsSymlink(file))
                 {
                     if (IsSymbolicLinkDead(file))
                     {
-                        _logger.LogDebug("Removing dead symlink: {Path}", file);
+                        logger.LogDebug("Removing dead symlink: {Path}", file);
                         File.Delete(file);
                     }
                 }
@@ -54,7 +46,7 @@ public class CleanupHandler : ICleanupHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error removing dead symlinks in {Folder}", folder);
+            logger.LogError(ex, "Error removing dead symlinks in {Folder}", folder);
             throw;
         }
     }
@@ -87,14 +79,14 @@ public class CleanupHandler : ICleanupHandler
             {
                 if (IsDirectoryEmpty(directory))
                 {
-                    _logger.LogInformation("Removing empty directory: {Path}", directory);
+                    logger.LogInformation("Removing empty directory: {Path}", directory);
                     Directory.Delete(directory);
                 }
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error removing empty directories in {Folder}", folder);
+            logger.LogError(ex, "Error removing empty directories in {Folder}", folder);
             throw;
         }
     }

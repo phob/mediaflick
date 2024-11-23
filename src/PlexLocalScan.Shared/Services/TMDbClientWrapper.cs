@@ -4,14 +4,9 @@ using TMDbLib.Objects.TvShows;
 using TMDbLib.Client;
 using PlexLocalScan.Shared.Interfaces;
 
-public class TMDbClientWrapper : ITMDbClientWrapper
+public class TMDbClientWrapper(string apiKey) : ITMDbClientWrapper
 {
-    private readonly TMDbClient _client;
-
-    public TMDbClientWrapper(string apiKey)
-    {
-        _client = new TMDbClient(apiKey);
-    }
+    private readonly TMDbClient _client = new(apiKey);
 
     public Task<SearchContainer<SearchMovie>> SearchMovieAsync(string query)
         => _client.SearchMovieAsync(query);

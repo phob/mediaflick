@@ -2,7 +2,7 @@ namespace PlexLocalScan.Shared.Services;
 
 public static class PathFormatHelper
 {
-    public static string FormatMoviePath(MediaInfo mediaInfo)
+    public static string FormatMoviePath(MediaInfo? mediaInfo)
     {
         if (string.IsNullOrEmpty(mediaInfo.Title) || !mediaInfo.Year.HasValue)
             throw new ArgumentException("Movie title and year are required");
@@ -10,7 +10,7 @@ public static class PathFormatHelper
         return $"{CleanFileName(mediaInfo.Title)} ({mediaInfo.Year})";
     }
 
-    public static (string folderPath, string fileName) FormatTvShowPath(MediaInfo mediaInfo)
+    public static (string folderPath, string fileName) FormatTvShowPath(MediaInfo? mediaInfo)
     {
         if (string.IsNullOrEmpty(mediaInfo.Title) || !mediaInfo.SeasonNumber.HasValue || !mediaInfo.EpisodeNumber.HasValue || !mediaInfo.Year.HasValue)
             throw new ArgumentException("TV show title, season, episode, and year are required");

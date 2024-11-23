@@ -4,39 +4,35 @@ using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using PlexLocalScan.Shared.Options;
 using PlexLocalScan.Data.Models;
+using PlexLocalScan.Data.Data;
 using PlexLocalScan.Shared.Interfaces;
-
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 namespace PlexLocalScan.Shared.Services;
 
 public class FileWatcherService : BackgroundService
 {
     private readonly ILogger<FileWatcherService> _logger;
     private readonly IPlexHandler _plexHandler;
-    private readonly ISymlinkHandler _symlinkHandler;
     private readonly PlexOptions _options;
     private readonly ConcurrentDictionary<string, HashSet<string>> _knownFolders = new();
-    private readonly IMediaDetectionService _mediaDetectionService;
-    private readonly IFileTrackingService _fileTrackingService;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
+
     public FileWatcherService(
         ILogger<FileWatcherService> logger,
         IPlexHandler plexHandler,
-        IFileTrackingService fileTrackingService,
-        ISymlinkHandler symlinkHandler,
-        IMediaDetectionService mediaDetectionService,
+        IServiceScopeFactory serviceScopeFactory,
         IOptions<PlexOptions> options)
     {
         _logger = logger;
         _plexHandler = plexHandler;
-        _fileTrackingService = fileTrackingService;
-        _symlinkHandler = symlinkHandler;
         _options = options.Value;
-        _mediaDetectionService = mediaDetectionService;
+        _serviceScopeFactory = serviceScopeFactory;
         
         // Initialize known folders dictionary
         foreach (var mapping in _options.FolderMappings)
         {
-            _knownFolders[mapping.SourceFolder] = new HashSet<string>(
-                Directory.GetDirectories(mapping.SourceFolder));
+            _knownFolders[mapping.SourceFolder] = [.. Directory.GetDirectories(mapping.SourceFolder)];
         }
     }
 
@@ -76,18 +72,38 @@ public class FileWatcherService : BackgroundService
 
     private async Task ProcessAllMappingsAsync(CancellationToken stoppingToken)
     {
+        using var scope = _serviceScopeFactory.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<PlexScanContext>();
+        
         foreach (var mapping in _options.FolderMappings)
         {
             var fullSourcePath = Path.GetFullPath(mapping.SourceFolder);
             _logger.LogDebug("Scanning source folder: {SourceFolder}", fullSourcePath);
 
             var currentFolders = new HashSet<string>(Directory.GetDirectories(fullSourcePath));
-            var newFolders = currentFolders.Except(_knownFolders[mapping.SourceFolder]);
+            
+            // Get all successfully processed files for this source folder
+            var processedFiles = await dbContext.ScannedFiles
+                .Where(f => f.SourceFile.StartsWith(fullSourcePath))
+                .Select(f => f.SourceFile)
+                .ToListAsync(stoppingToken);
 
-            foreach (var newFolder in newFolders)
+            // Create a HashSet of parent directories of successful files
+            var processedFolders = new HashSet<string>(
+                processedFiles.Select(f => Path.GetDirectoryName(f)!)
+            );
+
+            // Find all folders that haven't been successfully processed
+            var foldersToProcess = currentFolders
+                .Where(folder => !processedFolders.Contains(folder));
+
+            foreach (var folder in foldersToProcess)
             {
-                await ProcessNewFolderAsync(newFolder, mapping, stoppingToken);
+                await ProcessNewFolderAsync(folder, mapping, stoppingToken);
             }
+
+            // Update known folders for future reference
+            _knownFolders[mapping.SourceFolder] = [..currentFolders];
         }
     }
 
@@ -129,17 +145,21 @@ public class FileWatcherService : BackgroundService
     {
         try 
         {
-            var trackedFile = await _fileTrackingService.TrackFileAsync(file, null, mapping.MediaType, null);
+            using var scope = _serviceScopeFactory.CreateScope();
+            var fileTrackingService = scope.ServiceProvider.GetRequiredService<IFileTrackingService>();
+            var mediaDetectionService = scope.ServiceProvider.GetRequiredService<IMediaDetectionService>();
+            var symlinkHandler = scope.ServiceProvider.GetRequiredService<ISymlinkHandler>();
+            
+            var trackedFile = await fileTrackingService.AddStatusAsync(file, null, mapping.MediaType, null);
             if (trackedFile == null)
             {
                 return;
             }
 
-            var mediaInfo = await _mediaDetectionService.DetectMediaAsync(file, mapping.MediaType);
+            var mediaInfo = await mediaDetectionService.DetectMediaAsync(file, mapping.MediaType);
             if (mediaInfo != null)
             {
-                LogMediaInfo(mediaInfo);
-                await _symlinkHandler.CreateSymlinksAsync(file, destinationFolder, mediaInfo);
+                await symlinkHandler.CreateSymlinksAsync(file, destinationFolder, mediaInfo);
             }
         }
         catch (Exception ex)
@@ -147,23 +167,6 @@ public class FileWatcherService : BackgroundService
             _logger.LogError(ex, "Error processing file: {File}", file);
         }
     }
-
-    private void LogMediaInfo(MediaInfo mediaInfo)
-    {
-        _logger.LogInformation("Detected {MediaType}: {Title} ({Year})", 
-            mediaInfo.MediaType, 
-            mediaInfo.Title,
-            mediaInfo.Year?.ToString() ?? "Unknown Year");
-        
-        if (mediaInfo.MediaType == MediaType.TvShows)
-        {
-            _logger.LogInformation("Season {Season}, Episode {Episode}, Title: {EpisodeTitle}",
-                mediaInfo.SeasonNumber,
-                mediaInfo.EpisodeNumber,
-                mediaInfo.EpisodeTitle);
-        }
-    }
-
     public override Task StopAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("FileWatcherService stopping, clearing known folders");

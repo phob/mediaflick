@@ -7,21 +7,14 @@ using System.IO;
 
 namespace PlexLocalScan.Shared.Services;
 
-public class SymlinkHandler : ISymlinkHandler
+public class SymlinkHandler(
+    ILogger<SymlinkHandler> logger,
+    IFileTrackingService fileTrackingService)
+    : ISymlinkHandler
 {
-    private readonly ILogger<SymlinkHandler> _logger;
-    private readonly IFileTrackingService _fileTrackingService;
-    private static readonly string[] sourceArray = [".mkv", ".mp4", ".avi"];
+    private static readonly string[] SourceArray = [".mkv", ".mp4", ".avi"];
 
-    public SymlinkHandler(
-        ILogger<SymlinkHandler> logger,
-        IFileTrackingService fileTrackingService)
-    {
-        _logger = logger;
-        _fileTrackingService = fileTrackingService;        
-    }
-
-    public async Task CreateSymlinksAsync(string sourceFile, string destinationFolder, MediaInfo mediaInfo)
+    public async Task CreateSymlinksAsync(string sourceFile, string destinationFolder, MediaInfo? mediaInfo)
     {
         try
         {
@@ -31,8 +24,8 @@ public class SymlinkHandler : ISymlinkHandler
 
             if (mediaInfo == null)
             {
-                await _fileTrackingService.UpdateStatusAsync(sourceFile, null, MediaType.Unknown, null, FileStatus.Failed);
-                _logger.LogWarning("Could not detect media info for {SourcePath}, skipping", sourceFile);
+                await fileTrackingService.UpdateStatusAsync(sourceFile, null, MediaType.Unknown, null, FileStatus.Failed);
+                logger.LogWarning("Could not detect media info for {SourcePath}, skipping", sourceFile);
                 return;
             }
 
@@ -41,17 +34,17 @@ public class SymlinkHandler : ISymlinkHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating symlinks from {Source} to {Destination}", 
+            logger.LogError(ex, "Error creating symlinks from {Source} to {Destination}", 
                 sourceFile, destinationFolder);
             throw;
         }
     }
 
-    private (string path, string fileName) GetTargetPath(MediaInfo mediaInfo, string baseFolder, string extension)
+    private (string path, string fileName) GetTargetPath(MediaInfo? mediaInfo, string baseFolder, string extension)
     {
         try
         {
-            if (mediaInfo.MediaType == MediaType.Movies)
+            if (mediaInfo is {MediaType: MediaType.Movies})
             {
                 var movieName = PathFormatHelper.FormatMoviePath(mediaInfo);
                 return (baseFolder, movieName + extension);
@@ -64,8 +57,9 @@ public class SymlinkHandler : ISymlinkHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error formatting path for {MediaType}: {Title}", 
-                mediaInfo.MediaType, mediaInfo.Title);
+            if (mediaInfo != null)
+                logger.LogError(ex, "Error formatting path for {MediaType}: {Title}",
+                    mediaInfo.MediaType, mediaInfo.Title);
             throw;
         }
     }
@@ -83,7 +77,7 @@ public class SymlinkHandler : ISymlinkHandler
             {
                 if (IsSymlink(fullTargetPath))
                 {
-                    _logger.LogDebug("Symlink already exists: {TargetPath}", fullTargetPath);
+                    logger.LogDebug("Symlink already exists: {TargetPath}", fullTargetPath);
                     return;
                 }
                 File.Delete(fullTargetPath);
@@ -93,7 +87,7 @@ public class SymlinkHandler : ISymlinkHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to create symlink structure from {Source} to {Target}", 
+            logger.LogError(ex, "Failed to create symlink structure from {Source} to {Target}", 
                 sourcePath, Path.Combine(targetPath, targetFileName));
             throw;
         }
@@ -101,7 +95,7 @@ public class SymlinkHandler : ISymlinkHandler
 
     private static bool IsVideoFile(string extension)
     {
-        return sourceArray.Contains(extension.ToLower());
+        return SourceArray.Contains(extension.ToLower());
     }
 
     private async Task CreateFileLinkAsync(string sourcePath, string destinationPath)
@@ -114,11 +108,11 @@ public class SymlinkHandler : ISymlinkHandler
             }
 
             await Task.Run(() => File.CreateSymbolicLink(destinationPath, sourcePath));
-            await _fileTrackingService.UpdateStatusAsync(sourcePath, destinationPath, null, null, FileStatus.Success);
+            await fileTrackingService.UpdateStatusAsync(sourcePath, destinationPath, null, null, FileStatus.Success);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to create symlink from {Source} to {Destination}", 
+            logger.LogError(ex, "Failed to create symlink from {Source} to {Destination}", 
                 sourcePath, destinationPath);
             throw;
         }
