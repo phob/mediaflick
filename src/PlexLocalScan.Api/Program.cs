@@ -1,3 +1,4 @@
+using System.Reflection;
 using PlexLocalScan.Data.Data;
 using PlexLocalScan.Shared.Options;
 using PlexLocalScan.Shared.Services;
@@ -5,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using PlexLocalScan.Shared.Interfaces;
 using Scalar.AspNetCore;
-using System.Reflection;
+
 
 var builder = WebApplication.CreateBuilder(args);
 var services = builder.Services;

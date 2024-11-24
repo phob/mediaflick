@@ -105,6 +105,49 @@ public class TvShowDetectionService : ITvShowDetectionService
         }
     }
 
+    public async Task<MediaInfo?> DetectTvShowByTmdbIdAsync(int tmdbId, int? season = null, int? episode = null)
+    {
+        try
+        {
+            var cacheKey = $"tvshow_tmdb_{tmdbId}_{season}_{episode}";
+            if (_cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo))
+            {
+                return cachedInfo;
+            }
+
+            var tvShowDetails = await _tmdbClient.GetTvShowAsync(tmdbId);
+            if (tvShowDetails == null)
+            {
+                _logger.LogWarning("No TMDb show found for ID: {TmdbId}", tmdbId);
+                return null;
+            }
+
+            var episodeInfo = season.HasValue && episode.HasValue 
+                ? await _tmdbClient.GetTvEpisodeAsync(tmdbId, season.Value, episode.Value)
+                : null;
+
+            var mediaInfo = new MediaInfo
+            {
+                Title = tvShowDetails.Name,
+                Year = tvShowDetails.FirstAirDate?.Year,
+                TmdbId = tvShowDetails.Id,
+                MediaType = MediaType.TvShows,
+                SeasonNumber = season,
+                EpisodeNumber = episode,
+                EpisodeTitle = episodeInfo?.Name,
+                EpisodeTmdbId = episodeInfo?.Id
+            };
+
+            _cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
+            return mediaInfo;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error detecting TV show by TMDb ID: {TmdbId}", tmdbId);
+            return null;
+        }
+    }
+
     private static double GetTitleSimilarity(string searchTitle, string resultTitle)
     {
         static string NormalizeForComparison(string input) =>

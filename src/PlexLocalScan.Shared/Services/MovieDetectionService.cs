@@ -112,4 +112,39 @@ public class MovieDetectionService : IMovieDetectionService
             return null;
         }
     }
+
+    public async Task<MediaInfo?> DetectMovieByTmdbIdAsync(int tmdbId)
+    {
+        try
+        {
+            var cacheKey = $"movie_tmdb_{tmdbId}";
+            if (_cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo))
+            {
+                return cachedInfo;
+            }
+
+            var movieDetails = await _tmdbClient.GetMovieAsync(tmdbId);
+            if (movieDetails == null)
+            {
+                _logger.LogWarning("No TMDb movie found for ID: {TmdbId}", tmdbId);
+                return null;
+            }
+
+            var mediaInfo = new MediaInfo
+            {
+                Title = movieDetails.Title,
+                Year = movieDetails.ReleaseDate?.Year,
+                TmdbId = movieDetails.Id,
+                MediaType = MediaType.Movies
+            };
+
+            _cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
+            return mediaInfo;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error detecting movie by TMDb ID: {TmdbId}", tmdbId);
+            return null;
+        }
+    }
 } 
