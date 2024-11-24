@@ -1,4 +1,3 @@
-using Microsoft.OpenApi.Models;
 using PlexLocalScan.Data.Data;
 using PlexLocalScan.Shared.Options;
 using PlexLocalScan.Shared.Services;
@@ -6,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using PlexLocalScan.Shared.Interfaces;
 using Scalar.AspNetCore;
+using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 var services = builder.Services;
@@ -26,7 +26,12 @@ builder.Configuration
 // Add services to the container
 services.AddControllers();
 services.AddEndpointsApiExplorer();
-services.AddSwaggerGen();
+services.AddSwaggerGen(c =>
+{
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    c.IncludeXmlComments(xmlPath);
+});
 
         // Reuse the same services from Console project
         services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
@@ -70,7 +75,9 @@ app.MapScalarApiReference(options =>
 app.UseRouting();
 //app.UseHttpsRedirection();
 //app.UseAuthorization();
-app.MapGet("/", () => "API is running, and FileWatcherService is active!");
+
+// Replace the root path handler with a redirect
+app.MapGet("/", () => Results.Redirect("/scalar/v1"));
 app.MapControllers();
 
 app.Run();
