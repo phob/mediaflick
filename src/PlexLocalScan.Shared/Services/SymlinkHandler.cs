@@ -14,7 +14,7 @@ public class SymlinkHandler(
 {
     private static readonly string[] SourceArray = [".mkv", ".mp4", ".avi"];
 
-    public async Task CreateSymlinksAsync(string sourceFile, string destinationFolder, MediaInfo? mediaInfo)
+    public async Task CreateSymlinksAsync(string sourceFile, string destinationFolder, MediaInfo? mediaInfo, MediaType mediaType)
     {
         try
         {
@@ -23,7 +23,7 @@ public class SymlinkHandler(
 
             if (mediaInfo == null)
             {
-                await CreateFallbackSymlinkAsync(sourceFile, destinationFolder);
+                await CreateFallbackSymlinkAsync(sourceFile, destinationFolder, mediaType);
                 return;
             }
 
@@ -38,7 +38,7 @@ public class SymlinkHandler(
         }
     }
 
-    private async Task CreateFallbackSymlinkAsync(string sourceFile, string destinationFolder)
+    private async Task CreateFallbackSymlinkAsync(string sourceFile, string destinationFolder, MediaType mediaType)
     {
         try
         {
@@ -55,7 +55,7 @@ public class SymlinkHandler(
 
             await CreateFileLinkAsync(sourceFile, fullTargetPath);
             
-            await fileTrackingService.UpdateStatusAsync(sourceFile, fullTargetPath, MediaType.Unknown, null, FileStatus.Failed);
+            await fileTrackingService.UpdateStatusAsync(sourceFile, fullTargetPath, mediaType, null, FileStatus.Failed);
             
             logger.LogInformation("Created fallback symlink for undetected media: {SourceFile} -> {TargetPath}", 
                 sourceFile, fullTargetPath);

@@ -108,29 +108,26 @@ public class FileWatcherService : BackgroundService
                 .ToListAsync(stoppingToken);
 
             // Check for deleted files
-            foreach (var trackedFile in trackedFiles)
+            foreach (var trackedFile in trackedFiles.Where(trackedFile => !File.Exists(trackedFile.SourceFile)))
             {
-                if (!File.Exists(trackedFile.SourceFile))
-                {
-                    _logger.LogInformation("Source file was deleted: {SourceFile}", trackedFile.SourceFile);
+                _logger.LogInformation("Source file was deleted: {SourceFile}", trackedFile.SourceFile);
                     
-                    // Delete destination file if it exists
-                    if (!string.IsNullOrEmpty(trackedFile.DestFile) && File.Exists(trackedFile.DestFile))
+                // Delete destination file if it exists
+                if (!string.IsNullOrEmpty(trackedFile.DestFile) && File.Exists(trackedFile.DestFile))
+                {
+                    try
                     {
-                        try
-                        {
-                            File.Delete(trackedFile.DestFile);
-                            _logger.LogInformation("Deleted destination file: {DestFile}", trackedFile.DestFile);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Error deleting destination file: {DestFile}", trackedFile.DestFile);
-                        }
+                        File.Delete(trackedFile.DestFile);
+                        _logger.LogInformation("Deleted destination file: {DestFile}", trackedFile.DestFile);
                     }
-
-                    // Remove the database entry
-                    dbContext.ScannedFiles.Remove(trackedFile);
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error deleting destination file: {DestFile}", trackedFile.DestFile);
+                    }
                 }
+
+                // Remove the database entry
+                dbContext.ScannedFiles.Remove(trackedFile);
             }
 
             // Save any changes from deleted file cleanup
@@ -213,10 +210,7 @@ public class FileWatcherService : BackgroundService
             }
 
             var mediaInfo = await mediaDetectionService.DetectMediaAsync(file, mapping.MediaType);
-            if (mediaInfo != null)
-            {
-                await symlinkHandler.CreateSymlinksAsync(file, destinationFolder, mediaInfo);
-            }
+            await symlinkHandler.CreateSymlinksAsync(file, destinationFolder, mediaInfo, mapping.MediaType);
         }
         catch (Exception ex)
         {

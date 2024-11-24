@@ -6,10 +6,10 @@ namespace PlexLocalScan.Data.Models;
 public class ScannedFile
 {
     [Key]
-    public int Id { get; set; }
+    public int Id { get; init; }
     
     [Required]
-    public string SourceFile { get; set; } = string.Empty;
+    public string SourceFile { get; init; } = string.Empty;
     
     public string? DestFile { get; set; } = string.Empty;
     
@@ -20,7 +20,7 @@ public class ScannedFile
     [Required]
     public FileStatus Status { get; set; }
     
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
     
     public DateTime? UpdatedAt { get; set; }
 }
