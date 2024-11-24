@@ -36,65 +36,73 @@ public class TvShowDetectionService : ITvShowDetectionService
 
     public async Task<MediaInfo?> DetectTvShowAsync(string fileName, string filePath)
     {
-        _logger.LogDebug("Attempting to detect TV show pattern for: {FileName}", fileName);
-        var match = _tvShowPattern.Match(fileName);
-        if (!match.Success)
+        try
         {
-            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, FileStatus.Failed);
-            _logger.LogDebug("Filename does not match TV show pattern: {FileName}", fileName);
+            _logger.LogDebug("Attempting to detect TV show pattern for: {FileName}", fileName);
+            var match = _tvShowPattern.Match(fileName);
+            if (!match.Success)
+            {
+                await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, FileStatus.Failed);
+                _logger.LogDebug("Filename does not match TV show pattern: {FileName}", fileName);
+                return null;
+            }
+
+            var titleMatch = _titleCleanupPattern.Match(match.Groups["title"].Value.Replace(".", " ").Trim());
+            if (!titleMatch.Success)
+            {
+                await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, FileStatus.Failed);
+                _logger.LogWarning("Failed to clean title for TV show: {FileName}", fileName);
+                return null;
+            }
+
+            var title = titleMatch.Groups["title"].Value;
+            var season = int.Parse(match.Groups["season"].Value);
+            var episode = int.Parse(match.Groups["episode"].Value);
+            var episode2 = match.Groups["episode2"].Success 
+                ? int.Parse(match.Groups["episode2"].Value) 
+                : (int?)null;
+
+            var cacheKey = $"tvshow_{title}_{season}_{episode}";
+            if (_cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo))
+            {
+                return cachedInfo;
+            }
+
+            var searchResults = await _tmdbClient.SearchTvShowAsync(title);
+            var bestMatch = searchResults.Results
+                .OrderByDescending(s => GetTitleSimilarity(title, s.Name))
+                .ThenByDescending(s => s.Popularity)
+                .FirstOrDefault();
+
+            if (bestMatch == null)
+            {
+                await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, FileStatus.Failed);
+                _logger.LogWarning("No TMDb match found for TV show: {Title}", title);
+                return null;
+            }
+
+            var episodeInfo = await _tmdbClient.GetTvEpisodeAsync(bestMatch.Id, season, episode);
+            var mediaInfo = new MediaInfo
+            {
+                Title = bestMatch.Name,
+                Year = bestMatch.FirstAirDate?.Year,
+                TmdbId = episodeInfo?.Id,
+                MediaType = MediaType.TvShows,
+                SeasonNumber = season,
+                EpisodeNumber = episode,
+                EpisodeNumber2 = episode2,
+                EpisodeTitle = episodeInfo?.Name,
+                EpisodeTmdbId = episodeInfo?.Id
+            };
+            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, mediaInfo.TmdbId, FileStatus.Success);
+            _cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
+            return mediaInfo;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error detecting TV show: {FileName}", fileName);
             return null;
         }
-
-        var titleMatch = _titleCleanupPattern.Match(match.Groups["title"].Value.Replace(".", " ").Trim());
-        if (!titleMatch.Success)
-        {
-            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, FileStatus.Failed);
-            _logger.LogWarning("Failed to clean title for TV show: {FileName}", fileName);
-            return null;
-        }
-
-        var title = titleMatch.Groups["title"].Value;
-        var season = int.Parse(match.Groups["season"].Value);
-        var episode = int.Parse(match.Groups["episode"].Value);
-        var episode2 = match.Groups["episode2"].Success 
-            ? int.Parse(match.Groups["episode2"].Value) 
-            : (int?)null;
-
-        var cacheKey = $"tvshow_{title}_{season}_{episode}";
-        if (_cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo))
-        {
-            return cachedInfo;
-        }
-
-        var searchResults = await _tmdbClient.SearchTvShowAsync(title);
-        var bestMatch = searchResults.Results
-            .OrderByDescending(s => GetTitleSimilarity(title, s.Name))
-            .ThenByDescending(s => s.Popularity)
-            .FirstOrDefault();
-
-        if (bestMatch == null)
-        {
-            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, FileStatus.Failed);
-            _logger.LogWarning("No TMDb match found for TV show: {Title}", title);
-            return null;
-        }
-
-        var episodeInfo = await _tmdbClient.GetTvEpisodeAsync(bestMatch.Id, season, episode);
-        var mediaInfo = new MediaInfo
-        {
-            Title = bestMatch.Name,
-            Year = bestMatch.FirstAirDate?.Year,
-            TmdbId = episodeInfo?.Id,
-            MediaType = MediaType.TvShows,
-            SeasonNumber = season,
-            EpisodeNumber = episode,
-            EpisodeNumber2 = episode2,
-            EpisodeTitle = episodeInfo?.Name,
-            EpisodeTmdbId = episodeInfo?.Id
-        };
-        await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, mediaInfo.TmdbId, FileStatus.Success);
-        _cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
-        return mediaInfo;
     }
 
     private static double GetTitleSimilarity(string searchTitle, string resultTitle)

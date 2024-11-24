@@ -74,34 +74,42 @@ public class MovieDetectionService : IMovieDetectionService
 
     public async Task<MediaInfo?> DetectMovieAsync(string fileName, string filePath)
     {
-        _logger.LogDebug("Attempting to detect movie pattern for: {FileName}", fileName);
-        var match = _moviePattern.Match(fileName);
-        if (!match.Success)
+        try
         {
-            await _fileTrackingService.UpdateStatusAsync(fileName, null, MediaType.Movies, null, FileStatus.Failed);
-            _logger.LogDebug("Filename does not match movie pattern: {FileName}", fileName);
+            _logger.LogDebug("Attempting to detect movie pattern for: {FileName}", fileName);
+            var match = _moviePattern.Match(fileName);
+            if (!match.Success)
+            {
+                await _fileTrackingService.UpdateStatusAsync(fileName, null, MediaType.Movies, null, FileStatus.Failed);
+                _logger.LogDebug("Filename does not match movie pattern: {FileName}", fileName);
+                return null;
+            }
+
+            var title = match.Groups["title"].Value.Replace(".", " ").Trim();
+            var yearStr = match.Groups["year"].Value;
+            var year = int.Parse(yearStr);
+
+            _logger.LogDebug("Detected movie pattern - Title: {Title}, Year: {Year}", title, year);
+
+            var cacheKey = $"movie_{title}_{year}";
+            if (_cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo))
+            {
+                return cachedInfo;
+            }
+
+            var mediaInfo = await SearchTMDbForMovie(title, year, filePath);
+            if (mediaInfo == null)
+            {
+                return null;
+            }
+
+            _cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
+            return mediaInfo;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error detecting movie: {FileName}", fileName);
             return null;
         }
-
-        var title = match.Groups["title"].Value.Replace(".", " ").Trim();
-        var yearStr = match.Groups["year"].Value;
-        var year = int.Parse(yearStr);
-
-        _logger.LogDebug("Detected movie pattern - Title: {Title}, Year: {Year}", title, year);
-
-        var cacheKey = $"movie_{title}_{year}";
-        if (_cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo))
-        {
-            return cachedInfo;
-        }
-
-        var mediaInfo = await SearchTMDbForMovie(title, year, filePath);
-        if (mediaInfo == null)
-        {
-            return null;
-        }
-
-        _cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
-        return mediaInfo;
     }
 } 

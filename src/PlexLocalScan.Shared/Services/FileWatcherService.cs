@@ -74,32 +74,88 @@ public class FileWatcherService : BackgroundService
     {
         using var scope = _serviceScopeFactory.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<PlexScanContext>();
+        var cleanupHandler = scope.ServiceProvider.GetRequiredService<ICleanupHandler>();
         
         foreach (var mapping in _options.FolderMappings)
         {
             var fullSourcePath = Path.GetFullPath(mapping.SourceFolder);
             _logger.LogDebug("Scanning source folder: {SourceFolder}", fullSourcePath);
 
+            // Check if the source folder still exists
+            if (!Directory.Exists(fullSourcePath))
+            {
+                _logger.LogWarning("Source folder no longer exists: {SourceFolder}", fullSourcePath);
+                await cleanupHandler.CleanupDeletedSourceFolderAsync(fullSourcePath);
+                continue;
+            }
+
             var currentFolders = new HashSet<string>(Directory.GetDirectories(fullSourcePath));
             
-            // Get all successfully processed files for this source folder
-            var processedFiles = await dbContext.ScannedFiles
+            // Check for deleted folders
+            if (_knownFolders.TryGetValue(mapping.SourceFolder, out var previousFolders))
+            {
+                var deletedFolders = previousFolders.Except(currentFolders).ToList();
+                foreach (var deletedFolder in deletedFolders)
+                {
+                    _logger.LogInformation("Folder was deleted: {FolderPath}", deletedFolder);
+                    await cleanupHandler.CleanupDeletedSourceFolderAsync(deletedFolder);
+                }
+            }
+
+            // Get all tracked files for this source folder
+            var trackedFiles = await dbContext.ScannedFiles
                 .Where(f => f.SourceFile.StartsWith(fullSourcePath))
-                .Select(f => f.SourceFile)
                 .ToListAsync(stoppingToken);
 
-            // Create a HashSet of parent directories of successful files
+            // Check for deleted files
+            foreach (var trackedFile in trackedFiles)
+            {
+                if (!File.Exists(trackedFile.SourceFile))
+                {
+                    _logger.LogInformation("Source file was deleted: {SourceFile}", trackedFile.SourceFile);
+                    
+                    // Delete destination file if it exists
+                    if (!string.IsNullOrEmpty(trackedFile.DestFile) && File.Exists(trackedFile.DestFile))
+                    {
+                        try
+                        {
+                            File.Delete(trackedFile.DestFile);
+                            _logger.LogInformation("Deleted destination file: {DestFile}", trackedFile.DestFile);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error deleting destination file: {DestFile}", trackedFile.DestFile);
+                        }
+                    }
+
+                    // Remove the database entry
+                    dbContext.ScannedFiles.Remove(trackedFile);
+                }
+            }
+
+            // Save any changes from deleted file cleanup
+            if (dbContext.ChangeTracker.HasChanges())
+            {
+                await dbContext.SaveChangesAsync(stoppingToken);
+            }
+
+            // Process new folders
             var processedFolders = new HashSet<string>(
-                processedFiles.Select(f => Path.GetDirectoryName(f)!)
+                trackedFiles.Select(f => Path.GetDirectoryName(f.SourceFile)!)
             );
 
-            // Find all folders that haven't been successfully processed
             var foldersToProcess = currentFolders
                 .Where(folder => !processedFolders.Contains(folder));
 
             foreach (var folder in foldersToProcess)
             {
                 await ProcessNewFolderAsync(folder, mapping, stoppingToken);
+            }
+
+            // Clean up empty directories in destination folder
+            if (Directory.Exists(mapping.DestinationFolder))
+            {
+                await cleanupHandler.CleanupDeadSymlinksAsync(mapping.DestinationFolder);
             }
 
             // Update known folders for future reference
@@ -113,7 +169,7 @@ public class FileWatcherService : BackgroundService
         {
             _logger.LogInformation("New folder detected: {FolderPath}", newFolder);
             
-            await Task.Delay(_options.FileWatcherPeriod, stoppingToken);
+            await Task.Delay(_options.ProcessNewFolderDelay, stoppingToken);
 
             if (!Directory.EnumerateFileSystemEntries(newFolder).Any())
             {

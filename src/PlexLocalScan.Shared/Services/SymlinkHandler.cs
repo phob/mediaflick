@@ -21,11 +21,9 @@ public class SymlinkHandler(
             var extension = Path.GetExtension(sourceFile);
             if (!IsVideoFile(extension)) return;
 
-
             if (mediaInfo == null)
             {
-                await fileTrackingService.UpdateStatusAsync(sourceFile, null, MediaType.Unknown, null, FileStatus.Failed);
-                logger.LogWarning("Could not detect media info for {SourcePath}, skipping", sourceFile);
+                await CreateFallbackSymlinkAsync(sourceFile, destinationFolder);
                 return;
             }
 
@@ -36,6 +34,35 @@ public class SymlinkHandler(
         {
             logger.LogError(ex, "Error creating symlinks from {Source} to {Destination}", 
                 sourceFile, destinationFolder);
+            throw;
+        }
+    }
+
+    private async Task CreateFallbackSymlinkAsync(string sourceFile, string destinationFolder)
+    {
+        try
+        {
+            var sourceDirectory = Path.GetDirectoryName(sourceFile) 
+                ?? throw new InvalidOperationException("Unable to get source directory");
+            var fileName = Path.GetFileName(sourceFile);
+
+            var lastDirName = new DirectoryInfo(sourceDirectory).Name;
+
+            var targetPath = Path.Combine(destinationFolder, lastDirName);
+            var fullTargetPath = Path.Combine(targetPath, fileName);
+
+            Directory.CreateDirectory(targetPath);
+
+            await CreateFileLinkAsync(sourceFile, fullTargetPath);
+            
+            await fileTrackingService.UpdateStatusAsync(sourceFile, fullTargetPath, MediaType.Unknown, null, FileStatus.Failed);
+            
+            logger.LogInformation("Created fallback symlink for undetected media: {SourceFile} -> {TargetPath}", 
+                sourceFile, fullTargetPath);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to create fallback symlink for {SourceFile}", sourceFile);
             throw;
         }
     }
@@ -68,7 +95,6 @@ public class SymlinkHandler(
     {
         try
         {
-            // Create all necessary directories
             Directory.CreateDirectory(targetPath);
 
             var fullTargetPath = Path.Combine(targetPath, targetFileName);

@@ -1,11 +1,14 @@
 using Microsoft.Extensions.Logging;
 using PlexLocalScan.Shared.Interfaces;
+using Microsoft.EntityFrameworkCore;
+using PlexLocalScan.Data.Data;
 
 namespace PlexLocalScan.Shared.Services;
 
 public class CleanupHandler(
     ILogger<CleanupHandler> logger,
-    ISymlinkHandler symlinkHandler)
+    ISymlinkHandler symlinkHandler,
+    PlexScanContext dbContext)
     : ICleanupHandler
 {
     public async Task CleanupDeadSymlinksAsync(string baseFolder)
@@ -94,5 +97,67 @@ public class CleanupHandler(
     public bool IsDirectoryEmpty(string path)
     {
         return !Directory.EnumerateFileSystemEntries(path).Any();
+    }
+
+    public async Task CleanupDeletedSourceFolderAsync(string sourceFolder)
+    {
+        try
+        {
+            // Get all records for the deleted source folder
+            var affectedFiles = await dbContext.ScannedFiles
+                .Where(f => f.SourceFile.StartsWith(sourceFolder))
+                .ToListAsync();
+
+            if (!affectedFiles.Any())
+            {
+                logger.LogInformation("No files found for deleted source folder: {SourceFolder}", sourceFolder);
+                return;
+            }
+
+            // Get unique destination folders for cleanup
+            var destFolders = affectedFiles
+                .Select(f => Path.GetDirectoryName(f.DestFile))
+                .Where(d => d != null)
+                .Distinct()
+                .ToList();
+
+            // Delete all destination files
+            foreach (var file in affectedFiles.Where(f => !string.IsNullOrEmpty(f.DestFile)))
+            {
+                try
+                {
+                    if (File.Exists(file.DestFile))
+                    {
+                        File.Delete(file.DestFile);
+                        logger.LogInformation("Deleted destination file: {DestFile}", file.DestFile);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Error deleting destination file: {DestFile}", file.DestFile);
+                }
+            }
+
+            // Clean up empty directories
+            foreach (var folder in destFolders)
+            {
+                if (folder != null && Directory.Exists(folder))
+                {
+                    RemoveEmptyDirectories(folder);
+                }
+            }
+
+            // Remove database entries
+            dbContext.ScannedFiles.RemoveRange(affectedFiles);
+            await dbContext.SaveChangesAsync();
+            
+            logger.LogInformation("Cleaned up {Count} files for deleted source folder: {SourceFolder}", 
+                affectedFiles.Count, sourceFolder);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error cleaning up deleted source folder: {SourceFolder}", sourceFolder);
+            throw;
+        }
     }
 } 

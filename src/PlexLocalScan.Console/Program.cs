@@ -9,6 +9,7 @@ using PlexLocalScan.Shared.Services;
 using PlexLocalScan.Data.Data;
 using Microsoft.Extensions.Options;
 using PlexLocalScan.Shared.Interfaces;
+using Microsoft.Extensions.Caching.Memory;
 public static class Program
 {
     public static async Task<int> Main(string[] args)
@@ -152,7 +153,7 @@ Plex:
       DestinationFolder: /media/shows
       MediaType: TvShows
   PollingInterval: 30
-  FileWatcherPeriod: 10000
+  ProcessNewFolderDelay: 10000
 
 TMDb:
   ApiKey: your_tmdb_api_key
