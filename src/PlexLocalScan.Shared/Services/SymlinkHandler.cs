@@ -104,6 +104,7 @@ public class SymlinkHandler(
                 if (IsSymlink(fullTargetPath))
                 {
                     logger.LogDebug("Symlink already exists: {TargetPath}", fullTargetPath);
+                    await fileTrackingService.UpdateStatusAsync(sourcePath, fullTargetPath, null, null, FileStatus.Success);
                     return;
                 }
                 File.Delete(fullTargetPath);

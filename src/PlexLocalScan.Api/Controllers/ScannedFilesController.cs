@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using PlexLocalScan.Data.Data;
 using PlexLocalScan.Data.Models;
 using PlexLocalScan.Api.Models;
+using PlexLocalScan.Shared.Interfaces;
 using System.ComponentModel;
 
 namespace PlexLocalScan.Api.Controllers;
@@ -12,7 +13,9 @@ namespace PlexLocalScan.Api.Controllers;
 [Produces("application/json")]
 [ApiExplorerSettings(GroupName = "v1")]
 [Description("Manages scanned media files and their processing status")]
-public class ScannedFilesController(PlexScanContext context) : ControllerBase
+public class ScannedFilesController(
+    PlexScanContext context,
+    ISymlinkRecreationService symlinkRecreationService) : ControllerBase
 {
     /// <summary>
     /// Retrieves a paged list of scanned files with optional filtering and sorting
@@ -120,5 +123,60 @@ public class ScannedFilesController(PlexScanContext context) : ControllerBase
         };
 
         return Ok(stats);
+    }
+
+    /// <summary>
+    /// Updates the TMDb ID, season number, and episode number for a scanned file
+    /// </summary>
+    /// <param name="id">The ID of the scanned file to update</param>
+    /// <param name="request">The update request containing the new values</param>
+    /// <response code="200">Returns the updated scanned file</response>
+    /// <response code="404">If the scanned file is not found</response>
+    /// <response code="400">If the update request is invalid</response>
+    [HttpPatch("{id}")]
+    [ProducesResponseType(typeof(ScannedFile), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ScannedFile>> UpdateScannedFile(int id, [FromBody] UpdateScannedFileRequest request)
+    {
+        var scannedFile = await context.ScannedFiles.FindAsync(id);
+        
+        if (scannedFile == null)
+        {
+            return NotFound();
+        }
+
+        // Update only the provided values
+        if (request.TmdbId.HasValue)
+            scannedFile.TmdbId = request.TmdbId.Value;
+        
+        if (request.SeasonNumber.HasValue)
+            scannedFile.SeasonNumber = request.SeasonNumber.Value;
+        
+        if (request.EpisodeNumber.HasValue)
+            scannedFile.EpisodeNumber = request.EpisodeNumber.Value;
+
+        scannedFile.UpdatedAt = DateTime.UtcNow;
+        scannedFile.UpdateToVersion++;
+
+        try
+        {
+            await context.SaveChangesAsync();
+
+            // Attempt to recreate the symlink with the new information
+            var success = await symlinkRecreationService.RecreateSymlinkIfNeededAsync(scannedFile);
+            if (!success)
+            {
+                return BadRequest(new { error = "Failed to recreate symlink" });
+            }
+
+            // Refresh the entity from the database to get the latest version
+            await context.Entry(scannedFile).ReloadAsync();
+            return Ok(scannedFile);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = "Failed to update the scanned file", details = ex.Message });
+        }
     }
 } 

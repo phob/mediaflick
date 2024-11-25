@@ -86,7 +86,7 @@ public class TvShowDetectionService : ITvShowDetectionService
             {
                 Title = bestMatch.Name,
                 Year = bestMatch.FirstAirDate?.Year,
-                TmdbId = episodeInfo?.Id,
+                TmdbId = bestMatch.Id,
                 MediaType = MediaType.TvShows,
                 SeasonNumber = season,
                 EpisodeNumber = episode,
@@ -94,7 +94,7 @@ public class TvShowDetectionService : ITvShowDetectionService
                 EpisodeTitle = episodeInfo?.Name,
                 EpisodeTmdbId = episodeInfo?.Id
             };
-            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, mediaInfo.TmdbId, FileStatus.Success);
+            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, mediaInfo.TmdbId, mediaInfo.SeasonNumber, mediaInfo.EpisodeNumber, FileStatus.Success);
             _cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
             return mediaInfo;
         }
@@ -105,7 +105,7 @@ public class TvShowDetectionService : ITvShowDetectionService
         }
     }
 
-    public async Task<MediaInfo?> DetectTvShowByTmdbIdAsync(int tmdbId, int? season = null, int? episode = null)
+    public async Task<MediaInfo?> DetectTvShowByTmdbIdAsync(int tmdbId, int season, int episode)
     {
         try
         {
@@ -122,9 +122,7 @@ public class TvShowDetectionService : ITvShowDetectionService
                 return null;
             }
 
-            var episodeInfo = season.HasValue && episode.HasValue 
-                ? await _tmdbClient.GetTvEpisodeAsync(tmdbId, season.Value, episode.Value)
-                : null;
+            var episodeInfo = await _tmdbClient.GetTvEpisodeAsync(tmdbId, season, episode);
 
             var mediaInfo = new MediaInfo
             {

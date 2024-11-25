@@ -107,6 +107,8 @@ public class FileWatcherService : BackgroundService
                 .Where(f => f.SourceFile.StartsWith(fullSourcePath))
                 .ToListAsync(stoppingToken);
 
+            var trackedFilePaths = new HashSet<string>(trackedFiles.Select(f => f.SourceFile));
+
             // Check for deleted files
             foreach (var trackedFile in trackedFiles.Where(trackedFile => !File.Exists(trackedFile.SourceFile)))
             {
@@ -129,6 +131,13 @@ public class FileWatcherService : BackgroundService
                 // Remove the database entry
                 dbContext.ScannedFiles.Remove(trackedFile);
             }
+
+            // Scan for untracked files
+            await ScanForUntrackedFilesAsync(
+                fullSourcePath, 
+                trackedFilePaths, 
+                mapping, 
+                stoppingToken);
 
             // Save any changes from deleted file cleanup
             if (dbContext.ChangeTracker.HasChanges())
@@ -217,10 +226,53 @@ public class FileWatcherService : BackgroundService
             _logger.LogError(ex, "Error processing file: {File}", file);
         }
     }
+
+    private async Task ScanForUntrackedFilesAsync(
+        string sourceFolder,
+        HashSet<string> trackedFiles,
+        FolderMapping mapping,
+        CancellationToken stoppingToken)
+    {
+        try
+        {
+            // Get all files in the source folder recursively
+            var allFiles = Directory.EnumerateFiles(sourceFolder, "*.*", SearchOption.AllDirectories);
+            
+            // Process files in batches to avoid memory pressure
+            const int batchSize = 100;
+            var untrackedFiles = allFiles
+                .Where(file => !trackedFiles.Contains(file))
+                .Select(file => new { File = file, Folder = Path.GetDirectoryName(file)! })
+                .GroupBy(x => x.Folder);
+
+            foreach (var folderGroup in untrackedFiles)
+            {
+                var destinationFolder = Path.Combine(mapping.DestinationFolder);
+                var files = folderGroup.Select(x => x.File);
+
+                foreach (var batch in files.Chunk(batchSize))
+                {
+                    foreach (var file in batch)
+                    {
+                        await ProcessSingleFileAsync(file, destinationFolder, mapping);
+                    }
+                    await Task.Delay(100, stoppingToken); // Small delay between batches
+                }
+
+                // Trigger Plex scan after processing each folder
+                await _plexHandler.AddFolderForScanningAsync(destinationFolder, mapping.DestinationFolder);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error scanning for untracked files in folder: {Folder}", sourceFolder);
+        }
+    }
+
     public override Task StopAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("FileWatcherService stopping, clearing known folders");
         _knownFolders.Clear();
         return base.StopAsync(cancellationToken);
     }
-} 
+}

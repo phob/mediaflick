@@ -13,11 +13,4 @@
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.0" />
   </ItemGroup>
-
-  <ItemGroup>
-    <None Include="plexscan.db">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Link>config\plexscan.db</Link>
-    </None>
-  </ItemGroup>
 </Project>

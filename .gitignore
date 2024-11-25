@@ -16,3 +16,4 @@ config/
 .vs/
 .vscode/
 .idea/
+src/PlexLocalScan.Api/logs/plexlocalscan*.log

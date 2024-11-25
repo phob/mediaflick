@@ -26,6 +26,12 @@ public class ScannedFile
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
     
     public DateTime? UpdatedAt { get; set; }
+    
+    [Required]
+    public int VersionUpdated { get; set; } = 0;
+    
+    [Required]
+    public int UpdateToVersion { get; set; } = 0;
 }
 
 public enum FileStatus
