@@ -36,7 +36,7 @@ public class ScannedFile
 
 public enum FileStatus
 {
-    Working,
+    Processing,
     Success,
     Failed
 }

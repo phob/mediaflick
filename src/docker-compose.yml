@@ -1,0 +1,14 @@
+services:
+  plexlocalscan-api:
+    build: .
+    container_name: plexlocalscan-api
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./config:/config
+      - /source:/source
+      - /destination:/destination
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5000
+    restart: unless-stopped

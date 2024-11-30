@@ -41,7 +41,7 @@ public class CleanupHandler(
                 {
                     if (IsSymbolicLinkDead(file))
                     {
-                        logger.LogDebug("Removing dead symlink: {Path}", file);
+                        logger.LogDebug("Removing dead symlink: {Path} -> {Target}", file, new FileInfo(file).LinkTarget);
                         File.Delete(file);
                     }
                 }
@@ -63,9 +63,7 @@ public class CleanupHandler(
                 return true;
             }
 
-            using var stream = File.OpenRead(symlinkPath);
-            var buffer = new byte[1];
-            return stream.Read(buffer, 0, 1) <= 0;
+            return !File.Exists(new FileInfo(symlinkPath).LinkTarget);
         }
         catch
         {

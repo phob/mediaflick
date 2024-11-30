@@ -94,7 +94,7 @@ public class TvShowDetectionService : ITvShowDetectionService
                 EpisodeTitle = episodeInfo?.Name,
                 EpisodeTmdbId = episodeInfo?.Id
             };
-            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, mediaInfo.TmdbId, mediaInfo.SeasonNumber, mediaInfo.EpisodeNumber, FileStatus.Success);
+            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, mediaInfo.TmdbId, mediaInfo.SeasonNumber, mediaInfo.EpisodeNumber, FileStatus.Processing);
             _cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
             return mediaInfo;
         }

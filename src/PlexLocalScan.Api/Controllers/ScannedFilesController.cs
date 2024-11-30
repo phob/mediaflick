@@ -47,8 +47,8 @@ public class ScannedFilesController(
         if (!string.IsNullOrEmpty(filter.SearchTerm))
         {
             query = query.Where(f => 
-                f.SourceFile.Contains(filter.SearchTerm) || 
-                (f.DestFile != null && f.DestFile.Contains(filter.SearchTerm)));
+                f.SourceFile.Contains(filter.SearchTerm, StringComparison.OrdinalIgnoreCase) || 
+                (f.DestFile != null && f.DestFile.Contains(filter.SearchTerm, StringComparison.OrdinalIgnoreCase)));
         }
 
         // Apply sorting

@@ -79,7 +79,7 @@ public class FileTrackingService(
             DestFile = destFile,
             MediaType = mediaType,
             TmdbId = tmdbId,
-            Status = FileStatus.Working
+            Status = FileStatus.Processing
         };
 
         dbContext.ScannedFiles.Add(scannedFile);
