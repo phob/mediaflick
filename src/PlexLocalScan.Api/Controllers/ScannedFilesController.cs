@@ -6,6 +6,7 @@ using PlexLocalScan.Api.Models;
 using PlexLocalScan.Shared.Interfaces;
 using System.ComponentModel;
 using Serilog;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace PlexLocalScan.Api.Controllers;
 
@@ -17,8 +18,13 @@ namespace PlexLocalScan.Api.Controllers;
 public class ScannedFilesController(
     PlexScanContext context,
     ISymlinkRecreationService symlinkRecreationService,
+    IMemoryCache cache,
     ILogger<ScannedFilesController> logger) : ControllerBase
 {
+    private const string StatsCacheKey = "ScannedFiles_Stats";
+    private const string ScannedFileCacheKeyPrefix = "ScannedFile_";
+    private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
+
     /// <summary>
     /// Retrieves a paged list of scanned files with optional filtering and sorting
     /// </summary>
@@ -101,8 +107,15 @@ public class ScannedFilesController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ScannedFile>> GetScannedFile(int id)
     {
-        logger.LogInformation("Getting scanned file with ID: {Id}", id);
+        var cacheKey = $"{ScannedFileCacheKeyPrefix}{id}";
+        
+        if (cache.TryGetValue(cacheKey, out ScannedFile? cachedFile))
+        {
+            logger.LogInformation("Cache hit for scanned file ID: {Id}", id);
+            return Ok(cachedFile);
+        }
 
+        logger.LogInformation("Getting scanned file with ID: {Id}", id);
         var scannedFile = await context.ScannedFiles.FindAsync(id);
 
         if (scannedFile == null)
@@ -111,6 +124,7 @@ public class ScannedFilesController(
             return NotFound();
         }
 
+        cache.Set(cacheKey, scannedFile, CacheDuration);
         logger.LogInformation("Retrieved scanned file: {@ScannedFile}", scannedFile);
         return Ok(scannedFile);
     }
@@ -123,6 +137,12 @@ public class ScannedFilesController(
     [ProducesResponseType(typeof(ScannedFileStats), StatusCodes.Status200OK)]
     public async Task<ActionResult<ScannedFileStats>> GetStats()
     {
+        if (cache.TryGetValue(StatsCacheKey, out ScannedFileStats? cachedStats))
+        {
+            logger.LogInformation("Cache hit for scanned files statistics");
+            return Ok(cachedStats);
+        }
+
         logger.LogInformation("Getting scanned files statistics");
 
         var stats = new ScannedFileStats
@@ -139,6 +159,7 @@ public class ScannedFilesController(
                 .ToListAsync()
         };
 
+        cache.Set(StatsCacheKey, stats, CacheDuration);
         logger.LogInformation("Retrieved statistics: {@Stats}", stats);
         return Ok(stats);
     }
@@ -182,6 +203,9 @@ public class ScannedFilesController(
             scannedFile.UpdatedAt = DateTime.UtcNow;
             scannedFile.UpdateToVersion++;
 
+            await context.SaveChangesAsync();
+            InvalidateScannedFileCache(id);
+            
             return Ok(scannedFile);
         }
         catch (Exception ex)
@@ -233,5 +257,77 @@ public class ScannedFilesController(
             logger.LogError(ex, "Failed to update scanned file {Id}", id);
             return BadRequest(new { error = "Failed to update the scanned file", details = ex.Message });
         }
+    }
+
+    /// <summary>
+    /// Deletes a single scanned file by its ID
+    /// </summary>
+    /// <param name="id">The ID of the scanned file to delete</param>
+    /// <response code="204">If the scanned file was successfully deleted</response>
+    /// <response code="404">If the scanned file is not found</response>
+    [HttpDelete("{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteScannedFile(int id)
+    {
+        logger.LogInformation("Deleting scanned file with ID: {Id}", id);
+
+        var scannedFile = await context.ScannedFiles.FindAsync(id);
+        if (scannedFile == null)
+        {
+            logger.LogWarning("Scanned file with ID {Id} not found", id);
+            return NotFound();
+        }
+
+        context.ScannedFiles.Remove(scannedFile);
+        await context.SaveChangesAsync();
+        
+        InvalidateScannedFileCache(id);
+
+        logger.LogInformation("Successfully deleted scanned file with ID: {Id}", id);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Deletes multiple scanned files by their IDs
+    /// </summary>
+    /// <param name="ids">Array of scanned file IDs to delete</param>
+    /// <response code="204">If the scanned files were successfully deleted</response>
+    /// <response code="400">If the request is invalid</response>
+    [HttpDelete("batch")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> DeleteScannedFiles([FromBody] int[] ids)
+    {
+        if (ids == null || !ids.Any())
+        {
+            return BadRequest(new { error = "No IDs provided for deletion" });
+        }
+
+        logger.LogInformation("Deleting multiple scanned files. IDs: {@Ids}", ids);
+
+        var filesToDelete = await context.ScannedFiles
+            .Where(f => ids.Contains(f.Id))
+            .ToListAsync();
+
+        if (filesToDelete.Any())
+        {
+            context.ScannedFiles.RemoveRange(filesToDelete);
+            await context.SaveChangesAsync();
+            
+            foreach (var file in filesToDelete)
+            {
+                InvalidateScannedFileCache(file.Id);
+            }
+        }
+
+        logger.LogInformation("Successfully deleted {Count} scanned files", filesToDelete.Count);
+        return NoContent();
+    }
+
+    private void InvalidateScannedFileCache(int id)
+    {
+        cache.Remove($"{ScannedFileCacheKeyPrefix}{id}");
+        cache.Remove(StatsCacheKey);
     }
 }

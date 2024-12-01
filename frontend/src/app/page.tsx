@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import {
   Table,
   TableBody,
@@ -26,8 +26,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
-import { Settings2 } from 'lucide-react'
+import { Checkbox } from "@/components/ui/checkbox"
+import { Settings2, Trash2, Edit, Loader2 } from 'lucide-react'
 import { FileStatus, MediaType, PagedResult, ScannedFile } from '@/types/api'
+import { toast } from "sonner"
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
 const STORAGE_KEY = 'plexLocalScan_preferences'
@@ -69,6 +71,8 @@ export default function Home() {
   
   // Initialize with default values
   const [preferences, setPreferences] = useState<UserPreferences>(defaultPreferences)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [isDeleting, setIsDeleting] = useState(false)
   
   // Load preferences from localStorage on component mount
   useEffect(() => {
@@ -81,7 +85,7 @@ export default function Home() {
     savePreferences(preferences)
   }, [preferences])
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     const params = new URLSearchParams({
       page: page.toString(),
       pageSize: preferences.pageSize.toString(),
@@ -93,11 +97,11 @@ export default function Home() {
     const response = await fetch(`/api/ScannedFiles?${params.toString()}`)
     const result = await response.json()
     setData(result)
-  }
+  }, [page, preferences.pageSize, searchTerm, status, mediaType])
 
   useEffect(() => {
     fetchData()
-  }, [page, preferences.pageSize, searchTerm, status, mediaType])
+  }, [fetchData])
 
   const getStatusBadgeColor = (status: FileStatus) => {
     switch (status) {
@@ -135,6 +139,74 @@ export default function Home() {
   const getFilename = (path: string | null) => {
     if (!path) return null
     return path.split(/[/\\]/).pop()
+  }
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked && data) {
+      setSelectedIds(new Set(data.items.map(file => file.id)))
+    } else {
+      setSelectedIds(new Set())
+    }
+  }
+
+  const handleSelectOne = (id: number, checked: boolean) => {
+    const newSelected = new Set(selectedIds)
+    if (checked) {
+      newSelected.add(id)
+    } else {
+      newSelected.delete(id)
+    }
+    setSelectedIds(newSelected)
+  }
+
+  const handleDelete = async (ids: number[]) => {
+    if (!ids.length) return
+
+    try {
+      setIsDeleting(true)
+      const response = await fetch('/api/ScannedFiles/batch', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(ids),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete files')
+      }
+
+      // Clear selection and refresh data
+      setSelectedIds(new Set())
+      await fetchData()
+      toast.success(`Successfully deleted ${ids.length} file${ids.length === 1 ? '' : 's'}`)
+    } catch (error) {
+      toast.error('Failed to delete files')
+      console.error('Delete error:', error)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleDeleteOne = async (id: number) => {
+    try {
+      setIsDeleting(true)
+      const response = await fetch(`/api/ScannedFiles/${id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete file')
+      }
+
+      await fetchData()
+      toast.success('File deleted successfully')
+    } catch (error) {
+      toast.error('Failed to delete file')
+      console.error('Delete error:', error)
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   return (
@@ -220,10 +292,28 @@ export default function Home() {
           </div>
         </div>
 
+        <div className="flex justify-between items-center mb-4">
+          <Button
+            variant="destructive"
+            onClick={() => handleDelete(Array.from(selectedIds))}
+            disabled={selectedIds.size === 0 || isDeleting}
+            className="flex items-center gap-2"
+          >
+            {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            Delete Selected ({selectedIds.size})
+          </Button>
+        </div>
+
         <div className="rounded-md border border-border bg-card">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-muted/5">
+                <TableHead className="w-12">
+                  <Checkbox 
+                    checked={data?.items.length === selectedIds.size && data?.items.length > 0}
+                    onCheckedChange={handleSelectAll}
+                  />
+                </TableHead>
                 <TableHead>Source File</TableHead>
                 <TableHead>Destination File</TableHead>
                 <TableHead>Status</TableHead>
@@ -231,11 +321,18 @@ export default function Home() {
                 <TableHead>TMDb ID</TableHead>
                 <TableHead>Episode Info</TableHead>
                 <TableHead>Created At</TableHead>
+                <TableHead className="w-24">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {data?.items.map((file) => (
                 <TableRow key={file.id} className="hover:bg-muted/5">
+                  <TableCell>
+                    <Checkbox 
+                      checked={selectedIds.has(file.id)}
+                      onCheckedChange={(checked) => handleSelectOne(file.id, checked as boolean)}
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">
                     <div className="group relative">
                       {preferences.showOnlyFilenames ? getFilename(file.sourceFile) : file.sourceFile}
@@ -276,6 +373,33 @@ export default function Home() {
                   </TableCell>
                   <TableCell>{formatEpisodeInfo(file)}</TableCell>
                   <TableCell>{new Date(file.createdAt).toLocaleString()}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {}}
+                        className="h-8 w-8"
+                        title="Edit"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteOne(file.id)}
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        disabled={isDeleting}
+                        title="Delete"
+                      >
+                        {isDeleting ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
