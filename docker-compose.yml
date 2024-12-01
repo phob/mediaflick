@@ -3,12 +3,13 @@ services:
     build: .
     container_name: plexlocalscan-api
     ports:
-      - "5000:5000"
+      - "3000:3000"
     volumes:
-      - ./config:/config
-      - /source:/source
-      - /destination:/destination
+      - D:\Test2:/mnt/zurg/tvseries
+      - D:\TestSymlink:/mnt/organized/tvseries
+      - D:\config:/app/config
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5000
+      - NODE_ENV=production
     restart: unless-stopped

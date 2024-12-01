@@ -53,15 +53,15 @@ public class ScannedFilesController(
         if (!string.IsNullOrEmpty(filter.SearchTerm))
         {
             var searchTerm = filter.SearchTerm.ToLower();
-            query = query.Where(f => 
-                EF.Functions.Like(f.SourceFile.ToLower(), $"%{searchTerm}%") || 
+            query = query.Where(f =>
+                EF.Functions.Like(f.SourceFile.ToLower(), $"%{searchTerm}%") ||
                 (f.DestFile != null && EF.Functions.Like(f.DestFile.ToLower(), $"%{searchTerm}%")));
         }
 
         // Apply sorting
         query = filter.SortBy?.ToLower() switch
         {
-            "createdat" => filter.SortOrder?.ToLower() == "desc" 
+            "createdat" => filter.SortOrder?.ToLower() == "desc"
                 ? query.OrderByDescending(f => f.CreatedAt)
                 : query.OrderBy(f => f.CreatedAt),
             "updatedat" => filter.SortOrder?.ToLower() == "desc"
@@ -104,7 +104,7 @@ public class ScannedFilesController(
         logger.LogInformation("Getting scanned file with ID: {Id}", id);
 
         var scannedFile = await context.ScannedFiles.FindAsync(id);
-        
+
         if (scannedFile == null)
         {
             logger.LogWarning("Scanned file with ID {Id} not found", id);
@@ -157,31 +157,62 @@ public class ScannedFilesController(
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<ScannedFile>> UpdateScannedFile(int id, [FromBody] UpdateScannedFileRequest request)
     {
-        logger.LogInformation("Updating scanned file {Id} with request: {@Request}", id, request);
-
-        var scannedFile = await context.ScannedFiles.FindAsync(id);
-        
-        if (scannedFile == null)
-        {
-            logger.LogWarning("Scanned file with ID {Id} not found", id);
-            return NotFound();
-        }
-
-        // Update only the provided values
-        if (request.TmdbId.HasValue)
-            scannedFile.TmdbId = request.TmdbId.Value;
-        
-        if (request.SeasonNumber.HasValue)
-            scannedFile.SeasonNumber = request.SeasonNumber.Value;
-        
-        if (request.EpisodeNumber.HasValue)
-            scannedFile.EpisodeNumber = request.EpisodeNumber.Value;
-
-        scannedFile.UpdatedAt = DateTime.UtcNow;
-        scannedFile.UpdateToVersion++;
-
         try
         {
+            logger.LogInformation("Updating scanned file {Id} with request: {@Request}", id, request);
+
+            var scannedFile = await context.ScannedFiles.FindAsync(id);
+
+            if (scannedFile == null)
+            {
+                logger.LogWarning("Scanned file with ID {Id} not found", id);
+                return NotFound();
+            }
+
+            // Update only the provided values
+            if (request.TmdbId.HasValue)
+                scannedFile.TmdbId = request.TmdbId.Value;
+
+            if (request.SeasonNumber.HasValue)
+                scannedFile.SeasonNumber = request.SeasonNumber.Value;
+
+            if (request.EpisodeNumber.HasValue)
+                scannedFile.EpisodeNumber = request.EpisodeNumber.Value;
+
+            scannedFile.UpdatedAt = DateTime.UtcNow;
+            scannedFile.UpdateToVersion++;
+
+            return Ok(scannedFile);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to update scanned file {Id}", id);
+            return BadRequest(new { error = "Failed to update the scanned file", details = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Recreates the symlink for a scanned file
+    /// </summary>
+    /// <param name="id">The ID of the scanned file to recreate the symlink for</param>
+    /// <response code="200">Returns the updated scanned file</response>
+    /// <response code="404">If the scanned file is not found</response>
+    /// <response code="400">If the symlink creation fails</response>
+    [HttpPatch("{id}/recreate-symlink")]
+    [ProducesResponseType(typeof(ScannedFile), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ScannedFile>> RecreateSymlink(int id)
+    {
+        try
+        {
+            var scannedFile = await context.ScannedFiles.FindAsync(id);
+            if (scannedFile == null)
+            {
+                logger.LogWarning("Scanned file with ID {Id} not found", id);
+                return NotFound();
+            }
+
             await context.SaveChangesAsync();
 
             // Attempt to recreate the symlink with the new information
@@ -203,4 +234,4 @@ public class ScannedFilesController(
             return BadRequest(new { error = "Failed to update the scanned file", details = ex.Message });
         }
     }
-} 
+}

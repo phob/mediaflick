@@ -47,6 +47,7 @@ services.AddSwaggerGen(c =>
 services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
     .Configure<TMDbOptions>(builder.Configuration.GetSection("TMDb"))
     .Configure<MediaDetectionOptions>(builder.Configuration.GetSection("MediaDetection"))
+    .Configure<DatabaseOptions>(builder.Configuration.GetSection("Database"))
     .AddSingleton<IPlexHandler, PlexHandler>()
     .AddScoped<ISymlinkHandler, SymlinkHandler>()
     .AddScoped<ITMDbClientWrapper>(sp =>
@@ -63,8 +64,8 @@ services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
     .AddHostedService<FileWatcherService>()
     .AddDbContext<PlexScanContext>((serviceProvider, options) =>
     {
-        var databaseOptions = "Data Source=" + Path.Combine(configDir, "plexscan.db");
-        options.UseSqlite(databaseOptions);
+        var databaseOptions = serviceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value;
+        options.UseSqlite(databaseOptions.ConnectionString);
     })
     .AddHttpClient()
     .AddMemoryCache()

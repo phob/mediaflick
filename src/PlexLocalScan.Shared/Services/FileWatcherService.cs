@@ -89,6 +89,7 @@ public class FileWatcherService : BackgroundService
                 continue;
             }
 
+            
             var currentFolders = new HashSet<string>(Directory.GetDirectories(fullSourcePath));
             
             // Check for deleted folders

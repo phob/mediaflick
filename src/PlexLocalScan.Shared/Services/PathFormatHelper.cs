@@ -4,6 +4,8 @@ public static class PathFormatHelper
 {
     public static string FormatMoviePath(MediaInfo? mediaInfo)
     {
+        ArgumentNullException.ThrowIfNull(mediaInfo);
+
         if (string.IsNullOrEmpty(mediaInfo.Title) || !mediaInfo.Year.HasValue)
             throw new ArgumentException("Movie title and year are required");
 
@@ -12,6 +14,8 @@ public static class PathFormatHelper
 
     public static (string folderPath, string fileName) FormatTvShowPath(MediaInfo? mediaInfo)
     {
+        ArgumentNullException.ThrowIfNull(mediaInfo);
+
         if (string.IsNullOrEmpty(mediaInfo.Title) || !mediaInfo.SeasonNumber.HasValue || !mediaInfo.EpisodeNumber.HasValue || !mediaInfo.Year.HasValue)
             throw new ArgumentException("TV show title, season, episode, and year are required");
 
