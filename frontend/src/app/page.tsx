@@ -58,7 +58,7 @@ export default function Home() {
   const [data, setData] = useState<PagedResult<ScannedFile> | null>(null)
   const [page, setPage] = useState(1)
   const [searchTerm, setSearchTerm] = useState('')
-  const [status, setStatus] = useState<FileStatus | undefined>()
+  const [status, setStatus] = useState<FileStatus | undefined>(FileStatus.Failed)
   const [mediaType, setMediaType] = useState<MediaType | undefined>()
   const [preferences, setPreferences] = useState<UserPreferences>(defaultPreferences)
   
@@ -79,6 +79,8 @@ export default function Home() {
     const params = new URLSearchParams({
       page: page.toString(),
       pageSize: preferences.pageSize.toString(),
+      sortBy: 'sourcefile',
+      sortDirection: 'asc',
       ...(searchTerm && { searchTerm }),
       ...(status !== undefined && { status: status.toString() }),
       ...(mediaType !== undefined && { mediaType: mediaType.toString() }),
@@ -91,7 +93,7 @@ export default function Home() {
 
   useEffect(() => {
     fetchData()
-  }, [fetchData])
+  }, [page, preferences.pageSize, searchTerm, status, mediaType, fetchData])
 
   const handlePageSizeChange = (newSize: string) => {
     setPreferences(prev => ({ ...prev, pageSize: Number(newSize) }))
@@ -154,7 +156,7 @@ export default function Home() {
             <label className="text-sm font-medium text-muted-foreground">Filter by Status</label>
             <Select
               value={status?.toString() ?? 'all'}
-              onValueChange={(value) => setStatus(value === 'all' ? undefined : parseInt(value))}
+              onValueChange={(value) => setStatus(value === 'all' ? undefined : parseInt(value) as FileStatus)}
             >
               <SelectTrigger className="transition-all focus-visible:ring-primary/30 focus-visible:ring-offset-2 shadow-sm hover:shadow-md">
                 <SelectValue placeholder="Select Status" />

@@ -73,6 +73,24 @@ public class ScannedFilesController(
             "updatedat" => filter.SortOrder?.ToLower() == "desc"
                 ? query.OrderByDescending(f => f.UpdatedAt)
                 : query.OrderBy(f => f.UpdatedAt),
+            "sourcefile" => filter.SortOrder?.ToLower() == "desc"
+                ? query.OrderByDescending(f => f.SourceFile)
+                : query.OrderBy(f => f.SourceFile),
+            "destfile" => filter.SortOrder?.ToLower() == "desc"
+                ? query.OrderByDescending(f => f.DestFile)
+                : query.OrderBy(f => f.DestFile),
+            "status" => filter.SortOrder?.ToLower() == "desc"
+                ? query.OrderByDescending(f => f.Status)
+                : query.OrderBy(f => f.Status),
+            "mediatype" => filter.SortOrder?.ToLower() == "desc"
+                ? query.OrderByDescending(f => f.MediaType)
+                : query.OrderBy(f => f.MediaType),
+            "seasonnumber" => filter.SortOrder?.ToLower() == "desc"
+                ? query.OrderByDescending(f => f.SeasonNumber)
+                : query.OrderBy(f => f.SeasonNumber),
+            "episodenumber" => filter.SortOrder?.ToLower() == "desc"
+                ? query.OrderByDescending(f => f.EpisodeNumber)
+                : query.OrderBy(f => f.EpisodeNumber),
             _ => query.OrderByDescending(f => f.CreatedAt) // Default sorting
         };
 

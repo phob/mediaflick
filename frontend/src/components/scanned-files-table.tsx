@@ -12,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Edit, Loader2, Trash2, ArrowUpDown } from 'lucide-react'
 import { FileStatus, MediaType, ScannedFile } from '@/types/api'
 import { useToast } from "@/hooks/use-toast"
+import { EditSelectedDialog } from "@/components/edit-selected-dialog"
 
 type SortField = 'sourceFile' | 'destFile' | 'status' | 'mediaType' | 'tmdbId' | 'createdAt'
 type SortDirection = 'asc' | 'desc'
@@ -37,6 +38,7 @@ export function ScannedFilesTable({
   const [dragEndIndex, setDragEndIndex] = useState<number | null>(null)
   const tableRef = useRef<HTMLTableElement>(null)
   const currentDragEndIndex = useRef<number | null>(null)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
 
   const { toast } = useToast()
 
@@ -284,15 +286,25 @@ export function ScannedFilesTable({
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <Button
-          variant="destructive"
-          onClick={() => handleDelete(Array.from(selectedIds))}
-          disabled={selectedIds.size === 0 || isDeleting}
-          className="flex items-center gap-2 transition-all hover:scale-105 shadow-lg hover:shadow-red-500/20"
-        >
-          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-          Delete Selected ({selectedIds.size})
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="destructive"
+            onClick={() => handleDelete(Array.from(selectedIds))}
+            disabled={selectedIds.size === 0 || isDeleting}
+            className="flex items-center gap-2 bg-red-600 hover:bg-red-700"
+          >
+            {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            Delete Selected ({selectedIds.size})
+          </Button>
+          <Button
+            onClick={() => setEditDialogOpen(true)}
+            disabled={selectedIds.size === 0}
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white border-0"
+          >
+            <Edit className="h-4 w-4" />
+            Edit Selected ({selectedIds.size})
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-lg border border-border bg-card/30 backdrop-blur-sm shadow-xl">
@@ -305,30 +317,18 @@ export function ScannedFilesTable({
                   onCheckedChange={handleSelectAll}
                 />
               </TableHead>
-              <TableHead>
-                <SortButton field="sourceFile">Source File</SortButton>
-              </TableHead>
-              <TableHead>
-                <SortButton field="destFile">Destination File</SortButton>
-              </TableHead>
-              <TableHead>
-                <SortButton field="status">Status</SortButton>
-              </TableHead>
-              <TableHead>
-                <SortButton field="mediaType">Media Type</SortButton>
-              </TableHead>
-              <TableHead>
-                <SortButton field="tmdbId">TMDb ID</SortButton>
-              </TableHead>
+              <TableHead>Source File</TableHead>
+              <TableHead>Destination File</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Media Type</TableHead>
+              <TableHead>TMDb ID</TableHead>
               <TableHead>Episode Info</TableHead>
-              <TableHead>
-                <SortButton field="createdAt">Created At</SortButton>
-              </TableHead>
+              <TableHead>Created At</TableHead>
               <TableHead className="w-24">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedFiles.map((file, index) => (
+            {files.map((file, index) => (
               <TableRow 
                 key={file.id} 
                 className={`
@@ -489,6 +489,13 @@ export function ScannedFilesTable({
           </TableBody>
         </Table>
       </div>
+
+      <EditSelectedDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        selectedFiles={files.filter(file => selectedIds.has(file.id))}
+        onDataChange={onDataChange}
+      />
     </div>
   )
 } 
