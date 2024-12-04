@@ -1,30 +1,54 @@
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Logging;
 using PlexLocalScan.Data.Models;
 using PlexLocalScan.Shared.Interfaces;
+using Microsoft.Extensions.Logging;
 
 namespace PlexLocalScan.Shared.Services;
 
-public class MediaLookupService(
-    ILogger<TvShowDetectionService> logger,
-    ITMDbClientWrapper tmdbClient,
-    IMemoryCache cache) : IMediaLookupService
+public record MediaSearchResult(int TmdbId, string Title, int? Year);
+
+public class MediaLookupService : IMediaLookupService
 {
-    public async Task<List<(int TmdbId, string Title)>> SearchMovieTmdbIdsAsync(string title)
+    private readonly ITMDbClientWrapper _tmdbClient;
+    private readonly ILogger<MediaLookupService> _logger;
+
+    public MediaLookupService(ITMDbClientWrapper tmdbClient, ILogger<MediaLookupService> logger)
     {
-        var searchResults = await tmdbClient.SearchMovieAsync(title);
-        return searchResults.Results.Select(r => (r.Id, r.Title)).ToList();
+        _tmdbClient = tmdbClient;
+        _logger = logger;
     }
 
-    public async Task<List<(int TmdbId, string Title)>> SearchTvShowTmdbIdsAsync(string title)
+    public async Task<IEnumerable<MediaSearchResult>> SearchMovieTmdbIdsAsync(string title)
     {
-        var searchResults = await tmdbClient.SearchTvShowAsync(title);
-        return searchResults.Results.Select(r => (r.Id, r.Name)).ToList();
+        var searchResults = await _tmdbClient.SearchMovieAsync(title);
+        return searchResults.Results.Select(r => new MediaSearchResult(r.Id, r.Title, r.ReleaseDate?.Year)).ToList();
+    }
+
+    public async Task<IEnumerable<MediaSearchResult>> SearchTvShowTmdbIdsAsync(string title)
+    {
+        _logger.LogInformation("Searching for TV show with title: {Title}", title);
+        var searchResults = await _tmdbClient.SearchTvShowAsync(title);
+        
+        if (searchResults == null)
+        {
+            _logger.LogWarning("SearchTvShowAsync returned null");
+            return Enumerable.Empty<MediaSearchResult>();
+        }
+
+        if (searchResults.Results == null)
+        {
+            _logger.LogWarning("SearchTvShowAsync results collection is null");
+            return Enumerable.Empty<MediaSearchResult>();
+        }
+
+        var results = searchResults.Results.Select(r => new MediaSearchResult(r.Id, r.Name, r.FirstAirDate?.Year)).ToList();
+        _logger.LogInformation("Found {Count} TV show results", results.Count);
+        
+        return results;
     }
 
     public async Task<MediaInfo?> GetMovieMediaInfoAsync(int tmdbId)
     {
-        var movie = await tmdbClient.GetMovieAsync(tmdbId);
+        var movie = await _tmdbClient.GetMovieAsync(tmdbId);
         if (movie != null)
         {
             var mediaInfo = new MediaInfo
@@ -43,7 +67,7 @@ public class MediaLookupService(
 
     public async Task<MediaInfo?> GetTvShowMediaInfoAsync(int tmdbId)
     {
-        var tvShow = await tmdbClient.GetTvShowAsync(tmdbId);
+        var tvShow = await _tmdbClient.GetTvShowAsync(tmdbId);
         if (tvShow != null)
         {
             var mediaInfo = new MediaInfo
@@ -59,5 +83,4 @@ public class MediaLookupService(
         }
         return null;
     }
-
 }

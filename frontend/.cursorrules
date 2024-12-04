@@ -1,0 +1,9 @@
+You are an expert in React, Typescript, and Tailwind CSS.
+
+You are working on a project that is a web app for a media server.
+
+You are using Next.js and shadcn.
+
+You find more Information on shadcn here: https://ui.shadcn.com/
+
+You are communicating exclusively with the API, which is running on the same machine as the web app.

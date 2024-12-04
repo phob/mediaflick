@@ -22,6 +22,7 @@ import { Settings2, Trash2, Loader2 } from 'lucide-react'
 import { FileStatus, MediaType, PagedResult, ScannedFile } from '@/types/api'
 import { useToast } from "@/hooks/use-toast"
 import { ScannedFilesTable } from '@/components/scanned-files-table'
+import { MediaTypeSidebar } from '@/components/media-type-sidebar'
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
 const STORAGE_KEY = 'plexLocalScan_preferences'
@@ -59,7 +60,7 @@ export default function Home() {
   const [page, setPage] = useState(1)
   const [searchTerm, setSearchTerm] = useState('')
   const [status, setStatus] = useState<FileStatus | undefined>(FileStatus.Failed)
-  const [mediaType, setMediaType] = useState<MediaType | undefined>()
+  const [mediaType, setMediaType] = useState<MediaType>(MediaType.Movies)
   const [preferences, setPreferences] = useState<UserPreferences>(defaultPreferences)
   
   const { toast } = useToast()
@@ -106,8 +107,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-background/50">
-      <div className="container mx-auto py-10 space-y-8">
-        <div className="flex justify-between items-center">
+      <div className="container mx-auto py-10">
+        <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
             Scanned Files
           </h1>
@@ -138,120 +139,111 @@ export default function Home() {
           </Dialog>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-muted-foreground">Search Files</label>
-            <div className="relative">
-              <Input
-                placeholder="Search by filename..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="transition-all focus-visible:ring-primary/30 focus-visible:ring-offset-2 shadow-sm hover:shadow-md"
-              />
-              <div className="absolute inset-0 -z-10 bg-gradient-to-r from-primary/20 to-secondary/20 blur-xl opacity-20" />
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-muted-foreground">Filter by Status</label>
-            <Select
-              value={status?.toString() ?? 'all'}
-              onValueChange={(value) => setStatus(value === 'all' ? undefined : parseInt(value) as FileStatus)}
-            >
-              <SelectTrigger className="transition-all focus-visible:ring-primary/30 focus-visible:ring-offset-2 shadow-sm hover:shadow-md">
-                <SelectValue placeholder="Select Status" />
-              </SelectTrigger>
-              <SelectContent className="backdrop-blur-sm bg-card/80">
-                <SelectItem value="all">All Status</SelectItem>
-                {Object.entries(FileStatus)
-                  .filter(([key]) => isNaN(Number(key)))
-                  .map(([key, value]) => (
-                    <SelectItem key={value} value={value.toString()}>
-                      {key}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
+        <div className="flex gap-8">
+          {/* Sidebar */}
+          <div className="w-64 shrink-0 border-r">
+            <MediaTypeSidebar
+              selectedMediaType={mediaType}
+              onMediaTypeChange={setMediaType}
+            />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-muted-foreground">Filter by Media Type</label>
-            <Select
-              value={mediaType?.toString() ?? 'all'}
-              onValueChange={(value) => setMediaType(value === 'all' ? undefined : parseInt(value))}
-            >
-              <SelectTrigger className="transition-all focus-visible:ring-primary/30 focus-visible:ring-offset-2 shadow-sm hover:shadow-md">
-                <SelectValue placeholder="Select Media Type" />
-              </SelectTrigger>
-              <SelectContent className="backdrop-blur-sm bg-card/80">
-                <SelectItem value="all">All Types</SelectItem>
-                {Object.entries(MediaType)
-                  .filter(([key]) => isNaN(Number(key)))
-                  .map(([key, value]) => (
-                    <SelectItem key={value} value={value.toString()}>
-                      {key}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {data && (
-          <ScannedFilesTable
-            files={data.items}
-            showOnlyFilenames={preferences.showOnlyFilenames}
-            onDataChange={fetchData}
-          />
-        )}
-
-        {data && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
-            <div className="flex items-center gap-4">
-              <div className="text-sm text-muted-foreground">
-                Showing {(page - 1) * preferences.pageSize + 1} to {Math.min(page * preferences.pageSize, data.totalItems)} of{' '}
-                {data.totalItems} results
+          {/* Main Content */}
+          <div className="flex-1 space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">Search Files</label>
+                <div className="relative">
+                  <Input
+                    placeholder="Search by filename..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="transition-all focus-visible:ring-primary/30 focus-visible:ring-offset-2 shadow-sm hover:shadow-md"
+                  />
+                  <div className="absolute inset-0 -z-10 bg-gradient-to-r from-primary/20 to-secondary/20 blur-xl opacity-20" />
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Show</span>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">Filter by Status</label>
                 <Select
-                  value={preferences.pageSize.toString()}
-                  onValueChange={handlePageSizeChange}
+                  value={status?.toString() ?? 'all'}
+                  onValueChange={(value) => setStatus(value === 'all' ? undefined : parseInt(value) as FileStatus)}
                 >
-                  <SelectTrigger className="w-[80px] transition-all focus-visible:ring-primary/30 focus-visible:ring-offset-2">
-                    <SelectValue />
+                  <SelectTrigger className="transition-all focus-visible:ring-primary/30 focus-visible:ring-offset-2 shadow-sm hover:shadow-md">
+                    <SelectValue placeholder="Select Status" />
                   </SelectTrigger>
                   <SelectContent className="backdrop-blur-sm bg-card/80">
-                    {PAGE_SIZE_OPTIONS.map((size) => (
-                      <SelectItem key={size} value={size.toString()}>
-                        {size}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="all">All Status</SelectItem>
+                    {Object.entries(FileStatus)
+                      .filter(([key]) => isNaN(Number(key)))
+                      .map(([key, value]) => (
+                        <SelectItem key={value} value={value.toString()}>
+                          {key}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
-                <span className="text-sm text-muted-foreground">entries</span>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="transition-all hover:scale-105 shadow-sm hover:shadow-md"
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setPage(p => p + 1)}
-                disabled={page >= data.totalPages}
-                className="transition-all hover:scale-105 shadow-sm hover:shadow-md"
-              >
-                Next
-              </Button>
-            </div>
+
+            {data && (
+              <ScannedFilesTable
+                files={data.items}
+                showOnlyFilenames={preferences.showOnlyFilenames}
+                onDataChange={fetchData}
+              />
+            )}
+
+            {data && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
+                <div className="flex items-center gap-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {(page - 1) * preferences.pageSize + 1} to {Math.min(page * preferences.pageSize, data.totalItems)} of{' '}
+                    {data.totalItems} results
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Show</span>
+                    <Select
+                      value={preferences.pageSize.toString()}
+                      onValueChange={handlePageSizeChange}
+                    >
+                      <SelectTrigger className="w-[80px] transition-all focus-visible:ring-primary/30 focus-visible:ring-offset-2">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="backdrop-blur-sm bg-card/80">
+                        {PAGE_SIZE_OPTIONS.map((size) => (
+                          <SelectItem key={size} value={size.toString()}>
+                            {size}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <span className="text-sm text-muted-foreground">entries</span>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="transition-all hover:scale-105 shadow-sm hover:shadow-md"
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setPage(p => p + 1)}
+                    disabled={page >= data.totalPages}
+                    className="transition-all hover:scale-105 shadow-sm hover:shadow-md"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   )

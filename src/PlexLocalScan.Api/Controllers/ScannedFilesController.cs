@@ -5,8 +5,6 @@ using PlexLocalScan.Data.Models;
 using PlexLocalScan.Api.Models;
 using PlexLocalScan.Shared.Interfaces;
 using System.ComponentModel;
-using Serilog;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace PlexLocalScan.Api.Controllers;
 
@@ -18,7 +16,6 @@ namespace PlexLocalScan.Api.Controllers;
 public class ScannedFilesController(
     PlexScanContext context,
     ISymlinkRecreationService symlinkRecreationService,
-    IMemoryCache cache,
     ILogger<ScannedFilesController> logger) : ControllerBase
 {
     private const string StatsCacheKey = "ScannedFiles_Stats";
@@ -125,14 +122,6 @@ public class ScannedFilesController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ScannedFile>> GetScannedFile(int id)
     {
-        var cacheKey = $"{ScannedFileCacheKeyPrefix}{id}";
-        
-        if (cache.TryGetValue(cacheKey, out ScannedFile? cachedFile))
-        {
-            logger.LogInformation("Cache hit for scanned file ID: {Id}", id);
-            return Ok(cachedFile);
-        }
-
         logger.LogInformation("Getting scanned file with ID: {Id}", id);
         var scannedFile = await context.ScannedFiles.FindAsync(id);
 
@@ -142,7 +131,6 @@ public class ScannedFilesController(
             return NotFound();
         }
 
-        cache.Set(cacheKey, scannedFile, CacheDuration);
         logger.LogInformation("Retrieved scanned file: {@ScannedFile}", scannedFile);
         return Ok(scannedFile);
     }
@@ -155,12 +143,6 @@ public class ScannedFilesController(
     [ProducesResponseType(typeof(ScannedFileStats), StatusCodes.Status200OK)]
     public async Task<ActionResult<ScannedFileStats>> GetStats()
     {
-        if (cache.TryGetValue(StatsCacheKey, out ScannedFileStats? cachedStats))
-        {
-            logger.LogInformation("Cache hit for scanned files statistics");
-            return Ok(cachedStats);
-        }
-
         logger.LogInformation("Getting scanned files statistics");
 
         var stats = new ScannedFileStats
@@ -177,7 +159,6 @@ public class ScannedFilesController(
                 .ToListAsync()
         };
 
-        cache.Set(StatsCacheKey, stats, CacheDuration);
         logger.LogInformation("Retrieved statistics: {@Stats}", stats);
         return Ok(stats);
     }
@@ -222,7 +203,6 @@ public class ScannedFilesController(
             scannedFile.UpdateToVersion++;
 
             await context.SaveChangesAsync();
-            InvalidateScannedFileCache(id);
             
             return Ok(scannedFile);
         }
@@ -299,8 +279,6 @@ public class ScannedFilesController(
 
         context.ScannedFiles.Remove(scannedFile);
         await context.SaveChangesAsync();
-        
-        InvalidateScannedFileCache(id);
 
         logger.LogInformation("Successfully deleted scanned file with ID: {Id}", id);
         return NoContent();
@@ -332,20 +310,9 @@ public class ScannedFilesController(
         {
             context.ScannedFiles.RemoveRange(filesToDelete);
             await context.SaveChangesAsync();
-            
-            foreach (var file in filesToDelete)
-            {
-                InvalidateScannedFileCache(file.Id);
-            }
         }
 
         logger.LogInformation("Successfully deleted {Count} scanned files", filesToDelete.Count);
         return NoContent();
-    }
-
-    private void InvalidateScannedFileCache(int id)
-    {
-        cache.Remove($"{ScannedFileCacheKeyPrefix}{id}");
-        cache.Remove(StatsCacheKey);
     }
 }

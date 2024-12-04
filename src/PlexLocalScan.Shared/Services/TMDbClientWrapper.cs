@@ -19,7 +19,7 @@ public class TMDbClientWrapper(string apiKey) : ITMDbClientWrapper
         => _client.GetTvEpisodeAsync(tvShowId, seasonNumber, episodeNumber);
 
     public Task<Movie> GetMovieAsync(int movieId)
-        => _client.GetMovieAsync(movieId);
+        => _client.GetMovieAsync(movieId, MovieMethods.Images | MovieMethods.Credits);
     
     public Task<TvShow> GetTvShowAsync(int tvShowId)
         => _client.GetTvShowAsync(tvShowId);

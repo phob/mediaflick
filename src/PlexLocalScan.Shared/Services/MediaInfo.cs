@@ -13,4 +13,6 @@ public record MediaInfo
     public string? EpisodeTitle { get; init; }
     public int? EpisodeNumber2 { get; internal init; }
     public int? EpisodeTmdbId { get; internal set; }
+    public string? PosterPath { get; internal set; }
+    public string? Summary { get; internal set; }
 }

@@ -9,42 +9,17 @@ namespace PlexLocalScan.Shared.Services;
 
 public class FileTrackingService(
     PlexScanContext dbContext,
-    ILogger<FileTrackingService> logger,
-    IMemoryCache dbCache)
+    ILogger<FileTrackingService> logger)
     : IFileTrackingService
 {
-    private const string CacheKeyPrefix = "ScannedFile_";
-    private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
-
-    private static string GetSourceFileCacheKey(string sourceFile) => $"{CacheKeyPrefix}Source_{sourceFile}";
-    private static string GetDestFileCacheKey(string destFile) => $"{CacheKeyPrefix}Dest_{destFile}";
-    private static string GetTmdbCacheKey(int tmdbId) => $"{CacheKeyPrefix}Tmdb_{tmdbId}";
-    private static string GetSeasonCacheKey(int seasonNumber) => $"{CacheKeyPrefix}Season_{seasonNumber}";
-    private static string GetEpisodeCacheKey(int episodeNumber) => $"{CacheKeyPrefix}Episode_{episodeNumber}";
 
     private async Task<ScannedFile?> GetExistingScannedFileAsync(string sourceFile, string? type = null)
     {
-        var cacheKey = GetSourceFileCacheKey(sourceFile);
-        
-        if (dbCache.TryGetValue(cacheKey, out ScannedFile? cachedFile))
-        {
-            logger.LogDebug("Cache hit for file: {SourceFile}", sourceFile);
-            
-            if (cachedFile?.Status == FileStatus.Success && type == "add")
-            {
-                logger.LogInformation("File already tracked and successful: {SourceFile}", sourceFile);
-                return null;
-            }
-            return cachedFile;
-        }
-
         var scannedFile = await dbContext.ScannedFiles
             .FirstOrDefaultAsync(f => f.SourceFile == sourceFile);
 
         if (scannedFile != null)
         {
-            dbCache.Set(cacheKey, scannedFile, CacheDuration);
-            
             if (scannedFile.Status == FileStatus.Success && type == "add")
             {
                 logger.LogInformation("File already tracked and successful: {SourceFile}", sourceFile);
@@ -55,16 +30,6 @@ public class FileTrackingService(
 
         return scannedFile;
     }
-
-    private void InvalidateRelatedCaches(ScannedFile file)
-    {
-        dbCache.Remove(GetSourceFileCacheKey(file.SourceFile));
-        if (file.DestFile != null) dbCache.Remove(GetDestFileCacheKey(file.DestFile));
-        if (file.TmdbId.HasValue) dbCache.Remove(GetTmdbCacheKey(file.TmdbId.Value));
-        if (file.SeasonNumber.HasValue) dbCache.Remove(GetSeasonCacheKey(file.SeasonNumber.Value));
-        if (file.EpisodeNumber.HasValue) dbCache.Remove(GetEpisodeCacheKey(file.EpisodeNumber.Value));
-    }
-
     public async Task<ScannedFile?> AddStatusAsync(string sourceFile, string? destFile, MediaType mediaType, int? tmdbId)
     {
         var scannedFile = await GetExistingScannedFileAsync(sourceFile, "add");
@@ -117,7 +82,6 @@ public class FileTrackingService(
             
             if (saveResult > 0)
             {
-                InvalidateRelatedCaches(scannedFile);
                 logger.LogInformation("Updated status to {Status} for file: {File}", status, sourceFile);
                 return true;
             }
@@ -134,15 +98,9 @@ public class FileTrackingService(
 
     public async Task<bool> UpdateStatusByTmdbIdAsync(int tmdbId, FileStatus status)
     {
-        var cacheKey = GetTmdbCacheKey(tmdbId);
-        var scannedFiles = await dbCache.GetOrCreateAsync(cacheKey, async entry =>
-        {
-            entry.SlidingExpiration = CacheDuration;
-            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30);
-            return await dbContext.ScannedFiles
+        var scannedFiles =  await dbContext.ScannedFiles
                 .Where(f => f.TmdbId == tmdbId)
                 .ToListAsync();
-        }) ?? [];
 
         if (scannedFiles.Count == 0)
         {
@@ -157,14 +115,12 @@ public class FileTrackingService(
                 file.Status = status;
                 file.UpdatedAt = DateTime.UtcNow;
                 dbContext.Entry(file).State = EntityState.Modified;
-                InvalidateRelatedCaches(file);
             }
 
             var saveResult = await dbContext.SaveChangesAsync();
             
             if (saveResult > 0)
             {
-                dbCache.Remove(cacheKey);
                 logger.LogInformation("Updated status to {Status} for {Count} files with TMDb ID: {TmdbId}", 
                     status, scannedFiles.Count, tmdbId);
                 return true;
@@ -182,22 +138,11 @@ public class FileTrackingService(
 
     public async Task<ScannedFile?> GetBySourceFileAsync(string sourceFile)
     {
-        var cacheKey = GetSourceFileCacheKey(sourceFile);
-        return await dbCache.GetOrCreateAsync(cacheKey, async entry =>
-        {
-            entry.SlidingExpiration = CacheDuration;
-            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30);
-            return await dbContext.ScannedFiles.FirstOrDefaultAsync(f => f.SourceFile == sourceFile);
-        });
+        return await dbContext.ScannedFiles.FirstOrDefaultAsync(f => f.SourceFile == sourceFile);
     }
 
     public async Task<ScannedFile?> GetByDestFileAsync(string destFile)
     {
-        var cacheKey = GetDestFileCacheKey(destFile);
-        return await dbCache.GetOrCreateAsync(cacheKey, async entry =>
-        {
-            entry.SlidingExpiration = CacheDuration;
-            return await dbContext.ScannedFiles.FirstOrDefaultAsync(f => f.DestFile == destFile);
-        });
+        return await dbContext.ScannedFiles.FirstOrDefaultAsync(f => f.DestFile == destFile);
     }
 }

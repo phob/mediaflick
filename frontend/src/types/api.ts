@@ -40,3 +40,15 @@ export interface ScannedFileFilter {
   sortBy?: string
   sortOrder?: 'asc' | 'desc'
 } 
+
+export interface MediaInfo {
+  title: string
+  year: number | null
+  tmdbId: number
+  mediaType: MediaType
+  posterPath: string | null
+  summary: string | null
+  seasonNumber?: number
+  episodeNumber?: number
+  episodeTitle?: string
+}
