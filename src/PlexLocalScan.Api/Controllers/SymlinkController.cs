@@ -7,21 +7,14 @@ namespace PlexLocalScan.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class SymlinkController : ControllerBase
+public class SymlinkController(
+    ICleanupHandler cleanupHandler,
+    IOptions<PlexOptions> plexOptions,
+    ILogger<SymlinkController> logger) : ControllerBase
 {
-    private readonly ICleanupHandler _cleanupHandler;
-    private readonly PlexOptions _plexOptions;
-    private readonly ILogger<SymlinkController> _logger;
-
-    public SymlinkController(
-        ICleanupHandler cleanupHandler,
-        IOptions<PlexOptions> plexOptions,
-        ILogger<SymlinkController> logger)
-    {
-        _cleanupHandler = cleanupHandler;
-        _plexOptions = plexOptions.Value;
-        _logger = logger;
-    }
+    private readonly ICleanupHandler _cleanupHandler = cleanupHandler;
+    private readonly PlexOptions _plexOptions = plexOptions.Value;
+    private readonly ILogger<SymlinkController> _logger = logger;
 
     /// <summary>
     /// Cleans up dead symlinks and empty folders in the destination folder

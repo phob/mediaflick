@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Edit, Loader2, Trash2, ArrowUpDown } from 'lucide-react'
+import { Edit, Loader2, Trash2, ArrowUpDown, RefreshCw } from 'lucide-react'
 import { FileStatus, MediaType, ScannedFile } from '@/types/api'
 import { useToast } from "@/hooks/use-toast"
 import { EditSelectedDialog } from "@/components/edit-selected-dialog"
@@ -39,6 +39,7 @@ export function ScannedFilesTable({
   const tableRef = useRef<HTMLTableElement>(null)
   const currentDragEndIndex = useRef<number | null>(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [isRecreatingSymlinks, setIsRecreatingSymlinks] = useState(false)
 
   const { toast } = useToast()
 
@@ -245,6 +246,34 @@ export function ScannedFilesTable({
     event.preventDefault()
   }
 
+  const handleRecreateSymlinks = async () => {
+    try {
+      setIsRecreatingSymlinks(true)
+      const response = await fetch('/api/ScannedFiles/recreate-symlinks', {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to recreate symlinks')
+      }
+
+      await onDataChange()
+      toast({
+        title: "Success",
+        description: "Successfully recreated symlinks"
+      })
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to recreate symlinks"
+      })
+      console.error('Recreate symlinks error:', error)
+    } finally {
+      setIsRecreatingSymlinks(false)
+    }
+  }
+
   const sortedFiles = [...files].sort((a, b) => {
     let comparison = 0
     
@@ -305,6 +334,20 @@ export function ScannedFilesTable({
             Edit Selected ({selectedIds.size})
           </Button>
         </div>
+        {files.some(file => file.updateToVersion > file.versionUpdated) && (
+          <Button
+            onClick={handleRecreateSymlinks}
+            disabled={isRecreatingSymlinks}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white border-0"
+          >
+            {isRecreatingSymlinks ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            Recreate Symlinks
+          </Button>
+        )}
       </div>
 
       <div className="rounded-lg border border-border bg-card/30 backdrop-blur-sm shadow-xl">
@@ -345,6 +388,7 @@ export function ScannedFilesTable({
                       : ''
                   }
                   ${selectedIds.has(file.id) ? 'bg-primary/5' : ''}
+                  ${file.updateToVersion > file.versionUpdated ? 'bg-blue-500/10 hover:bg-blue-500/20' : ''}
                 `}
                 onMouseDown={(e) => handleMouseDown(index, e)}
                 onClick={(e) => {

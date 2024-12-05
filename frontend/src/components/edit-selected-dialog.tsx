@@ -134,9 +134,13 @@ export function EditSelectedDialog({
       file.seasonNumber = parsedValue
       
       if (parsedValue !== undefined) {
-        console.log('Filling empty season numbers with:', parsedValue)
+        console.log('Filling subsequent season numbers with:', parsedValue)
+        let foundCurrent = false
+        
         newFiles.forEach((f) => {
-          if (!f.seasonNumber) {
+          if (f === file) {
+            foundCurrent = true
+          } else if (foundCurrent) {
             f.seasonNumber = parsedValue
           }
         })
@@ -149,18 +153,23 @@ export function EditSelectedDialog({
         console.log('Filling subsequent empty episodes starting from:', parsedValue)
         let nextEpisode = parsedValue + 1
         let foundCurrent = false
+        let currentSeason = file.seasonNumber
         
         newFiles.forEach((f) => {
           if (f === file) {
             foundCurrent = true
-          } else if (
-            foundCurrent && 
-            f.seasonNumber === file.seasonNumber && 
-            !f.episodeNumber
-          ) {
-            console.log(`Setting episode ${nextEpisode} for file:`, f.sourceFile)
-            f.episodeNumber = nextEpisode
-            nextEpisode++
+          } else if (foundCurrent) {
+            if (f.seasonNumber && f.seasonNumber !== currentSeason) {
+              // Reset episode counter for new season
+              nextEpisode = 1
+              currentSeason = f.seasonNumber
+            }
+            
+            if (!f.episodeNumber) {
+              console.log(`Setting episode ${nextEpisode} for file:`, f.sourceFile)
+              f.episodeNumber = nextEpisode
+              nextEpisode++
+            }
           }
         })
       }

@@ -8,6 +8,9 @@ using PlexLocalScan.Data.Data;
 using PlexLocalScan.Shared.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using System.Collections.Generic;
+using System.Linq;
+
 namespace PlexLocalScan.Shared.Services;
 
 public class FileWatcherService : BackgroundService
@@ -76,12 +79,14 @@ public class FileWatcherService : BackgroundService
         var dbContext = scope.ServiceProvider.GetRequiredService<PlexScanContext>();
         var cleanupHandler = scope.ServiceProvider.GetRequiredService<ICleanupHandler>();
         
+        // Create a list to store all files that need to be deleted from the database
+        var filesToDelete = new List<ScannedFile>();
+        
         foreach (var mapping in _options.FolderMappings)
         {
             var fullSourcePath = Path.GetFullPath(mapping.SourceFolder);
             _logger.LogDebug("Scanning source folder: {SourceFolder}", fullSourcePath);
 
-            // Check if the source folder still exists
             if (!Directory.Exists(fullSourcePath))
             {
                 _logger.LogWarning("Source folder no longer exists: {SourceFolder}", fullSourcePath);
@@ -89,7 +94,6 @@ public class FileWatcherService : BackgroundService
                 continue;
             }
 
-            
             var currentFolders = new HashSet<string>(Directory.GetDirectories(fullSourcePath));
             
             // Check for deleted folders
@@ -103,15 +107,17 @@ public class FileWatcherService : BackgroundService
                 }
             }
 
-            // Get all tracked files for this source folder
+            // Get all tracked files for this source folder - optimize by selecting only necessary fields
             var trackedFiles = await dbContext.ScannedFiles
                 .Where(f => f.SourceFile.StartsWith(fullSourcePath))
+                .Select(f => new { f.SourceFile, f.DestFile, f.Id })
                 .ToListAsync(stoppingToken);
 
             var trackedFilePaths = new HashSet<string>(trackedFiles.Select(f => f.SourceFile));
 
-            // Check for deleted files
-            foreach (var trackedFile in trackedFiles.Where(trackedFile => !File.Exists(trackedFile.SourceFile)))
+            // Check for deleted files in batch
+            var deletedFiles = trackedFiles.Where(trackedFile => !File.Exists(trackedFile.SourceFile)).ToList();
+            foreach (var trackedFile in deletedFiles)
             {
                 _logger.LogInformation("Source file was deleted: {SourceFile}", trackedFile.SourceFile);
                     
@@ -129,21 +135,8 @@ public class FileWatcherService : BackgroundService
                     }
                 }
 
-                // Remove the database entry
-                dbContext.ScannedFiles.Remove(trackedFile);
-            }
-
-            // Scan for untracked files
-            await ScanForUntrackedFilesAsync(
-                fullSourcePath, 
-                trackedFilePaths, 
-                mapping, 
-                stoppingToken);
-
-            // Save any changes from deleted file cleanup
-            if (dbContext.ChangeTracker.HasChanges())
-            {
-                await dbContext.SaveChangesAsync(stoppingToken);
+                // Add to the list of files to delete from database
+                filesToDelete.Add(new ScannedFile { Id = trackedFile.Id });
             }
 
             // Process new folders
@@ -154,10 +147,23 @@ public class FileWatcherService : BackgroundService
             var foldersToProcess = currentFolders
                 .Where(folder => !processedFolders.Contains(folder));
 
-            foreach (var folder in foldersToProcess)
-            {
-                await ProcessNewFolderAsync(folder, mapping, stoppingToken);
-            }
+            // Process folders in parallel with a maximum degree of parallelism
+            await Parallel.ForEachAsync(
+                foldersToProcess,
+                new ParallelOptions 
+                { 
+                    MaxDegreeOfParallelism = 3,
+                    CancellationToken = stoppingToken 
+                },
+                async (folder, ct) => await ProcessNewFolderAsync(folder, mapping, ct)
+            );
+
+            // Scan for untracked files
+            await ScanForUntrackedFilesAsync(
+                fullSourcePath, 
+                trackedFilePaths, 
+                mapping, 
+                stoppingToken);
 
             // Clean up empty directories in destination folder
             if (Directory.Exists(mapping.DestinationFolder))
@@ -167,6 +173,13 @@ public class FileWatcherService : BackgroundService
 
             // Update known folders for future reference
             _knownFolders[mapping.SourceFolder] = [..currentFolders];
+        }
+
+        // Batch delete files from database
+        if (filesToDelete.Any())
+        {
+            dbContext.ScannedFiles.RemoveRange(filesToDelete);
+            await dbContext.SaveChangesAsync(stoppingToken);
         }
     }
 

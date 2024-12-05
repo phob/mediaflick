@@ -1,10 +1,12 @@
+using System.ComponentModel;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using PlexLocalScan.Data.Data;
 using PlexLocalScan.Data.Models;
 using PlexLocalScan.Api.Models;
 using PlexLocalScan.Shared.Interfaces;
-using System.ComponentModel;
+using PlexLocalScan.Shared.Options;
 
 namespace PlexLocalScan.Api.Controllers;
 
@@ -16,12 +18,10 @@ namespace PlexLocalScan.Api.Controllers;
 public class ScannedFilesController(
     PlexScanContext context,
     ISymlinkRecreationService symlinkRecreationService,
+    IOptions<PlexOptions> plexOptions,
+    ICleanupHandler cleanupHandler,
     ILogger<ScannedFilesController> logger) : ControllerBase
 {
-    private const string StatsCacheKey = "ScannedFiles_Stats";
-    private const string ScannedFileCacheKeyPrefix = "ScannedFile_";
-    private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
-
     /// <summary>
     /// Retrieves a paged list of scanned files with optional filtering and sorting
     /// </summary>
@@ -276,6 +276,17 @@ public class ScannedFilesController(
             logger.LogWarning("Scanned file with ID {Id} not found", id);
             return NotFound();
         }
+        var folderMapping = plexOptions.Value.FolderMappings
+            .FirstOrDefault(fm => fm.MediaType == scannedFile.MediaType);
+
+        if (folderMapping != null)
+        {
+            if (!string.IsNullOrEmpty(scannedFile.DestFile))
+            {
+                System.IO.File.Delete(scannedFile.DestFile);
+            }
+            await cleanupHandler.CleanupDeadSymlinksAsync(folderMapping.DestinationFolder);
+        }
 
         context.ScannedFiles.Remove(scannedFile);
         await context.SaveChangesAsync();
@@ -308,11 +319,44 @@ public class ScannedFilesController(
 
         if (filesToDelete.Any())
         {
+            // Group files by media type for efficient cleanup
+            var filesByMediaType = filesToDelete.GroupBy(f => f.MediaType);
+            
+            foreach (var mediaTypeGroup in filesByMediaType)
+            {
+                if (!mediaTypeGroup.Key.HasValue) continue;
+                
+                var folderMapping = plexOptions.Value.FolderMappings
+                    .FirstOrDefault(fm => fm.MediaType == mediaTypeGroup.Key);
+
+                if (folderMapping != null)
+                {
+                    // Delete all destination files for this media type
+                    foreach (var file in mediaTypeGroup)
+                    {
+                        if (!string.IsNullOrEmpty(file.DestFile))
+                        {
+                            System.IO.File.Delete(file.DestFile);
+                        }
+                    }
+                    
+                    // Clean up empty directories once per media type
+                    await cleanupHandler.CleanupDeadSymlinksAsync(folderMapping.DestinationFolder);
+                }
+            }
+
             context.ScannedFiles.RemoveRange(filesToDelete);
             await context.SaveChangesAsync();
         }
 
         logger.LogInformation("Successfully deleted {Count} scanned files", filesToDelete.Count);
         return NoContent();
+    }
+
+    [HttpPost("recreate-symlinks")]
+    public async Task<IActionResult> RecreateSymlinks()
+    {
+        var successCount = await symlinkRecreationService.RecreateAllSymlinksAsync();
+        return Ok(new { SuccessCount = successCount });
     }
 }
