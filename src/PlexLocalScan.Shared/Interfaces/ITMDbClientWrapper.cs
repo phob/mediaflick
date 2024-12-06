@@ -12,4 +12,6 @@ public interface ITMDbClientWrapper
     Task<TvEpisode> GetTvEpisodeAsync(int tvShowId, int seasonNumber, int episodeNumber);
     Task<Movie> GetMovieAsync(int movieId);
     Task<TvShow> GetTvShowAsync(int tvShowId);
+    Task<ExternalIdsTvShow> GetExternalIdsAsync(int tvShowId);
+    Task<ExternalIdsMovie> GetMovieExternalIdsAsync(int movieId);
 } 

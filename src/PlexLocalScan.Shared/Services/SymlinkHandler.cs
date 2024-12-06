@@ -55,7 +55,7 @@ public class SymlinkHandler(
 
             await CreateFileLinkAsync(sourceFile, fullTargetPath);
             
-            await fileTrackingService.UpdateStatusAsync(sourceFile, fullTargetPath, mediaType, null, FileStatus.Failed);
+            await fileTrackingService.UpdateStatusAsync(sourceFile, fullTargetPath, mediaType, null, null, FileStatus.Failed);
             
             logger.LogInformation("Created fallback symlink for undetected media: {SourceFile} -> {TargetPath}", 
                 sourceFile, fullTargetPath);
@@ -104,7 +104,7 @@ public class SymlinkHandler(
                 if (IsSymlink(fullTargetPath))
                 {
                     logger.LogDebug("Symlink already exists: {TargetPath}", fullTargetPath);
-                    await fileTrackingService.UpdateStatusAsync(sourcePath, fullTargetPath, null, null, FileStatus.Success);
+                    await fileTrackingService.UpdateStatusAsync(sourcePath, fullTargetPath, null, null, null, FileStatus.Success);
                     return;
                 }
                 File.Delete(fullTargetPath);
@@ -135,7 +135,7 @@ public class SymlinkHandler(
             }
 
             await Task.Run(() => File.CreateSymbolicLink(destinationPath, sourcePath));
-            await fileTrackingService.UpdateStatusAsync(sourcePath, destinationPath, null, null, FileStatus.Success);
+            await fileTrackingService.UpdateStatusAsync(sourcePath, destinationPath, null, null, null, FileStatus.Success);
         }
         catch (Exception ex)
         {

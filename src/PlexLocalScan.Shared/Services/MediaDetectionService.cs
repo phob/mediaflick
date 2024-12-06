@@ -35,7 +35,7 @@ public class MediaDetectionService(
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error detecting media info for {FileName}", fileName);
-            await fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, FileStatus.Failed);
+            await fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, null, FileStatus.Failed);
             throw;
         }
     }

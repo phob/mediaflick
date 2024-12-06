@@ -85,6 +85,7 @@ public class SymlinkRecreationService(
                 scannedFile.DestFile,
                 scannedFile.MediaType,
                 scannedFile.TmdbId,
+                scannedFile.ImdbId,
                 scannedFile.SeasonNumber,
                 scannedFile.EpisodeNumber,
                 FileStatus.Success);
@@ -145,6 +146,7 @@ public class SymlinkRecreationService(
                         duplicate.DestFile,
                         duplicate.MediaType,
                         duplicate.TmdbId,
+                        duplicate.ImdbId,
                         FileStatus.Failed);
                     failedCount++;
                 }
@@ -174,6 +176,7 @@ public class SymlinkRecreationService(
                         duplicate.DestFile,
                         duplicate.MediaType,
                         duplicate.TmdbId,
+                        duplicate.ImdbId,
                         FileStatus.Failed);
                     failedCount++;
                 }

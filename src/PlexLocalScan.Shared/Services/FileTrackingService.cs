@@ -38,7 +38,7 @@ public class FileTrackingService(PlexScanContext dbContext, ILogger<FileTracking
         return scannedFile;
     }
 
-    public async Task<ScannedFile?> AddStatusAsync(string sourceFile, string? destFile, MediaType mediaType, int? tmdbId)
+    public async Task<ScannedFile?> AddStatusAsync(string sourceFile, string? destFile, MediaType mediaType, int? tmdbId, string? imdbId)
     {
         var scannedFile = await GetExistingScannedFileAsync(sourceFile, "add");
         if (scannedFile != null)
@@ -52,6 +52,7 @@ public class FileTrackingService(PlexScanContext dbContext, ILogger<FileTracking
             DestFile = destFile,
             MediaType = mediaType,
             TmdbId = tmdbId,
+            ImdbId = imdbId,
             Status = FileStatus.Processing,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -74,12 +75,12 @@ public class FileTrackingService(PlexScanContext dbContext, ILogger<FileTracking
         }
     }
 
-    public async Task<bool> UpdateStatusAsync(string sourceFile, string? destFile, MediaType? mediaType, int? tmdbId, FileStatus status)
+    public async Task<bool> UpdateStatusAsync(string sourceFile, string? destFile, MediaType? mediaType, int? tmdbId, string? imdbId, FileStatus status)
     {
-        return await UpdateStatusAsync(sourceFile, destFile, mediaType, tmdbId, null, null, status);
+        return await UpdateStatusAsync(sourceFile, destFile, mediaType, tmdbId, imdbId, null, null, status);
     }
 
-    public async Task<bool> UpdateStatusAsync(string sourceFile, string? destFile, MediaType? mediaType, int? tmdbId, int? seasonNumber, int? episodeNumber, FileStatus status)
+    public async Task<bool> UpdateStatusAsync(string sourceFile, string? destFile, MediaType? mediaType, int? tmdbId, string? imdbId, int? seasonNumber, int? episodeNumber, FileStatus status)
     {
         var scannedFile = await GetExistingScannedFileAsync(sourceFile, "update");
         if (scannedFile == null)
@@ -96,6 +97,7 @@ public class FileTrackingService(PlexScanContext dbContext, ILogger<FileTracking
             if (destFile != null && destFile != scannedFile.DestFile) scannedFile.DestFile = destFile;
             if (mediaType.HasValue && mediaType.Value != scannedFile.MediaType) scannedFile.MediaType = mediaType.Value;
             if (tmdbId.HasValue && tmdbId.Value != scannedFile.TmdbId) scannedFile.TmdbId = tmdbId.Value;
+            if (imdbId != null && imdbId != scannedFile.ImdbId) scannedFile.ImdbId = imdbId;
             if (seasonNumber.HasValue && seasonNumber.Value != scannedFile.SeasonNumber) scannedFile.SeasonNumber = seasonNumber.Value;
             if (episodeNumber.HasValue && episodeNumber.Value != scannedFile.EpisodeNumber) scannedFile.EpisodeNumber = episodeNumber.Value;
             if (status != scannedFile.Status)

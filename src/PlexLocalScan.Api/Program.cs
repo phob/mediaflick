@@ -104,22 +104,29 @@ app.UseExceptionHandler(errorApp =>
 });
 
 // Configure the HTTP request pipeline
-app.UseSwagger(options =>
+if (app.Environment.IsDevelopment())
 {
-    options.RouteTemplate = "/openapi/{documentName}.json";
-});
+    app.UseSwagger(options =>
+    {
+        options.RouteTemplate = "/openapi/{documentName}.json";
+    });
 
-app.MapScalarApiReference(options =>
-{
-    options.Theme = ScalarTheme.Mars;
-});
+    app.MapScalarApiReference(options =>
+    {
+        options.Theme = ScalarTheme.Mars;
+    });
+}
 
 app.UseRouting();
 //app.UseHttpsRedirection();
 //app.UseAuthorization();
 
-// Replace the root path handler with a redirect
-app.MapGet("/", () => Results.Redirect("/scalar/v1"));
+if (app.Environment.IsDevelopment())
+{
+    // Replace the root path handler with a redirect
+    app.MapGet("/", () => Results.Redirect("/scalar/v1"));
+}
+
 app.MapControllers();
 
 try

@@ -7,6 +7,7 @@ public record MediaInfo
     public string Title { get; init; } = string.Empty;
     public int? Year { get; init; }
     public int? TmdbId { get; init; }
+    public string? ImdbId { get; init; }
     public MediaType MediaType { get; init; }
     public int? SeasonNumber { get; init; }
     public int? EpisodeNumber { get; init; }

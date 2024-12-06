@@ -16,6 +16,7 @@ public class ScannedFile
     public MediaType? MediaType { get; set; } = null;
     
     public int? TmdbId { get; set; } = null;
+    public string? ImdbId { get; set; } = null;
 
     public int? SeasonNumber { get; set; } = null;
     public int? EpisodeNumber { get; set; } = null;

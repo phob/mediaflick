@@ -226,7 +226,7 @@ public class FileWatcherService : BackgroundService
             var mediaDetectionService = scope.ServiceProvider.GetRequiredService<IMediaDetectionService>();
             var symlinkHandler = scope.ServiceProvider.GetRequiredService<ISymlinkHandler>();
             
-            var trackedFile = await fileTrackingService.AddStatusAsync(file, null, mapping.MediaType, null);
+            var trackedFile = await fileTrackingService.AddStatusAsync(file, null, mapping.MediaType, null, null);
             if (trackedFile == null)
             {
                 return;
