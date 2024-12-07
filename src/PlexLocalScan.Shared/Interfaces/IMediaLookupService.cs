@@ -11,4 +11,5 @@ public interface IMediaLookupService
     Task<MediaInfo?> GetTvShowMediaInfoAsync(int tmdbId);
     Task<SeasonInfo?> GetTvShowSeasonMediaInfoAsync(int tmdbId, int seasonNumber);
     Task<EpisodeInfo?> GetTvShowEpisodeMediaInfoAsync(int tmdbId, int seasonNumber, int episodeNumber);
+    Task<string?> GetImageUrlAsync(string path, string size);
 }

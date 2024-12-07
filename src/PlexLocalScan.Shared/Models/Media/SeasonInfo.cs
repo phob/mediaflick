@@ -7,5 +7,5 @@ public record SeasonInfo
     public string? Overview { get; init; }
     public string? PosterPath { get; init; }
     public DateTime? AirDate { get; init; }
-    public List<EpisodeInfo> Episodes { get; init; } = new();
+    public List<EpisodeInfo> Episodes { get; init; } = [];
 } 

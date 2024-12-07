@@ -146,4 +146,31 @@ public class MediaLookupController(
 
         return Ok(tvEpisodeInfo);
     }
+
+    /// <summary>
+    /// Gets the URL for an image by TMDb path and size
+    /// </summary>
+    /// <param name="path">The TMDb path of the image</param>
+    /// <param name="size">The size of the image</param>
+    /// <response code="200">Returns the image URL</response>
+    /// <response code="400">If the path or size is null or empty</response>
+    [HttpGet("images/{*path}")]
+    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetImageUrl([FromRoute] string path, [FromQuery] string size = "w500")
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return BadRequest("Path is required");
+        }
+
+        var imageUrl = await mediaLookupService.GetImageUrlAsync(path, size);
+        if (imageUrl == null)
+        {
+            return NotFound();
+        }
+
+        // Redirect to the actual TMDb image URL
+        return RedirectPermanent(imageUrl);
+    }
 } 

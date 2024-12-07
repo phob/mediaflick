@@ -70,33 +70,47 @@ public class MediaLookupService : IMediaLookupService
     public async Task<MediaInfo?> GetTvShowMediaInfoAsync(int tmdbId)
     {
         var tvShow = await _tmdbClient.GetTvShowAsync(tmdbId);
-        if (tvShow != null)
-        {
-            var mediaInfo = new MediaInfo
-            {
-                Title = tvShow.Name,
-                Year = tvShow.FirstAirDate?.Year,
-                TmdbId = tvShow.Id,
-                MediaType = MediaType.TvShows,
-                PosterPath = tvShow.PosterPath,
-                Summary = tvShow.Overview,
-                Status = tvShow.Status,
-                Seasons = []
-            };
+        if (tvShow == null) return null;
 
-            // Fetch seasons
-            foreach (var season in tvShow.Seasons)
+        // Fetch all seasons in parallel
+        var seasonTasks = tvShow.Seasons
+            .Select(season => _tmdbClient.GetTvSeasonAsync(tmdbId, season.SeasonNumber))
+            .ToList();
+
+        var seasons = await Task.WhenAll(seasonTasks);
+
+        var seasonsList = seasons
+            .Where(season => season != null)
+            .Select(season => new SeasonInfo
             {
-                var seasonInfo = await GetTvShowSeasonMediaInfoAsync(tmdbId, season.SeasonNumber);
-                if (seasonInfo != null)
+                SeasonNumber = season!.SeasonNumber,
+                Name = season.Name,
+                Overview = season.Overview,
+                PosterPath = season.PosterPath,
+                AirDate = season.AirDate,
+                Episodes = season.Episodes.Select(episode => new EpisodeInfo
                 {
-                    mediaInfo.Seasons.Add(seasonInfo);
-                }
-            }
+                    EpisodeNumber = episode.EpisodeNumber,
+                    Name = episode.Name,
+                    Overview = episode.Overview,
+                    StillPath = episode.StillPath,
+                    AirDate = episode.AirDate,
+                    TmdbId = episode.Id
+                }).ToList()
+            })
+            .ToList();
 
-            return mediaInfo;
-        }
-        return null;
+        return new MediaInfo
+        {
+            Title = tvShow.Name,
+            Year = tvShow.FirstAirDate?.Year,
+            TmdbId = tvShow.Id,
+            MediaType = MediaType.TvShows,
+            PosterPath = tvShow.PosterPath,
+            Summary = tvShow.Overview,
+            Status = tvShow.Status,
+            Seasons = seasonsList
+        };
     }
 
     public async Task<SeasonInfo?> GetTvShowSeasonMediaInfoAsync(int tmdbId, int seasonNumber)
@@ -144,5 +158,10 @@ public class MediaLookupService : IMediaLookupService
             };
         }
         return null;
+    }
+
+    public async Task<string?> GetImageUrlAsync(string path, string size)
+    {
+        return await _tmdbClient.GetImageUrl(path, size);
     }
 }

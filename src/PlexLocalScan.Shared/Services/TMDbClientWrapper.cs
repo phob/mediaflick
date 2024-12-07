@@ -8,6 +8,21 @@ using PlexLocalScan.Shared.Interfaces;
 public class TMDbClientWrapper(string apiKey) : ITMDbClientWrapper
 {
     private readonly TMDbClient _client = new(apiKey);
+    private const string BaseImageUrl = "https://image.tmdb.org/t/p/";
+
+    public Task<string> GetImageUrl(string path, string size)
+    {
+        if (string.IsNullOrEmpty(path)) return Task.FromResult<string>(null);
+        
+        // Ensure path starts with /
+        path = path.StartsWith("/") ? path : "/" + path;
+        
+        // Validate size parameter
+        var validSizes = new[] { "w92", "w154", "w185", "w342", "w500", "w780", "original" };
+        size = validSizes.Contains(size) ? size : "w500";
+
+        return Task.FromResult($"{BaseImageUrl}{size}{path}");
+    }
 
     public Task<SearchContainer<SearchMovie>> SearchMovieAsync(string query)
         => _client.SearchMovieAsync(query);

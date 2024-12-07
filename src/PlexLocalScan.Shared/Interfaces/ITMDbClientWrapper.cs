@@ -7,6 +7,7 @@ namespace PlexLocalScan.Shared.Interfaces;
 
 public interface ITMDbClientWrapper
 {
+    Task<string> GetImageUrl(string path, string size);
     Task<SearchContainer<SearchMovie>> SearchMovieAsync(string query);
     Task<SearchContainer<SearchTv>> SearchTvShowAsync(string query);
     Task<Movie> GetMovieAsync(int movieId);

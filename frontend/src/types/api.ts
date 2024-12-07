@@ -42,6 +42,24 @@ export interface ScannedFileFilter {
   sortOrder?: 'asc' | 'desc'
 } 
 
+export interface EpisodeInfo {
+  episodeNumber: number
+  name: string
+  overview: string | null
+  stillPath: string | null
+  airDate: string | null
+  tmdbId: number | null
+}
+
+export interface SeasonInfo {
+  seasonNumber: number
+  name: string | null
+  overview: string | null
+  posterPath: string | null
+  airDate: string | null
+  episodes: EpisodeInfo[]
+}
+
 export interface MediaInfo {
   title: string
   year: number | null
@@ -50,7 +68,9 @@ export interface MediaInfo {
   mediaType: MediaType
   posterPath: string | null
   summary: string | null
+  status: string | null
   seasonNumber?: number
   episodeNumber?: number
   episodeTitle?: string
+  seasons: SeasonInfo[]
 }

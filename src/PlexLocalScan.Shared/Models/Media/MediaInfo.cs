@@ -17,5 +17,5 @@ public record MediaInfo
     public string? PosterPath { get; internal set; }
     public string? Summary { get; internal set; }
     public string? Status { get; internal set; }
-    public List<SeasonInfo> Seasons { get; init; } = new();
+    public List<SeasonInfo> Seasons { get; init; } = [];
 } 
