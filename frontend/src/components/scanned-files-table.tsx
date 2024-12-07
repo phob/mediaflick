@@ -14,7 +14,7 @@ import { FileStatus, MediaType, ScannedFile } from '@/types/api'
 import { useToast } from "@/hooks/use-toast"
 import { EditSelectedDialog } from "@/components/edit-selected-dialog"
 
-type SortField = 'sourceFile' | 'destFile' | 'status' | 'mediaType' | 'tmdbId' | 'createdAt'
+type SortField = 'sourceFile' | 'destFile' | 'status' | 'mediaType' | 'tmdbId' | 'imdbId' | 'createdAt'
 type SortDirection = 'asc' | 'desc'
 
 interface ScannedFilesTableProps {
@@ -293,6 +293,9 @@ export function ScannedFilesTable({
       case 'tmdbId':
         comparison = (a.tmdbId ?? 0) - (b.tmdbId ?? 0)
         break
+      case 'imdbId':
+        comparison = (a.imdbId ?? '').localeCompare(b.imdbId ?? '')
+        break
       case 'createdAt':
         comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         break
@@ -350,188 +353,221 @@ export function ScannedFilesTable({
         )}
       </div>
 
-      <div className="rounded-lg border border-border bg-card/30 backdrop-blur-sm shadow-xl">
-        <Table ref={tableRef}>
-          <TableHeader>
-            <TableRow className="hover:bg-muted/5 border-b border-border/50">
-              <TableHead className="w-12">
-                <Checkbox 
-                  checked={files.length === selectedIds.size && files.length > 0}
-                  onCheckedChange={handleSelectAll}
-                />
-              </TableHead>
-              <TableHead>Source File</TableHead>
-              <TableHead>Destination File</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Media Type</TableHead>
-              <TableHead>TMDb ID</TableHead>
-              <TableHead>Episode Info</TableHead>
-              <TableHead>Created At</TableHead>
-              <TableHead className="w-24">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {files.map((file, index) => (
-              <TableRow 
-                key={file.id} 
-                className={`
-                  transition-colors
-                  hover:bg-muted/10 
-                  cursor-pointer 
-                  border-b border-border/50
-                  ${isDragging && 
-                    dragStartIndex !== null && 
-                    dragEndIndex !== null && 
-                    index >= Math.min(dragStartIndex, dragEndIndex) && 
-                    index <= Math.max(dragStartIndex, dragEndIndex)
-                      ? 'bg-primary/10'
-                      : ''
-                  }
-                  ${selectedIds.has(file.id) ? 'bg-primary/5' : ''}
-                  ${file.updateToVersion > file.versionUpdated ? 'bg-blue-500/10 hover:bg-blue-500/20' : ''}
-                `}
-                onMouseDown={(e) => handleMouseDown(index, e)}
-                onClick={(e) => {
-                  if (!isDragging) {
-                    handleRowClick(file, index, e)
-                  }
-                }}
-                style={{ userSelect: 'none' }}
-              >
-                <TableCell onClick={(e) => e.stopPropagation()}>
-                  <Checkbox 
-                    checked={selectedIds.has(file.id)}
-                    onCheckedChange={(checked) => handleSelectOne(file.id, checked as boolean)}
-                  />
-                </TableCell>
-                <TableCell className="font-medium">
-                  <div className="group relative">
-                    {showOnlyFilenames ? getFilename(file.sourceFile) : file.sourceFile}
-                    {showOnlyFilenames && (
-                      <div className="
-                        absolute left-0 top-full z-50 
-                        hidden group-hover:block 
-                        bg-popover 
-                        text-popover-foreground 
-                        p-3 rounded-lg
-                        text-sm
-                        border border-border
-                        transition-all duration-200
-                        translate-y-1
-                        shadow-[0_0_30px_rgba(0,0,0,0.2)]
-                        backdrop-blur-xl
-                        animate-in
-                        fade-in-0
-                        zoom-in-95
-                        slide-in-from-top-2
-                      ">
-                        <div className="font-medium">{file.sourceFile}</div>
-                      </div>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="group relative">
-                    {showOnlyFilenames ? getFilename(file.destFile) : file.destFile}
-                    {showOnlyFilenames && file.destFile && (
-                      <div className="
-                        absolute left-0 top-full z-50 
-                        hidden group-hover:block 
-                        bg-popover 
-                        text-popover-foreground 
-                        p-3 rounded-lg
-                        text-sm
-                        border border-border
-                        transition-all duration-200
-                        translate-y-1
-                        shadow-[0_0_30px_rgba(0,0,0,0.2)]
-                        backdrop-blur-xl
-                        animate-in
-                        fade-in-0
-                        zoom-in-95
-                        slide-in-from-top-2
-                      ">
-                        <div className="font-medium">{file.destFile}</div>
-                      </div>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <span className={`
-                    px-2 py-1 rounded-full text-sm
-                    transition-all duration-200
-                    ${getStatusBadgeColor(file.status)}
-                    shadow-sm hover:shadow-md
-                    hover:scale-105
-                  `}>
-                    {FileStatus[file.status]}
-                  </span>
-                </TableCell>
-                <TableCell>{file.mediaType !== null ? MediaType[file.mediaType] : 'Unknown'}</TableCell>
-                <TableCell>
-                  {file.tmdbId ? (
-                    <a 
-                      href={`https://www.themoviedb.org/${file.mediaType === MediaType.Movies ? 'movie' : 'tv'}/${file.tmdbId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="
-                        text-blue-400 hover:text-blue-300 
-                        hover:underline
-                        transition-colors
-                        flex items-center gap-1
-                      "
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {file.tmdbId}
-                      <svg
-                        className="h-3 w-3 opacity-50"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+      <div className="rounded-lg border border-border bg-card/30 backdrop-blur-sm shadow-xl flex flex-col">
+        <div className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <div className="min-w-full">
+              <div className="max-h-[calc(100vh-20rem)] overflow-y-auto">
+                <Table ref={tableRef}>
+                  <TableHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                    <TableRow className="hover:bg-muted/5 border-b border-border/50">
+                      <TableHead className="w-12">
+                        <Checkbox 
+                          checked={files.length === selectedIds.size && files.length > 0}
+                          onCheckedChange={handleSelectAll}
                         />
-                      </svg>
-                    </a>
-                  ) : '-'}
-                </TableCell>
-                <TableCell>{formatEpisodeInfo(file)}</TableCell>
-                <TableCell>{new Date(file.createdAt).toLocaleString()}</TableCell>
-                <TableCell onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {}}
-                      className="h-8 w-8 transition-all hover:scale-110"
-                      title="Edit"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteOne(file.id)}
-                      className="h-8 w-8 text-destructive hover:text-destructive transition-all hover:scale-110"
-                      disabled={isDeleting}
-                      title="Delete"
-                    >
-                      {isDeleting ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                      </TableHead>
+                      <TableHead>Source File</TableHead>
+                      <TableHead>Destination File</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Media Type</TableHead>
+                      <TableHead>TMDb ID</TableHead>
+                      <TableHead>IMDb ID</TableHead>
+                      <TableHead>Episode Info</TableHead>
+                      <TableHead>Created At</TableHead>
+                      <TableHead className="w-24">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="relative">
+                    {files.map((file, index) => (
+                      <TableRow 
+                        key={file.id} 
+                        className={`
+                          transition-colors
+                          hover:bg-muted/10 
+                          cursor-pointer 
+                          border-b border-border/50
+                          ${isDragging && 
+                            dragStartIndex !== null && 
+                            dragEndIndex !== null && 
+                            index >= Math.min(dragStartIndex, dragEndIndex) && 
+                            index <= Math.max(dragStartIndex, dragEndIndex)
+                              ? 'bg-primary/10'
+                              : ''
+                          }
+                          ${selectedIds.has(file.id) ? 'bg-primary/5' : ''}
+                          ${file.updateToVersion > file.versionUpdated ? 'bg-blue-500/10 hover:bg-blue-500/20' : ''}
+                        `}
+                        onMouseDown={(e) => handleMouseDown(index, e)}
+                        onClick={(e) => {
+                          if (!isDragging) {
+                            handleRowClick(file, index, e)
+                          }
+                        }}
+                        style={{ userSelect: 'none' }}
+                      >
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Checkbox 
+                            checked={selectedIds.has(file.id)}
+                            onCheckedChange={(checked) => handleSelectOne(file.id, checked as boolean)}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          <div className="group relative">
+                            {showOnlyFilenames ? getFilename(file.sourceFile) : file.sourceFile}
+                            {showOnlyFilenames && (
+                              <div className="
+                                absolute left-0 top-full z-50 
+                                hidden group-hover:block 
+                                bg-popover 
+                                text-popover-foreground 
+                                p-3 rounded-lg
+                                text-sm
+                                border border-border
+                                transition-all duration-200
+                                translate-y-1
+                                shadow-[0_0_30px_rgba(0,0,0,0.2)]
+                                backdrop-blur-xl
+                                animate-in
+                                fade-in-0
+                                zoom-in-95
+                                slide-in-from-top-2
+                              ">
+                                <div className="font-medium">{file.sourceFile}</div>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="group relative">
+                            {showOnlyFilenames ? getFilename(file.destFile) : file.destFile}
+                            {showOnlyFilenames && file.destFile && (
+                              <div className="
+                                absolute left-0 top-full z-50 
+                                hidden group-hover:block 
+                                bg-popover 
+                                text-popover-foreground 
+                                p-3 rounded-lg
+                                text-sm
+                                border border-border
+                                transition-all duration-200
+                                translate-y-1
+                                shadow-[0_0_30px_rgba(0,0,0,0.2)]
+                                backdrop-blur-xl
+                                animate-in
+                                fade-in-0
+                                zoom-in-95
+                                slide-in-from-top-2
+                              ">
+                                <div className="font-medium">{file.destFile}</div>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className={`
+                            px-2 py-1 rounded-full text-sm
+                            transition-all duration-200
+                            ${getStatusBadgeColor(file.status)}
+                            shadow-sm hover:shadow-md
+                            hover:scale-105
+                          `}>
+                            {FileStatus[file.status]}
+                          </span>
+                        </TableCell>
+                        <TableCell>{file.mediaType !== null ? MediaType[file.mediaType] : 'Unknown'}</TableCell>
+                        <TableCell>
+                          {file.tmdbId ? (
+                            <a 
+                              href={`https://www.themoviedb.org/${file.mediaType === MediaType.Movies ? 'movie' : 'tv'}/${file.tmdbId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="
+                                text-blue-400 hover:text-blue-300 
+                                hover:underline
+                                transition-colors
+                                flex items-center gap-1
+                              "
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {file.tmdbId}
+                              <svg
+                                className="h-3 w-3 opacity-50"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                />
+                              </svg>
+                            </a>
+                          ) : '-'}
+                        </TableCell>
+                        <TableCell>{file.imdbId ? (
+                          <a 
+                            href={`https://www.imdb.com/title/${file.imdbId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="
+                              text-blue-400 hover:text-blue-300 
+                              hover:underline
+                              transition-colors
+                              flex items-center gap-1
+                            "
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {file.imdbId}
+                            <svg
+                              className="h-3 w-3 opacity-50"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                        ) : '-'}</TableCell>
+                        <TableCell>{formatEpisodeInfo(file)}</TableCell>
+                        <TableCell>{new Date(file.createdAt).toLocaleString()}</TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {}}
+                              className="h-8 w-8 transition-all hover:scale-110"
+                              title="Edit"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteOne(file.id)}
+                              className="h-8 w-8 text-destructive hover:text-destructive transition-all hover:scale-110"
+                              disabled={isDeleting}
+                              title="Delete"
+                            >
+                              {isDeleting ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <EditSelectedDialog

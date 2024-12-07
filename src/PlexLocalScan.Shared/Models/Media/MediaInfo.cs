@@ -1,6 +1,6 @@
 using PlexLocalScan.Data.Models;
 
-namespace PlexLocalScan.Shared.Services;
+namespace PlexLocalScan.Shared.Models.Media;
 
 public record MediaInfo
 {
@@ -16,4 +16,6 @@ public record MediaInfo
     public int? EpisodeTmdbId { get; internal set; }
     public string? PosterPath { get; internal set; }
     public string? Summary { get; internal set; }
-}
+    public string? Status { get; internal set; }
+    public List<SeasonInfo> Seasons { get; init; } = new();
+} 

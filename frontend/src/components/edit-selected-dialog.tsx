@@ -223,7 +223,7 @@ export function EditSelectedDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-7xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Edit Selected Files</DialogTitle>
           <DialogDescription>
@@ -282,57 +282,65 @@ export function EditSelectedDialog({
           </Popover>
         </div>
 
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[300px]">Filename</TableHead>
-                <TableHead className="w-[100px]">TMDb ID</TableHead>
-                <TableHead className="w-[100px]">Season</TableHead>
-                <TableHead className="w-[100px]">Episode</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {editedFiles.map((file, index) => (
-                <TableRow key={file.id}>
-                  <TableCell className="font-medium">
-                    {getFilename(file.sourceFile)}
-                    <div className="text-xs text-muted-foreground truncate max-w-[480px]" title={file.sourceFile}>
-                      {file.sourceFile} - {file.id}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      value={file.tmdbId || ''}
-                      onChange={(e) => handleInputChange(index, 'tmdbId', e.target.value)}
-                      className="w-24"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {file.mediaType === MediaType.TvShows && (
-                      <Input
-                        type="number"
-                        value={file.seasonNumber || ''}
-                        onChange={(e) => handleInputChange(index, 'seasonNumber', e.target.value)}
-                        className="w-24"
-                      />
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {file.mediaType === MediaType.TvShows && (
-                      <Input
-                        type="number"
-                        value={file.episodeNumber || ''}
-                        onChange={(e) => handleInputChange(index, 'episodeNumber', e.target.value)}
-                        className="w-24"
-                      />
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <div className="border rounded-lg flex-1 min-h-0 flex flex-col">
+          <div className="overflow-hidden flex-1">
+            <div className="overflow-x-auto">
+              <div className="min-w-full">
+                <div className="max-h-[calc(100vh-25rem)] overflow-y-auto">
+                  <Table>
+                    <TableHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                      <TableRow>
+                        <TableHead className="w-[300px]">Filename</TableHead>
+                        <TableHead className="w-[100px]">TMDb ID</TableHead>
+                        <TableHead className="w-[100px]">Season</TableHead>
+                        <TableHead className="w-[100px]">Episode</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {editedFiles.map((file, index) => (
+                        <TableRow key={file.id}>
+                          <TableCell className="font-medium">
+                            {getFilename(file.sourceFile)}
+                            <div className="text-xs text-muted-foreground truncate max-w-[480px]" title={file.sourceFile}>
+                              {file.sourceFile} - {file.id}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              value={file.tmdbId || ''}
+                              onChange={(e) => handleInputChange(index, 'tmdbId', e.target.value)}
+                              className="w-24"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            {file.mediaType === MediaType.TvShows && (
+                              <Input
+                                type="number"
+                                value={file.seasonNumber || ''}
+                                onChange={(e) => handleInputChange(index, 'seasonNumber', e.target.value)}
+                                className="w-24"
+                              />
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {file.mediaType === MediaType.TvShows && (
+                              <Input
+                                type="number"
+                                value={file.episodeNumber || ''}
+                                onChange={(e) => handleInputChange(index, 'episodeNumber', e.target.value)}
+                                className="w-24"
+                              />
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <DialogFooter>

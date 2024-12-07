@@ -17,6 +17,7 @@ export interface ScannedFile {
   status: FileStatus
   mediaType: MediaType | null
   tmdbId?: number
+  imdbId?: string
   seasonNumber?: number
   episodeNumber?: number
   createdAt: string
@@ -45,6 +46,7 @@ export interface MediaInfo {
   title: string
   year: number | null
   tmdbId: number
+  imdbId: string | null
   mediaType: MediaType
   posterPath: string | null
   summary: string | null

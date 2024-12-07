@@ -1,4 +1,5 @@
-﻿using PlexLocalScan.Shared.Services;
+﻿using PlexLocalScan.Shared.Models.Media;
+using PlexLocalScan.Shared.Services;
 
 namespace PlexLocalScan.Shared.Interfaces;
 
@@ -8,4 +9,6 @@ public interface IMediaLookupService
     Task<IEnumerable<MediaSearchResult>> SearchTvShowTmdbIdsAsync(string title);
     Task<MediaInfo?> GetMovieMediaInfoAsync(int tmdbId);
     Task<MediaInfo?> GetTvShowMediaInfoAsync(int tmdbId);
+    Task<SeasonInfo?> GetTvShowSeasonMediaInfoAsync(int tmdbId, int seasonNumber);
+    Task<EpisodeInfo?> GetTvShowEpisodeMediaInfoAsync(int tmdbId, int seasonNumber, int episodeNumber);
 }

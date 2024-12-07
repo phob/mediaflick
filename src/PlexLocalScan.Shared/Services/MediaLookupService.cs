@@ -1,6 +1,7 @@
 using PlexLocalScan.Data.Models;
 using PlexLocalScan.Shared.Interfaces;
 using Microsoft.Extensions.Logging;
+using PlexLocalScan.Shared.Models.Media;
 
 namespace PlexLocalScan.Shared.Services;
 
@@ -58,7 +59,8 @@ public class MediaLookupService : IMediaLookupService
                 TmdbId = movie.Id,
                 MediaType = MediaType.Movies,
                 PosterPath = movie.PosterPath,
-                Summary = movie.Overview
+                Summary = movie.Overview,
+                Status = movie.Status
             };
             return mediaInfo;
         }
@@ -77,9 +79,69 @@ public class MediaLookupService : IMediaLookupService
                 TmdbId = tvShow.Id,
                 MediaType = MediaType.TvShows,
                 PosterPath = tvShow.PosterPath,
-                Summary = tvShow.Overview
+                Summary = tvShow.Overview,
+                Status = tvShow.Status,
+                Seasons = []
             };
+
+            // Fetch seasons
+            foreach (var season in tvShow.Seasons)
+            {
+                var seasonInfo = await GetTvShowSeasonMediaInfoAsync(tmdbId, season.SeasonNumber);
+                if (seasonInfo != null)
+                {
+                    mediaInfo.Seasons.Add(seasonInfo);
+                }
+            }
+
             return mediaInfo;
+        }
+        return null;
+    }
+
+    public async Task<SeasonInfo?> GetTvShowSeasonMediaInfoAsync(int tmdbId, int seasonNumber)
+    {
+        var season = await _tmdbClient.GetTvSeasonAsync(tmdbId, seasonNumber);
+        if (season != null)
+        {
+            var seasonInfo = new SeasonInfo
+            {
+                SeasonNumber = season.SeasonNumber,
+                Name = season.Name,
+                Overview = season.Overview,
+                PosterPath = season.PosterPath,
+                AirDate = season.AirDate,
+                Episodes = []
+            };
+
+            foreach (var episode in season.Episodes)
+            {
+                var episodeInfo = await GetTvShowEpisodeMediaInfoAsync(tmdbId, seasonNumber, episode.EpisodeNumber);
+                if (episodeInfo != null)
+                {
+                    seasonInfo.Episodes.Add(episodeInfo);
+                }
+            }
+
+            return seasonInfo;
+        }
+        return null;
+    }
+
+    public async Task<EpisodeInfo?> GetTvShowEpisodeMediaInfoAsync(int tmdbId, int seasonNumber, int episodeNumber)
+    {
+        var episode = await _tmdbClient.GetTvEpisodeAsync(tmdbId, seasonNumber, episodeNumber);
+        if (episode != null)
+        {
+            return new EpisodeInfo
+            {
+                EpisodeNumber = episode.EpisodeNumber,
+                Name = episode.Name,
+                Overview = episode.Overview,
+                StillPath = episode.StillPath,
+                AirDate = episode.AirDate,
+                TmdbId = episode.Id
+            };
         }
         return null;
     }

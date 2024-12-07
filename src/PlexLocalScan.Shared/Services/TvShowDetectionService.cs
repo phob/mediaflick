@@ -82,7 +82,7 @@ public class TvShowDetectionService : ITvShowDetectionService
             }
 
             var episodeInfo = await _tmdbClient.GetTvEpisodeAsync(bestMatch.Id, season, episode);
-            var externalIds = await _tmdbClient.GetExternalIdsAsync(bestMatch.Id);
+            var externalIds = await _tmdbClient.GetTvShowExternalIdsAsync(bestMatch.Id);
             var mediaInfo = new MediaInfo
             {
                 Title = bestMatch.Name,
@@ -125,7 +125,7 @@ public class TvShowDetectionService : ITvShowDetectionService
             }
 
             var episodeInfo = await _tmdbClient.GetTvEpisodeAsync(tmdbId, season, episode);
-            var externalIds = await _tmdbClient.GetExternalIdsAsync(tmdbId);
+            var externalIds = await _tmdbClient.GetTvShowExternalIdsAsync(tmdbId);
 
             var mediaInfo = new MediaInfo
             {

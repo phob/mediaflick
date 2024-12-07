@@ -1,3 +1,5 @@
+namespace PlexLocalScan.Shared.Models.Media;
+
 public record EpisodeInfo
 {
     public int EpisodeNumber { get; init; }

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using PlexLocalScan.Shared.Interfaces;
 using PlexLocalScan.Shared.Services;
+using PlexLocalScan.Shared.Models.Media;
 using System.ComponentModel;
 
 namespace PlexLocalScan.Api.Controllers;
@@ -98,5 +99,51 @@ public class MediaLookupController(
         }
 
         return Ok(tvShowInfo);
+    }
+
+    /// <summary>
+    /// Gets detailed information about a TV season by TMDb ID
+    /// </summary>
+    /// <param name="tmdbId">The TMDb ID of the TV show</param>
+    /// <param name="seasonNumber">The season number of the TV show</param>
+    /// <response code="200">Returns the TV season information</response>
+    /// <response code="404">If the TV season is not found</response>
+    [HttpGet("tvshows/{tmdbId}/seasons/{seasonNumber}")]
+    [ProducesResponseType(typeof(MediaInfo), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<MediaInfo>> GetTvSeasonInfo(int tmdbId, int seasonNumber)
+    {
+        logger.LogInformation("Getting TV season info for TMDb ID: {TmdbId}, Season Number: {SeasonNumber}", tmdbId, seasonNumber);
+        var tvSeasonInfo = await mediaLookupService.GetTvShowSeasonMediaInfoAsync(tmdbId, seasonNumber);
+
+        if (tvSeasonInfo == null)
+        {
+            return NotFound();
+        }
+        return Ok(tvSeasonInfo);
+    }
+
+    /// <summary>
+    /// Gets detailed information about a TV episode by TMDb ID
+    /// </summary>
+    /// <param name="tmdbId">The TMDb ID of the TV show</param>
+    /// <param name="seasonNumber">The season number of the TV show</param>
+    /// <param name="episodeNumber">The episode number of the TV show</param>
+    /// <response code="200">Returns the TV episode information</response>
+    /// <response code="404">If the TV episode is not found</response>
+    [HttpGet("tvshows/{tmdbId}/seasons/{seasonNumber}/episodes/{episodeNumber}")]
+    [ProducesResponseType(typeof(EpisodeInfo), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<EpisodeInfo>> GetTvEpisodeInfo(int tmdbId, int seasonNumber, int episodeNumber)
+    {
+        logger.LogInformation("Getting TV episode info for TMDb ID: {TmdbId}, Season Number: {SeasonNumber}, Episode Number: {EpisodeNumber}", tmdbId, seasonNumber, episodeNumber);
+        var tvEpisodeInfo = await mediaLookupService.GetTvShowEpisodeMediaInfoAsync(tmdbId, seasonNumber, episodeNumber);
+
+        if (tvEpisodeInfo == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(tvEpisodeInfo);
     }
 } 

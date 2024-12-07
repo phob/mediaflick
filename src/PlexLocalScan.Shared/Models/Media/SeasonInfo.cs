@@ -1,3 +1,5 @@
+namespace PlexLocalScan.Shared.Models.Media;
+
 public record SeasonInfo
 {
     public int SeasonNumber { get; init; }
