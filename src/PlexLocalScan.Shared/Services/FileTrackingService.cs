@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using PlexLocalScan.Data.Models;
 using PlexLocalScan.Data.Data;
 using PlexLocalScan.Shared.Interfaces;
-using System.Linq.Expressions;
 
 namespace PlexLocalScan.Shared.Services;
 

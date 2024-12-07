@@ -1,5 +1,4 @@
 using PlexLocalScan.Shared.Models.Media;
-using PlexLocalScan.Shared.Services;
 
 namespace PlexLocalScan.Shared.Interfaces;
 

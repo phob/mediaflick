@@ -8,8 +8,6 @@ using PlexLocalScan.Data.Data;
 using PlexLocalScan.Shared.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace PlexLocalScan.Shared.Services;
 
