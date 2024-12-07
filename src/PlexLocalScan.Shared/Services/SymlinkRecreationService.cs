@@ -4,6 +4,7 @@ using PlexLocalScan.Data.Models;
 using PlexLocalScan.Shared.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using PlexLocalScan.Data.Data;
+using PlexLocalScan.Shared.Models.Media;
 using PlexLocalScan.Shared.Options;
 
 namespace PlexLocalScan.Shared.Services;

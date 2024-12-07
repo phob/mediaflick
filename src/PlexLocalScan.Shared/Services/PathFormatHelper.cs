@@ -1,3 +1,5 @@
+using PlexLocalScan.Shared.Models.Media;
+
 namespace PlexLocalScan.Shared.Services;
 
 public static class PathFormatHelper

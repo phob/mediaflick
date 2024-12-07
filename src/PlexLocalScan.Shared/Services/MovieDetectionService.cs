@@ -4,6 +4,7 @@ using Microsoft.Extensions.Caching.Memory;
 using System.Text.RegularExpressions;
 using PlexLocalScan.Data.Models;
 using PlexLocalScan.Shared.Interfaces;
+using PlexLocalScan.Shared.Models.Media;
 
 namespace PlexLocalScan.Shared.Services;
 
