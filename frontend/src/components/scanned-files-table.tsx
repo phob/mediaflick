@@ -18,16 +18,18 @@ type SortField = 'sourceFile' | 'destFile' | 'status' | 'mediaType' | 'tmdbId' |
 type SortDirection = 'asc' | 'desc'
 
 interface ScannedFilesTableProps {
-  files: ScannedFile[]
-  showOnlyFilenames: boolean
+  files?: ScannedFile[]
+  showOnlyFilenames?: boolean
   onDataChange: () => Promise<void>
 }
 
 export function ScannedFilesTable({
-  files,
-  showOnlyFilenames,
+  files = [],
+  showOnlyFilenames = true,
   onDataChange,
 }: ScannedFilesTableProps) {
+  const safeFiles = Array.isArray(files) ? files : []
+
   const [sortField, setSortField] = useState<SortField>('createdAt')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null)
@@ -45,7 +47,7 @@ export function ScannedFilesTable({
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(new Set(files.map(file => file.id)))
+      setSelectedIds(new Set(safeFiles.map(file => file.id)))
     } else {
       setSelectedIds(new Set())
     }
@@ -170,7 +172,7 @@ export function ScannedFilesTable({
       const newSelected = new Set(selectedIds)
       
       for (let i = start; i <= end; i++) {
-        const fileInRange = files[i]
+        const fileInRange = safeFiles[i]
         if (fileInRange) {
           newSelected.add(fileInRange.id)
         }
@@ -226,7 +228,7 @@ export function ScannedFilesTable({
       }
 
       // Add all IDs in the range
-      files.slice(start, end + 1).forEach(file => {
+      safeFiles.slice(start, end + 1).forEach(file => {
         newSelectedIds.add(file.id)
       })
 

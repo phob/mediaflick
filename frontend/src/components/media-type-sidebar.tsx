@@ -4,6 +4,7 @@ import { Film, Tv, Info } from 'lucide-react'
 import { useState } from 'react'
 import { MediaInfoDialog } from '@/components/media-info-dialog'
 import { Separator } from '@/components/ui/separator'
+import { useRouter, usePathname } from 'next/navigation'
 
 interface MediaTypeSidebarProps {
   selectedMediaType: MediaType | undefined
@@ -16,6 +17,17 @@ export function MediaTypeSidebar({
 }: MediaTypeSidebarProps) {
   const [showMovieInfo, setShowMovieInfo] = useState(false)
   const [showTvShowInfo, setShowTvShowInfo] = useState(false)
+  const router = useRouter()
+  const pathname = usePathname()
+
+  const handleMediaTypeChange = (mediaType: MediaType) => {
+    onMediaTypeChange(mediaType)
+    if (mediaType === MediaType.Movies) {
+      router.push('/media-info')
+    } else {
+      router.push('/scanned-data')
+    }
+  }
 
   return (
     <div className="pb-12 w-full">
@@ -46,17 +58,17 @@ export function MediaTypeSidebar({
           <h2 className="mb-2 px-4 text-lg font-semibold">Media Types</h2>
           <div className="space-y-1">
             <Button
-              variant={selectedMediaType === MediaType.Movies ? "secondary" : "ghost"}
+              variant={pathname === '/media-info' ? "secondary" : "ghost"}
               className="w-full justify-start"
-              onClick={() => onMediaTypeChange(MediaType.Movies)}
+              onClick={() => handleMediaTypeChange(MediaType.Movies)}
             >
               <Film className="mr-2 h-4 w-4" />
               Movies
             </Button>
             <Button
-              variant={selectedMediaType === MediaType.TvShows ? "secondary" : "ghost"}
+              variant={pathname === '/scanned-data' ? "secondary" : "ghost"}
               className="w-full justify-start"
-              onClick={() => onMediaTypeChange(MediaType.TvShows)}
+              onClick={() => handleMediaTypeChange(MediaType.TvShows)}
             >
               <Tv className="mr-2 h-4 w-4" />
               TV Shows

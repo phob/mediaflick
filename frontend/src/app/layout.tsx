@@ -2,8 +2,8 @@ import { Metadata } from "next"
 import localFont from "next/font/local"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { Toaster } from "@/components/ui/toaster"
+import { ClientLayout } from "../components/client-layout"
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -37,10 +37,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <div className="fixed top-4 right-4 z-50">
-            <ThemeToggle />
-          </div>
-          {children}
+          <ClientLayout>
+            {children}
+          </ClientLayout>
           <Toaster />
         </ThemeProvider>
       </body>
