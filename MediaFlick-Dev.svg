@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="767"
+   height="531"
+   viewBox="0 0 202.93478 140.49464"
+   version="1.1"
+   id="svg1"
+   inkscape:export-filename="bitmap.svg"
+   inkscape:export-xdpi="96"
+   inkscape:export-ydpi="96"
+   inkscape:version="1.4 (86a8ad7, 2024-10-11)"
+   sodipodi:docname="MediaFlick-Dev.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#505050"
+     bordercolor="#eeeeee"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     inkscape:zoom="1.7042017"
+     inkscape:cx="396.66665"
+     inkscape:cy="561.25984"
+     inkscape:window-width="3840"
+     inkscape:window-height="2131"
+     inkscape:window-x="-9"
+     inkscape:window-y="-9"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs1">
+    <rect
+       x="198.9201"
+       y="298.08676"
+       width="21.711044"
+       height="32.859959"
+       id="rect3" />
+    <filter
+       style="color-interpolation-filters:sRGB"
+       inkscape:label="Drop Shadow"
+       id="filter88"
+       x="-0.053030092"
+       y="-0.18741562"
+       width="1.1502519"
+       height="1.5310109">
+      <feFlood
+         result="flood"
+         in="SourceGraphic"
+         flood-opacity="0.721569"
+         flood-color="rgb(0,0,0)"
+         id="feFlood87" />
+      <feGaussianBlur
+         result="blur"
+         in="SourceGraphic"
+         stdDeviation="0.500000"
+         id="feGaussianBlur87" />
+      <feOffset
+         result="offset"
+         in="blur"
+         dx="1.000000"
+         dy="1.000000"
+         id="feOffset87" />
+      <feComposite
+         result="comp1"
+         operator="in"
+         in="flood"
+         in2="offset"
+         id="feComposite87" />
+      <feComposite
+         result="comp2"
+         operator="over"
+         in="SourceGraphic"
+         in2="comp1"
+         id="feComposite88" />
+    </filter>
+    <filter
+       style="color-interpolation-filters:sRGB"
+       inkscape:label="Drop Shadow"
+       id="filter90"
+       x="-0.052853932"
+       y="-0.17206141"
+       width="1.1497528"
+       height="1.4875073">
+      <feFlood
+         result="flood"
+         in="SourceGraphic"
+         flood-opacity="0.721569"
+         flood-color="rgb(0,0,0)"
+         id="feFlood88" />
+      <feGaussianBlur
+         result="blur"
+         in="SourceGraphic"
+         stdDeviation="0.500000"
+         id="feGaussianBlur88" />
+      <feOffset
+         result="offset"
+         in="blur"
+         dx="1.000000"
+         dy="1.000000"
+         id="feOffset88" />
+      <feComposite
+         result="comp1"
+         operator="in"
+         in="flood"
+         in2="offset"
+         id="feComposite89" />
+      <feComposite
+         result="comp2"
+         operator="over"
+         in="SourceGraphic"
+         in2="comp1"
+         id="feComposite90" />
+    </filter>
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <text
+       xml:space="preserve"
+       transform="scale(0.26458333)"
+       id="text3"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:condensed;font-size:32px;font-family:Impact;-inkscape-font-specification:'Impact Condensed';text-align:start;letter-spacing:23.6701px;writing-mode:lr-tb;direction:ltr;white-space:pre;shape-inside:url(#rect3);display:inline;fill:#f9f9f9" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.46667px;font-family:'ComicShannsMono Nerd Font';-inkscape-font-specification:'ComicShannsMono Nerd Font';text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#f9f9f9;stroke-width:0.264583;filter:url(#filter88)"
+       x="2.9498162"
+       y="9.0047045"
+       id="text1"
+       transform="matrix(3.8872447,0,0,3.8872447,-5.7366174,-4.4096026)"><tspan
+         sodipodi:role="line"
+         id="tspan1"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.46667px;font-family:'ComicShannsMono Nerd Font';-inkscape-font-specification:'ComicShannsMono Nerd Font';fill:#f9f9f9;stroke-width:0.264583"
+         x="2.9498162"
+         y="9.0047045">Media</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:condensed;font-size:8.46667px;font-family:Impact;-inkscape-font-specification:'Impact Condensed';text-align:start;letter-spacing:1.18637px;word-spacing:0px;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#ccff00;stroke-width:0.264583;filter:url(#filter90)"
+       x="27.945637"
+       y="9.159955"
+       id="text2"
+       transform="matrix(3.8872447,0,0,3.8872447,-5.7366174,-4.4096026)"><tspan
+         sodipodi:role="line"
+         id="tspan2"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:condensed;font-family:Impact;-inkscape-font-specification:'Impact Condensed';letter-spacing:1.18637px;word-spacing:0px;fill:#ccff00;stroke-width:0.264583"
+         x="27.945637"
+         y="9.159955"
+         rotate="0 0 0 0 0 0">FLICK</tspan></text>
+  </g>
+</svg>
