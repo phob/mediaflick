@@ -10,6 +10,19 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure CORS
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:3000") // Frontend URL
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
+    });
+});
+
 // Configure YAML configuration
 var configPath = Path.Combine(AppContext.BaseDirectory, "config", "config.yml");
 Directory.CreateDirectory(Path.GetDirectoryName(configPath)!);
@@ -119,6 +132,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseRouting();
+
+// Add CORS middleware
+app.UseCors();
+
 //app.UseHttpsRedirection();
 //app.UseAuthorization();
 

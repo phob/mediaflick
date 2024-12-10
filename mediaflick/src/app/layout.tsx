@@ -1,19 +1,7 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import HeadBar from "@/components/HeadBar";
-
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-});
 
 export const metadata: Metadata = {
   title: "Meta Flick",
@@ -28,13 +16,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className="antialiased h-screen w-screen bg-background font-sans text-foreground"
+        className="antialiased bg-background font-sans text-foreground"
       >
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <div className="sticky top-0 z-50">
             <HeadBar />
           </div>
-          <main className="mx-auto w-full min-h-[calc(100vh-4rem)] border-x border-border px-4">
+          <main className="min-h-[calc(100vh-4rem)] border-x border-border px-4">
             {children}
           </main>
         </ThemeProvider>
