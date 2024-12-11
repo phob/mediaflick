@@ -33,7 +33,6 @@ export function ScannedFilesTable({
     sortBy = 'createdAt',
     sortOrder = 'desc',
     onPageChange,
-    onPageSizeChange,
     onSortByChange,
     onSortOrderChange,
 }: ScannedFilesTableProps) {

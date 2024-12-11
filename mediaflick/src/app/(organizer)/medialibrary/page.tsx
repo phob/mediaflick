@@ -1,3 +1,4 @@
+// eslint-disable-next-line check-file/folder-naming-convention
 'use client'
 
 import { useState } from 'react'
