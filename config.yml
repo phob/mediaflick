@@ -1,6 +1,0 @@
-Plex:
-  TMDbApiKey: "your-api-key"
-  # other existing Plex settings...
-
-Database:
-  ConnectionString: "Data Source=plexscan.db" 
