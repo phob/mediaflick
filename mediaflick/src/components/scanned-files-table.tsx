@@ -5,16 +5,18 @@ import { Pencil, RefreshCw, Trash2 } from 'lucide-react'
 
 import {
     Pagination,
-    PaginationContent,
-    PaginationItem,
-    PaginationLink,
-    PaginationNext,
-    PaginationPrevious,
-} from '@/components/ui/pagination'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+    Table,
+    TableBody,
+    TableCell,
+    TableColumn,
+    TableHeader,
+    TableRow,
+    Tooltip
+} from '@nextui-org/react'
 
 import { mediaApi } from '@/lib/api/endpoints'
 import { MediaStatus, MediaType, PagedResult, ScannedFile } from '@/lib/api/types'
+import type { SortDescriptor } from '@nextui-org/react'
 
 interface ScannedFilesTableProps {
     page?: number
@@ -25,6 +27,18 @@ interface ScannedFilesTableProps {
     onPageSizeChange?: (pageSize: number) => void
     onSortByChange?: (sortBy: string) => void
     onSortOrderChange?: (sortOrder: string) => void
+}
+
+type Row = {
+    key: number
+    sourceFile: React.ReactNode
+    destFile: React.ReactNode
+    mediaType: string
+    episode: string
+    status: React.ReactNode
+    createdAt: string
+    updatedAt: string
+    actions: React.ReactNode
 }
 
 export function ScannedFilesTable({
@@ -117,117 +131,102 @@ export function ScannedFilesTable({
         return `S${seasonNumber.toString().padStart(2, '0')}E${episodeNumber.toString().padStart(2, '0')}`
     }
 
-    const handleSort = (column: string) => {
+    const handleSort = (descriptor: SortDescriptor) => {
+        const column = String(descriptor.column)
         if (sortBy === column) {
-            onSortOrderChange?.(sortOrder === 'asc' ? 'desc' : 'asc')
+            onSortOrderChange?.(descriptor.direction === 'ascending' ? 'desc' : 'asc')
         } else {
             onSortByChange?.(column)
             onSortOrderChange?.('asc')
         }
     }
 
-    const getSortIcon = (column: string) => {
-        if (sortBy !== column) return '↕️'
-        return sortOrder === 'asc' ? '↑' : '↓'
-    }
+    const rows = data.items.map((file): Row => ({
+        key: file.id,
+        sourceFile: (
+            <Tooltip content={file.sourceFile}>
+                <span>{getFileName(file.sourceFile)}</span>
+            </Tooltip>
+        ),
+        destFile: (
+            <Tooltip content={file.destFile || '-'}>
+                <span>
+                    {file.destFile ? getFileName(file.destFile) : '-'}
+                </span>
+            </Tooltip>
+        ),
+        mediaType: getMediaTypeLabel(file.mediaType),
+        episode: formatEpisodeNumber(file.seasonNumber, file.episodeNumber),
+        status: (
+            <span
+                className={`rounded-full px-2 py-1 text-xs font-medium ${getStatusClass(
+                    file.status
+                )}`}
+            >
+                {getStatusLabel(file.status)}
+            </span>
+        ),
+        createdAt: format(new Date(file.createdAt), 'MMM d, yyyy HH:mm'),
+        updatedAt: format(new Date(file.updatedAt), 'MMM d, yyyy HH:mm'),
+        actions: (
+            <div className="flex justify-end gap-2">
+                <button
+                    className="rounded-full p-2 text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-800"
+                    onClick={() => {}}
+                    title="Edit"
+                >
+                    <Pencil className="h-4 w-4" />
+                </button>
+                <button
+                    className="rounded-full p-2 text-red-600 transition-colors hover:bg-red-50 hover:text-red-800"
+                    onClick={() => {}}
+                    title="Delete"
+                >
+                    <Trash2 className="h-4 w-4" />
+                </button>
+                <button
+                    className="rounded-full p-2 text-green-600 transition-colors hover:bg-green-50 hover:text-green-800"
+                    onClick={() => {}}
+                    title="Recreate Symlink"
+                >
+                    <RefreshCw className="h-4 w-4" />
+                </button>
+            </div>
+        )
+    }))
 
     return (
         <div className="w-full">
-            <Table>
+            <Table
+                aria-label="Scanned files table"
+                selectionMode="none"
+                className="min-w-full"
+                classNames={{
+                    th: "bg-default-200",
+                    td: "py-3"
+                }}
+                sortDescriptor={{
+                    column: sortBy,
+                    direction: sortOrder === 'asc' ? 'ascending' : 'descending'
+                }}
+                onSortChange={handleSort}
+            >
                 <TableHeader>
-                    <TableRow>
-                        <TableHead
-                            className="cursor-pointer hover:bg-gray-800 hover:text-white"
-                            onClick={() => handleSort('sourceFile')}
-                        >
-                            Source File {sortBy === 'sourceFile' && getSortIcon('sourceFile')}
-                        </TableHead>
-                        <TableHead
-                            className="cursor-pointer hover:bg-gray-800 hover:text-white"
-                            onClick={() => handleSort('destFile')}
-                        >
-                            Destination {sortBy === 'destFile' && getSortIcon('destFile')}
-                        </TableHead>
-                        <TableHead
-                            className="cursor-pointer hover:bg-gray-800 hover:text-white"
-                            onClick={() => handleSort('mediaType')}
-                        >
-                            Media Type {sortBy === 'mediaType' && getSortIcon('mediaType')}
-                        </TableHead>
-                        <TableHead
-                            className="cursor-pointer hover:bg-gray-800 hover:text-white"
-                            onClick={() => handleSort('episodeNumber')}
-                        >
-                            Episode {sortBy === 'episodeNumber' && getSortIcon('episodeNumber')}
-                        </TableHead>
-                        <TableHead
-                            className="cursor-pointer hover:bg-gray-800 hover:text-white"
-                            onClick={() => handleSort('status')}
-                        >
-                            Status {sortBy === 'status' && getSortIcon('status')}
-                        </TableHead>
-                        <TableHead
-                            className="cursor-pointer hover:bg-gray-800 hover:text-white"
-                            onClick={() => handleSort('createdAt')}
-                        >
-                            Created {sortBy === 'createdAt' && getSortIcon('createdAt')}
-                        </TableHead>
-                        <TableHead
-                            className="cursor-pointer hover:bg-gray-800 hover:text-white"
-                            onClick={() => handleSort('updatedAt')}
-                        >
-                            Updated {sortBy === 'updatedAt' && getSortIcon('updatedAt')}
-                        </TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
+                    <TableColumn key="sourceFile" allowsSorting>Source File</TableColumn>
+                    <TableColumn key="destFile" allowsSorting>Destination</TableColumn>
+                    <TableColumn key="mediaType" allowsSorting>Media Type</TableColumn>
+                    <TableColumn key="episode" allowsSorting>Episode</TableColumn>
+                    <TableColumn key="status" allowsSorting>Status</TableColumn>
+                    <TableColumn key="createdAt" allowsSorting>Created</TableColumn>
+                    <TableColumn key="updatedAt" allowsSorting>Updated</TableColumn>
+                    <TableColumn key="actions">Actions</TableColumn>
                 </TableHeader>
-                <TableBody>
-                    {data.items.map((file) => (
-                        <TableRow key={file.id}>
-                            <TableCell title={file.sourceFile}>{getFileName(file.sourceFile)}</TableCell>
-                            <TableCell className="font-medium" title={file.destFile}>
-                                {file.destFile ? getFileName(file.destFile) : '-'}
-                            </TableCell>
-                            <TableCell>{getMediaTypeLabel(file.mediaType)}</TableCell>
-                            <TableCell>{formatEpisodeNumber(file.seasonNumber, file.episodeNumber)}</TableCell>
-                            <TableCell>
-                                <span
-                                    className={`rounded-full px-2 py-1 text-xs font-medium ${getStatusClass(
-                                        file.status
-                                    )}`}
-                                >
-                                    {getStatusLabel(file.status)}
-                                </span>
-                            </TableCell>
-                            <TableCell>{format(new Date(file.createdAt), 'MMM d, yyyy HH:mm')}</TableCell>
-                            <TableCell>{format(new Date(file.updatedAt), 'MMM d, yyyy HH:mm')}</TableCell>
-                            <TableCell>
-                                <div className="flex justify-end gap-2">
-                                    <button
-                                        className="rounded-full p-2 text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-800"
-                                        onClick={() => {}}
-                                        title="Edit"
-                                    >
-                                        <Pencil className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                        className="rounded-full p-2 text-red-600 transition-colors hover:bg-red-50 hover:text-red-800"
-                                        onClick={() => {}}
-                                        title="Delete"
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </button>
-                                    <button
-                                        className="rounded-full p-2 text-green-600 transition-colors hover:bg-green-50 hover:text-green-800"
-                                        onClick={() => {}}
-                                        title="Recreate Symlink"
-                                    >
-                                        <RefreshCw className="h-4 w-4" />
-                                    </button>
-                                </div>
-                            </TableCell>
+                <TableBody items={rows}>
+                    {(item) => (
+                        <TableRow key={item.key}>
+                            {(columnKey) => <TableCell>{item[columnKey as keyof Row]}</TableCell>}
                         </TableRow>
-                    ))}
+                    )}
                 </TableBody>
             </Table>
 
@@ -235,47 +234,13 @@ export function ScannedFilesTable({
                 <div className="text-sm text-muted-foreground">
                     Showing {data.items.length} of {data.totalItems} items
                 </div>
-                <Pagination>
-                    <PaginationContent>
-                        <PaginationItem>
-                            <PaginationPrevious
-                                onClick={() => onPageChange?.(page - 1)}
-                                className={page <= 1 ? 'pointer-events-none opacity-50' : ''}
-                                href="#"
-                            />
-                        </PaginationItem>
-                        {Array.from({ length: data.totalPages }, (_, i) => i + 1)
-                            .filter((p) => p === 1 || p === data.totalPages || Math.abs(p - page) <= 2)
-                            .map((p, i, arr) => (
-                                <React.Fragment key={p}>
-                                    {i > 0 && arr[i - 1] !== p - 1 && (
-                                        <PaginationItem>
-                                            <PaginationLink href="#">...</PaginationLink>
-                                        </PaginationItem>
-                                    )}
-                                    <PaginationItem>
-                                        <PaginationLink
-                                            href="#"
-                                            isActive={page === p}
-                                            onClick={(e) => {
-                                                e.preventDefault()
-                                                onPageChange?.(p)
-                                            }}
-                                        >
-                                            {p}
-                                        </PaginationLink>
-                                    </PaginationItem>
-                                </React.Fragment>
-                            ))}
-                        <PaginationItem>
-                            <PaginationNext
-                                onClick={() => onPageChange?.(page + 1)}
-                                className={page >= data.totalPages ? 'pointer-events-none opacity-50' : ''}
-                                href="#"
-                            />
-                        </PaginationItem>
-                    </PaginationContent>
-                </Pagination>
+                <Pagination
+                    total={data.totalPages}
+                    page={page}
+                    onChange={onPageChange}
+                    showControls
+                    className="gap-2"
+                />
             </div>
         </div>
     )

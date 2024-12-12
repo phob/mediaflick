@@ -1,9 +1,8 @@
-import Link from "next/link"
-import React from "react"
-
+import { Button } from "@nextui-org/react"
 import { LucideIcon } from "lucide-react"
+import Link from "next/link"
 
-import { Button } from "@/components/ui/button"
+
 
 type HeadButtonProps = {
   icon: LucideIcon
@@ -11,21 +10,10 @@ type HeadButtonProps = {
   label: string
 }
 
-const a = "True"
-const b = "False"
-console.log(a + " " + b)
-
 const HeadButton = ({ icon: Icon, href, label }: HeadButtonProps) => {
   return (
-    <Button title={label} variant="ghost" className="flex items-center gap-2" asChild aria-label={label}>
-      {href ? (
-        <Link href={href}>
-          <Icon />
-          {label}
-        </Link>
-      ) : (
-        <Icon />
-      )}
+    <Button title={label} className="flex items-center gap-2" aria-label={label} startContent={<Icon />} as={href ? Link : 'button'} href={href}>
+      {label}
     </Button>
   )
 }

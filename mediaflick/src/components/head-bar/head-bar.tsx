@@ -1,8 +1,6 @@
-import { Home, Library, Popcorn, User } from 'lucide-react'
+import { Home, Library, Popcorn } from 'lucide-react'
 
 import HeadButton from '@/components/head-bar/head-button'
-
-import { ModeToggle } from '@/components/theme-switcher/theme-switcher'
 
 export default function HeadBar() {
     return (
@@ -14,15 +12,14 @@ export default function HeadBar() {
                         <span className="uppercase tracking-wider text-primary">Flick</span>
                     </div>
                     <div className="flex gap-2">
-                        <HeadButton icon={Home} href="/" label="Home" />
-                        <HeadButton icon={Library} href="/medialibrary" label="Media Library" />
-                        <HeadButton icon={Popcorn} href="/mediainfo" label="Media Info" />
-                        <HeadButton icon={User} href="/profile" label="Profile" />
+                        <HeadButton icon={Home} label="Home" href="/" />
+                        <HeadButton icon={Library} label="Library" href="/medialibrary" />
+                        <HeadButton icon={Popcorn} label="Movies" href="/mediainfo" />
                     </div>
                 </div>
                 <div className="flex flex-1 justify-end">
-                    <ModeToggle />
-                </div>
+                    
+                </div> 
             </div>
         </header>
     )
