@@ -1,3 +1,4 @@
+'use client'
 import { Home, Library, Popcorn } from 'lucide-react'
 
 import HeadButton from '@/components/head-bar/head-button'
