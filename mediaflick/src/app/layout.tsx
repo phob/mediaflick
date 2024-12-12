@@ -1,8 +1,8 @@
 import type { Metadata } from "next"
 
 import "@/app/globals.css"
-import HeadBar from "@/components/head-bar"
-import { ThemeProvider } from "@/components/theme-provider"
+import HeadBar from "@/components/head-bar/head-bar"
+import { ThemeProvider } from "@/components/theme-switcher/theme-provider"
 
 export const metadata: Metadata = {
   title: "Meta Flick",

@@ -1,8 +1,8 @@
 import { Home, Library, Popcorn, User } from 'lucide-react'
 
-import HeadButton from '@/components/head-button'
+import HeadButton from '@/components/head-bar/head-button'
 
-import { ModeToggle } from './theme-switcher'
+import { ModeToggle } from '@/components/theme-switcher/theme-switcher'
 
 export default function HeadBar() {
     return (
