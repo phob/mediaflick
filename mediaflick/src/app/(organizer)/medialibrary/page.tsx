@@ -7,12 +7,12 @@ import { ScannedFilesTable } from '@/components/scanned-files-table'
 
 export default function MediaLibrary() {
     const [page, setPage] = useState(1)
-    const [pageSize, setPageSize] = useState(100)
+    const [pageSize, setPageSize] = useState(20)
     const [sortBy, setSortBy] = useState('createdAt')
     const [sortOrder, setSortOrder] = useState('desc')
 
     return (
-        <div className="container mx-auto py-6">
+        <div className="mx-auto py-6">
             <h1 className="mb-6 text-2xl font-bold">Media Library</h1>
             <ScannedFilesTable
                 page={page}

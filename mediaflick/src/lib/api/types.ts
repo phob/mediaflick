@@ -3,7 +3,6 @@ export interface MediaSearchResult {
     title: string
     year?: number
     tmdbId: number
-    // ... other fields
     posterPath: string
     backdropPath: string
     overview: string
@@ -30,15 +29,17 @@ export interface MediaInfo {
 }
 
 export enum MediaType {
-    Movies = 0,
-    TvShows = 1,
-    Unknown = 2,
+    Movies = 'Movies',
+    TvShows = 'TvShows',
+    Extras = 'Extras',
+    Unknown = 'Unknown',
 }
 
 export enum MediaStatus {
-    Processing = 0,
-    Success = 1,
-    Failed = 2,
+    Processing = 'Processing',
+    Success = 'Success',
+    Failed = 'Failed',
+    Duplicate = 'Duplicate',
 }
 
 export interface SeasonInfo {
@@ -103,4 +104,32 @@ export interface StatusCount {
 export interface MediaTypeCount {
     mediaType: MediaType
     count: number
+}
+
+// Configuration Types
+export interface PlexConfig {
+    host: string
+    port: number
+    plexToken: string
+    folderMappings: FolderMappingConfig[]
+    pollingInterval: number
+    processNewFolderDelay: number
+    apiEndpoint: string
+}
+
+export interface TMDbConfig {
+    apiKey: string
+}
+
+export interface MediaDetectionConfig {
+    moviePattern: string
+    tvShowPattern: string
+    titleCleanupPattern: string
+    cacheDuration: string
+}
+
+export interface FolderMappingConfig {
+    sourceFolder: string
+    destinationFolder: string
+    mediaType: MediaType
 }

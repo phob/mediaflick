@@ -47,7 +47,11 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 var services = builder.Services;
 
 // Add services to the container
-services.AddControllers();
+services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    });
 services.AddEndpointsApiExplorer();
 services.AddSwaggerGen(c =>
 {

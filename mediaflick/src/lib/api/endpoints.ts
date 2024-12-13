@@ -14,6 +14,19 @@ import {
 
 // API Methods
 export const mediaApi = {
+    // Configuration
+    getAllConfigurations: () => 
+        fetchApi('/config'),
+        
+    getPlexConfig: () => 
+        fetchApi('/config/plex'),
+        
+    getTMDbConfig: () => 
+        fetchApi('/config/tmdb'),
+        
+    getMediaDetectionConfig: () => 
+        fetchApi('/config/media-detection'),
+
     // Media Lookup
     searchMovies: (title: string) =>
         fetchApi<MediaSearchResult[]>(`/medialookup/movies/search?title=${encodeURIComponent(title)}`),
@@ -34,8 +47,11 @@ export const mediaApi = {
     getImageUrl: (path: string, size: string = 'w500') => fetchApi<string>(`/medialookup/images/${path}?size=${size}`),
 
     // Scanned Files
-    getScannedFiles: (params: { page?: number; pageSize?: number; sortBy?: string; sortOrder?: string }) => {
+    getScannedFiles: (params: { searchTerm?: string; status?: MediaStatus; mediaType?: MediaType; page?: number; pageSize?: number; sortBy?: string; sortOrder?: string }) => {
         const queryParams = new URLSearchParams({
+            searchTerm: params.searchTerm || '',
+            status: (params.status || '').toString(),
+            mediaType: (params.mediaType || '').toString(),
             page: (params.page || 1).toString(),
             pageSize: (params.pageSize || 10).toString(),
             sortBy: (params.sortBy || 'createdAt').toString(),

@@ -39,12 +39,14 @@ public enum FileStatus
 {
     Processing,
     Success,
-    Failed
+    Failed,
+    Duplicate
 }
 
 public enum MediaType
 {
     Movies,
     TvShows,
+    Extras,
     Unknown
 }
