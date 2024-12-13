@@ -16,30 +16,21 @@ namespace PlexLocalScan.Api.Controllers;
 [Produces("application/json")]
 [ApiExplorerSettings(GroupName = "v1")]
 [Description("Manages scanned media files and their processing status")]
-public class ScannedFilesController : ControllerBase
+public class ScannedFilesController(
+    ILogger<ScannedFilesController> logger,
+    ISymlinkRecreationService symlinkRecreationService,
+    IImdbUpdateService imdbUpdateService,
+    ICleanupHandler cleanupHandler,
+    PlexScanContext context,
+    IOptions<PlexOptions> plexOptions) : ControllerBase
 {
-    private readonly ILogger<ScannedFilesController> _logger;
-    private readonly ISymlinkRecreationService _symlinkRecreationService;
-    private readonly IImdbUpdateService _imdbUpdateService;
-    private readonly ICleanupHandler _cleanupHandler;
-    private readonly PlexScanContext _context;
-    private readonly IOptions<PlexOptions> _plexOptions;
+    private readonly ILogger<ScannedFilesController> _logger = logger;
+    private readonly ISymlinkRecreationService _symlinkRecreationService = symlinkRecreationService;
+    private readonly IImdbUpdateService _imdbUpdateService = imdbUpdateService;
+    private readonly ICleanupHandler _cleanupHandler = cleanupHandler;
+    private readonly PlexScanContext _context = context;
+    private readonly IOptions<PlexOptions> _plexOptions = plexOptions;
 
-    public ScannedFilesController(
-        ILogger<ScannedFilesController> logger,
-        ISymlinkRecreationService symlinkRecreationService,
-        IImdbUpdateService imdbUpdateService,
-        ICleanupHandler cleanupHandler,
-        PlexScanContext context,
-        IOptions<PlexOptions> plexOptions)
-    {
-        _logger = logger;
-        _symlinkRecreationService = symlinkRecreationService;
-        _imdbUpdateService = imdbUpdateService;
-        _cleanupHandler = cleanupHandler;
-        _context = context;
-        _plexOptions = plexOptions;
-    }
 
     /// <summary>
     /// Retrieves a paged list of scanned files with optional filtering and sorting

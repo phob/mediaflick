@@ -7,16 +7,10 @@ namespace PlexLocalScan.Shared.Services;
 
 public record MediaSearchResult(int TmdbId, string Title, int? Year);
 
-public class MediaLookupService : IMediaLookupService
+public class MediaLookupService(ITMDbClientWrapper tmdbClient, ILogger<MediaLookupService> logger) : IMediaLookupService
 {
-    private readonly ITMDbClientWrapper _tmdbClient;
-    private readonly ILogger<MediaLookupService> _logger;
-
-    public MediaLookupService(ITMDbClientWrapper tmdbClient, ILogger<MediaLookupService> logger)
-    {
-        _tmdbClient = tmdbClient;
-        _logger = logger;
-    }
+    private readonly ITMDbClientWrapper _tmdbClient = tmdbClient;
+    private readonly ILogger<MediaLookupService> _logger = logger;
 
     public async Task<IEnumerable<MediaSearchResult>> SearchMovieTmdbIdsAsync(string title)
     {

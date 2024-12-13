@@ -6,21 +6,14 @@ namespace PlexLocalScan.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class ConfigController : ControllerBase
+public class ConfigController(
+    IOptions<PlexOptions> plexOptions,
+    IOptions<TMDbOptions> tmdbOptions,
+    IOptions<MediaDetectionOptions> mediaDetectionOptions) : ControllerBase
 {
-    private readonly IOptions<PlexOptions> _plexOptions;
-    private readonly IOptions<TMDbOptions> _tmdbOptions;
-    private readonly IOptions<MediaDetectionOptions> _mediaDetectionOptions;
-
-    public ConfigController(
-        IOptions<PlexOptions> plexOptions,
-        IOptions<TMDbOptions> tmdbOptions,
-        IOptions<MediaDetectionOptions> mediaDetectionOptions)
-    {
-        _plexOptions = plexOptions;
-        _tmdbOptions = tmdbOptions;
-        _mediaDetectionOptions = mediaDetectionOptions;
-    }
+    private readonly IOptions<PlexOptions> _plexOptions = plexOptions;
+    private readonly IOptions<TMDbOptions> _tmdbOptions = tmdbOptions;
+    private readonly IOptions<MediaDetectionOptions> _mediaDetectionOptions = mediaDetectionOptions;
 
     [HttpGet]
     public IActionResult GetAllConfigurations()
