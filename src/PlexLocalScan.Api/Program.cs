@@ -61,6 +61,7 @@ services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
     .Configure<TMDbOptions>(builder.Configuration.GetSection("TMDb"))
     .Configure<MediaDetectionOptions>(builder.Configuration.GetSection("MediaDetection"))
     .Configure<DatabaseOptions>(builder.Configuration.GetSection("Database"))
+    .Configure<FolderMappingOptions>(builder.Configuration.GetSection("FolderMapping"))
     .AddSingleton<IPlexHandler, PlexHandler>()
     .AddScoped<ISymlinkHandler, SymlinkHandler>()
     .AddScoped<ITMDbClientWrapper>(sp =>

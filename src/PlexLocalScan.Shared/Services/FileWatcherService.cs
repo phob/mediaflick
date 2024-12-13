@@ -181,7 +181,7 @@ public class FileWatcherService : BackgroundService
         }
     }
 
-    private async Task ProcessNewFolderAsync(string newFolder, FolderMapping mapping, CancellationToken stoppingToken)
+    private async Task ProcessNewFolderAsync(string newFolder, FolderMappingOptions mapping, CancellationToken stoppingToken)
     {
         try
         {
@@ -207,7 +207,7 @@ public class FileWatcherService : BackgroundService
         }
     }
 
-    private async Task ProcessFilesInFolderAsync(string sourceFolder, string destinationFolder, FolderMapping mapping)
+    private async Task ProcessFilesInFolderAsync(string sourceFolder, string destinationFolder, FolderMappingOptions mapping)
     {
         foreach (var file in Directory.EnumerateFiles(sourceFolder, "*.*", SearchOption.AllDirectories))
         {
@@ -215,7 +215,7 @@ public class FileWatcherService : BackgroundService
         }
     }
 
-    private async Task ProcessSingleFileAsync(string file, string destinationFolder, FolderMapping mapping)
+    private async Task ProcessSingleFileAsync(string file, string destinationFolder, FolderMappingOptions mapping)
     {
         try 
         {
@@ -242,7 +242,7 @@ public class FileWatcherService : BackgroundService
     private async Task ScanForUntrackedFilesAsync(
         string sourceFolder,
         HashSet<string> trackedFiles,
-        FolderMapping mapping,
+        FolderMappingOptions mapping,
         CancellationToken stoppingToken)
     {
         try
