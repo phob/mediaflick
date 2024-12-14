@@ -36,6 +36,48 @@ public class MovieDetectionService : IMovieDetectionService
         _moviePattern = new Regex(_options.MoviePattern, RegexOptions.Compiled | RegexOptions.IgnoreCase);
     }
 
+    public async Task<MediaInfo?> DetectMovieAsync(string fileName, string filePath)
+    {
+        try
+        {
+            _logger.LogDebug("Attempting to detect movie pattern for: {FileName}", fileName);
+            var match = _moviePattern.Match(fileName);
+            if (!match.Success)
+            {
+                await _fileTrackingService.UpdateStatusAsync(fileName, null, MediaType.Movies, null, null, FileStatus.Failed);
+                _logger.LogDebug("Filename does not match movie pattern: {FileName}", fileName);
+                return null;
+            }
+
+            var title = match.Groups["title"].Value.Replace(".", " ").Trim();
+            var yearStr = match.Groups["year"].Value;
+            var year = int.Parse(yearStr);
+
+            _logger.LogDebug("Detected movie pattern - Title: {Title}, Year: {Year}", title, year);
+
+            var cacheKey = $"movie_{title}_{year}";
+            if (_cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo))
+            {
+                return cachedInfo;
+            }
+
+            var mediaInfo = await SearchTMDbForMovie(title, year, filePath);
+            if (mediaInfo == null)
+            {
+                return null;
+            }
+
+            _cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
+            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.Movies, mediaInfo.TmdbId, mediaInfo.ImdbId, FileStatus.Processing);
+            return mediaInfo;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error detecting movie: {FileName}", fileName);
+            return null;
+        }
+    }
+
     private async Task<MediaInfo?> SearchTMDbForMovie(string title, int year, string filePath)
     {
         if (string.IsNullOrWhiteSpace(title))
@@ -73,47 +115,6 @@ public class MovieDetectionService : IMovieDetectionService
             ImdbId = externalIds.ImdbId,
             MediaType = MediaType.Movies
         };
-    }
-
-    public async Task<MediaInfo?> DetectMovieAsync(string fileName, string filePath)
-    {
-        try
-        {
-            _logger.LogDebug("Attempting to detect movie pattern for: {FileName}", fileName);
-            var match = _moviePattern.Match(fileName);
-            if (!match.Success)
-            {
-                await _fileTrackingService.UpdateStatusAsync(fileName, null, MediaType.Movies, null, null, FileStatus.Failed);
-                _logger.LogDebug("Filename does not match movie pattern: {FileName}", fileName);
-                return null;
-            }
-
-            var title = match.Groups["title"].Value.Replace(".", " ").Trim();
-            var yearStr = match.Groups["year"].Value;
-            var year = int.Parse(yearStr);
-
-            _logger.LogDebug("Detected movie pattern - Title: {Title}, Year: {Year}", title, year);
-
-            var cacheKey = $"movie_{title}_{year}";
-            if (_cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo))
-            {
-                return cachedInfo;
-            }
-
-            var mediaInfo = await SearchTMDbForMovie(title, year, filePath);
-            if (mediaInfo == null)
-            {
-                return null;
-            }
-
-            _cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
-            return mediaInfo;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error detecting movie: {FileName}", fileName);
-            return null;
-        }
     }
 
     public async Task<MediaInfo?> DetectMovieByTmdbIdAsync(int tmdbId)

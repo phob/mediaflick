@@ -30,6 +30,8 @@ public class MediaDetectionService(
             {
                 MediaType.Movies => await _movieDetectionService.DetectMovieAsync(fileName, filePath),
                 MediaType.TvShows => await _tvShowDetectionService.DetectTvShowAsync(fileName, filePath),
+                MediaType.Extras => null,
+                MediaType.Unknown => null,
                 _ => throw new ArgumentException($"Unsupported media type: {mediaType}")
             };
         }

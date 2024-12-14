@@ -4,14 +4,16 @@ namespace PlexLocalScan.Shared.Services;
 
 public static class PathFormatHelper
 {
-    public static string FormatMoviePath(MediaInfo? mediaInfo)
+    public static (string folderPath, string fileName) FormatMoviePath(MediaInfo? mediaInfo)
     {
         ArgumentNullException.ThrowIfNull(mediaInfo);
 
         if (string.IsNullOrEmpty(mediaInfo.Title) || !mediaInfo.Year.HasValue)
             throw new ArgumentException("Movie title and year are required");
 
-        return $"{CleanFileName(mediaInfo.Title)} ({mediaInfo.Year})";
+        var movieFolder = $"{CleanFileName(mediaInfo.Title)} ({mediaInfo.Year})";
+        var movieFileName = $"{CleanFileName(mediaInfo.Title)} ({mediaInfo.Year}) {{imdb-{mediaInfo.ImdbId}}}";
+        return (movieFolder, movieFileName);
     }
 
     public static (string folderPath, string fileName) FormatTvShowPath(MediaInfo? mediaInfo)

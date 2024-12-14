@@ -37,6 +37,8 @@ type Row = {
   key: number
   sourceFile: React.ReactNode
   destFile: React.ReactNode
+  tmdbId: number
+  imdbId: string
   mediaType: string
   episode: string
   status: React.ReactNode
@@ -133,7 +135,7 @@ export function ScannedFilesTable({
   }
 
   const formatEpisodeNumber = (seasonNumber?: number, episodeNumber?: number) => {
-    if (seasonNumber === undefined || episodeNumber === undefined) {
+    if (seasonNumber === null || episodeNumber === null || seasonNumber === undefined || episodeNumber === undefined) {
       return "-"
     }
     return `S${seasonNumber.toString().padStart(2, "0")}E${episodeNumber.toString().padStart(2, "0")}`
@@ -207,6 +209,8 @@ export function ScannedFilesTable({
             )}
           </div>
         ),
+        tmdbId: file.tmdbId || 0,
+        imdbId: file.imdbId || "-",
         mediaType: getMediaTypeLabel(file.mediaType),
         episode: formatEpisodeNumber(file.seasonNumber, file.episodeNumber),
         status: (
@@ -351,6 +355,12 @@ export function ScannedFilesTable({
           </TableColumn>
           <TableColumn key="mediaType" allowsSorting>
             Media Type
+          </TableColumn>
+          <TableColumn key="tmdbId" allowsSorting>
+            TMDB ID
+          </TableColumn>
+          <TableColumn key="imdbId" allowsSorting>
+            IMDb ID
           </TableColumn>
           <TableColumn key="episode" allowsSorting>
             Episode

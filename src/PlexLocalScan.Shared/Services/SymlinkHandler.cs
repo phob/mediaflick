@@ -71,8 +71,8 @@ public class SymlinkHandler(
         {
             if (mediaInfo is {MediaType: MediaType.Movies})
             {
-                var movieName = PathFormatHelper.FormatMoviePath(mediaInfo);
-                return (baseFolder, movieName + extension);
+                var (folderPath, fileName) = PathFormatHelper.FormatMoviePath(mediaInfo);
+                return (Path.Combine(baseFolder, folderPath), fileName + extension);
             }
             else
             {
