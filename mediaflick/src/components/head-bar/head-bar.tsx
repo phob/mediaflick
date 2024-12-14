@@ -14,8 +14,8 @@ export default function HeadBar() {
                     </div>
                     <div className="flex gap-2">
                         <HeadButton icon={Home} label="Home" href="/" />
+                        <HeadButton icon={Popcorn} label="Informations" href="/mediainfo" />
                         <HeadButton icon={Library} label="Library" href="/medialibrary" />
-                        <HeadButton icon={Popcorn} label="Movies" href="/mediainfo" />
                     </div>
                 </div>
                 <div className="flex flex-1 justify-end">

@@ -7,7 +7,7 @@ import { ScannedFilesTable } from '@/components/scanned-files-table'
 
 export default function MediaLibrary() {
     const [page, setPage] = useState(1)
-    const [pageSize, setPageSize] = useState(20)
+    const [pageSize, setPageSize] = useState(50)
     const [sortBy, setSortBy] = useState('createdAt')
     const [sortOrder, setSortOrder] = useState('desc')
 

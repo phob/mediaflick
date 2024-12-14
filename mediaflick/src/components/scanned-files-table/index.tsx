@@ -21,6 +21,8 @@ import { Edit, Search } from "lucide-react"
 
 import { mediaApi } from "@/lib/api/endpoints"
 import { MediaStatus, MediaType, PagedResult, PlexConfig, ScannedFile } from "@/lib/api/types"
+import { getFileName, stripFolderPrefix } from "@/lib/files-folders"
+import { formatEpisodeNumber, getMediaTypeLabel, getStatusClass, getStatusLabel } from "@/lib/format-helper"
 
 interface ScannedFilesTableProps {
   page?: number
@@ -87,87 +89,8 @@ export function ScannedFilesTable({
   const [mediaTypeFilter, setMediaTypeFilter] = useState<Selection>(new Set([MediaType.TvShows]))
   const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set())
 
-  const getStatusClass = (status: MediaStatus) => {
-    switch (status) {
-      case MediaStatus.Processing:
-        return "bg-yellow-100 text-yellow-800"
-      case MediaStatus.Success:
-        return "bg-green-100 text-green-800"
-      case MediaStatus.Failed:
-        return "bg-red-100 text-red-800"
-      case MediaStatus.Duplicate:
-        return "bg-gray-100 text-gray-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
-  }
-
-  const getStatusLabel = (status: MediaStatus) => {
-    switch (status) {
-      case MediaStatus.Processing:
-        return "Processing"
-      case MediaStatus.Success:
-        return "Success"
-      case MediaStatus.Failed:
-        return "Failed"
-      case MediaStatus.Duplicate:
-        return "Duplicate"
-    }
-  }
-
-  const getMediaTypeLabel = (mediaType: MediaType) => {
-    switch (mediaType) {
-      case MediaType.Movies:
-        return "Movies"
-      case MediaType.TvShows:
-        return "TV Shows"
-      case MediaType.Extras:
-        return "Extras"
-      case MediaType.Unknown:
-        return "Unknown"
-      default:
-        return "Unknown"
-    }
-  }
-
-  const getFileName = (filePath: string) => {
-    return filePath.split(/[\\/]/).pop() || filePath
-  }
-
-  const formatEpisodeNumber = (seasonNumber?: number, episodeNumber?: number) => {
-    if (seasonNumber === null || episodeNumber === null || seasonNumber === undefined || episodeNumber === undefined) {
-      return "-"
-    }
-    return `S${seasonNumber.toString().padStart(2, "0")}E${episodeNumber.toString().padStart(2, "0")}`
-  }
-
-  const stripFolderPrefix = (path: string, mediaType: MediaType) => {
-    if (!plexConfig || !path) return path
-
-    const mapping = plexConfig.folderMappings.find((m) => m.mediaType === mediaType)
-    if (!mapping) return path
-
-    if (path.startsWith(mapping.sourceFolder)) {
-      return path.slice(mapping.sourceFolder.length).replace(/^[/\\]+/, "")
-    }
-
-    if (path.startsWith(mapping.destinationFolder)) {
-      return path.slice(mapping.destinationFolder.length).replace(/^[/\\]+/, "")
-    }
-
-    const lastSlashIndex = path.lastIndexOf("/")
-    const lastBackslashIndex = path.lastIndexOf("\\")
-    const lastIndex = Math.max(lastSlashIndex, lastBackslashIndex)
-    if (lastIndex >= 0) {
-      return path.slice(0, lastIndex + 1)
-    }
-
-    return path
-  }
-
-  const hasSearchFilter = Boolean(filterValue)
-
   const filteredItems = React.useMemo(() => {
+    const hasSearchFilter = Boolean(filterValue)
     let filteredData = [...(data?.items || [])]
 
     if (hasSearchFilter) {
@@ -195,7 +118,7 @@ export function ScannedFilesTable({
           <div className="flex flex-col gap-1">
             <span className="font-medium">{getFileName(file.sourceFile)}</span>
             <span className="break-all text-xs text-gray-500">
-              {stripFolderPrefix(file.sourceFile, file.mediaType)}
+              {stripFolderPrefix(file.sourceFile, file.mediaType, plexConfig)}
             </span>
           </div>
         ),
@@ -204,7 +127,7 @@ export function ScannedFilesTable({
             <span className="font-medium">{file.destFile ? getFileName(file.destFile) : "-"}</span>
             {file.destFile && (
               <span className="break-all text-xs text-gray-500">
-                {stripFolderPrefix(file.destFile, file.mediaType)}
+                {stripFolderPrefix(file.destFile, file.mediaType, plexConfig)}
               </span>
             )}
           </div>
@@ -237,6 +160,20 @@ export function ScannedFilesTable({
   const topContent = React.useMemo(() => {
     return (
       <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <span className="text-small text-default-400">Total {filteredItems.length} files</span>
+          <label className="flex items-center text-small text-default-400">
+            Rows per page:
+            <select
+              className="bg-transparent text-small text-default-400 outline-none"
+              onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
+            >
+              <option value="50">50</option>
+              <option value="100">100</option>
+              <option value="200">200</option>
+            </select>
+          </label>
+        </div>
         <div className="flex items-center justify-between gap-3">
           <Input
             isClearable
@@ -286,20 +223,6 @@ export function ScannedFilesTable({
               Edit Selected
             </Button>
           </div>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-small text-default-400">Total {filteredItems.length} files</span>
-          <label className="flex items-center text-small text-default-400">
-            Rows per page:
-            <select
-              className="bg-transparent text-small text-default-400 outline-none"
-              onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
-            >
-              <option value="50">50</option>
-              <option value="100">100</option>
-              <option value="200">200</option>
-            </select>
-          </label>
         </div>
       </div>
     )
@@ -429,9 +352,6 @@ export function ScannedFilesTable({
           status: Array.from(statusFilter)[0] as unknown as MediaStatus,
           mediaType: Array.from(mediaTypeFilter)[0] as unknown as MediaType,
         })
-        console.log("API Response:", result)
-        console.log("Status Filter:", Array.from(statusFilter)[0])
-        console.log("Media Type Filter:", Array.from(mediaTypeFilter)[0])
         setData(result)
         setError(null)
       } catch (error: unknown) {
