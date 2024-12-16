@@ -1,5 +1,3 @@
-"use client"
-
 import { LogoModule } from "@/components/logo-module"
 import { HeartbeatStatus } from "@/components/heartbeat-status"
 
