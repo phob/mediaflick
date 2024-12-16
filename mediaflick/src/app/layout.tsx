@@ -21,7 +21,7 @@ export default function RootLayout({children,}: Readonly<{children: React.ReactN
   return (
     <html lang="en" className="dark">
       <body className={clsx(
-          "min-h-screen bg-background font-sans antialiased",
+          "min-h-screen bg-background font-sans antialiased container mx-auto",
           fontSans.variable,
         )}>
         <Providers>

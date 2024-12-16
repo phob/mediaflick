@@ -81,8 +81,11 @@ export const mediaApi = {
         }),
 
     deleteScannedFiles: (ids: number[]) =>
-        fetchApi('/scannedfiles', {
+        fetchApi('/scannedfiles/batch', {
             method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            },
             body: JSON.stringify(ids),
         }),
 

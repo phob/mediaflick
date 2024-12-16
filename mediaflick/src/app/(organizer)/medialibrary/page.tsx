@@ -12,7 +12,7 @@ export default function MediaLibrary() {
     const [sortOrder, setSortOrder] = useState('desc')
 
     return (
-        <div className="mx-auto py-6">
+        <div className="container mx-auto py-6">
             <h1 className="mb-6 text-2xl font-bold">Media Library</h1>
             <ScannedFilesTable
                 page={page}

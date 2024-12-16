@@ -30,7 +30,7 @@ public class FileTrackingService(PlexScanContext dbContext, ILogger<FileTracking
         if (scannedFile.Status == FileStatus.Success && type == "add")
         {
             logger.LogInformation("File already tracked and successful: {SourceFile}", sourceFile);
-            return null;
+            return scannedFile;
         }
         logger.LogDebug("File already tracked: {SourceFile}", sourceFile);
 

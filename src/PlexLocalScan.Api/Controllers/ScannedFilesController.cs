@@ -7,7 +7,6 @@ using PlexLocalScan.Data.Models;
 using PlexLocalScan.Api.Models;
 using PlexLocalScan.Shared.Interfaces;
 using PlexLocalScan.Shared.Options;
-using Microsoft.Extensions.Logging;
 
 namespace PlexLocalScan.Api.Controllers;
 
@@ -271,10 +270,10 @@ public class ScannedFilesController(
     /// Deletes a single scanned file by its ID
     /// </summary>
     /// <param name="id">The ID of the scanned file to delete</param>
-    /// <response code="204">If the scanned file was successfully deleted</response>
+    /// <response code="200">If the scanned file was successfully deleted</response>
     /// <response code="404">If the scanned file is not found</response>
     [HttpDelete("{id}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteScannedFile(int id)
     {
@@ -302,17 +301,17 @@ public class ScannedFilesController(
         await _context.SaveChangesAsync();
 
         _logger.LogInformation("Successfully deleted scanned file with ID: {Id}", id);
-        return NoContent();
+        return Ok(new { deletedId = id });
     }
 
     /// <summary>
     /// Deletes multiple scanned files by their IDs
     /// </summary>
     /// <param name="ids">Array of scanned file IDs to delete</param>
-    /// <response code="204">If the scanned files were successfully deleted</response>
+    /// <response code="200">If the scanned files were successfully deleted</response>
     /// <response code="400">If the request is invalid</response>
     [HttpDelete("batch")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> DeleteScannedFiles([FromBody] int[] ids)
     {
@@ -327,7 +326,7 @@ public class ScannedFilesController(
             .Where(f => ids.Contains(f.Id))
             .ToListAsync();
 
-        if (filesToDelete.Any())
+        if (filesToDelete.Count > 0)
         {
             // Group files by media type for efficient cleanup
             var filesByMediaType = filesToDelete.GroupBy(f => f.MediaType);
@@ -360,7 +359,7 @@ public class ScannedFilesController(
         }
 
         _logger.LogInformation("Successfully deleted {Count} scanned files", filesToDelete.Count);
-        return NoContent();
+        return Ok(new { deletedIds = ids });
     }
 
     [HttpPost("recreate-symlinks")]

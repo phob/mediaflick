@@ -14,10 +14,12 @@ import {
   TableColumn,
   TableHeader,
   TableRow,
+  Tooltip,
+  getKeyValue,
 } from "@nextui-org/react"
 import type { Selection, SortDescriptor } from "@nextui-org/react"
 import { format } from "date-fns"
-import { Edit, Search } from "lucide-react"
+import { Edit, Search, Trash2 } from "lucide-react"
 
 import { mediaApi } from "@/lib/api/endpoints"
 import { MediaStatus, MediaType, PagedResult, PlexConfig, ScannedFile } from "@/lib/api/types"
@@ -115,20 +117,36 @@ export function ScannedFilesTable({
       (file): Row => ({
         key: file.id,
         sourceFile: (
-          <div className="flex flex-col gap-1">
-            <span className="font-medium">{getFileName(file.sourceFile)}</span>
-            <span className="break-all text-xs text-gray-500">
-              {stripFolderPrefix(file.sourceFile, file.mediaType, plexConfig)}
-            </span>
+          <div className="flex flex-col">
+            <Tooltip
+              content={stripFolderPrefix(file.sourceFile, file.mediaType, plexConfig)}
+              className="max-w-lg break-all"
+              placement="right-end"
+              showArrow
+              color="primary"
+              delay={300}
+              closeDelay={300}
+            >
+              <span className="cursor-help font-medium">{getFileName(file.sourceFile)}</span>
+            </Tooltip>
           </div>
         ),
         destFile: (
-          <div className="flex flex-col gap-1">
-            <span className="font-medium">{file.destFile ? getFileName(file.destFile) : "-"}</span>
-            {file.destFile && (
-              <span className="break-all text-xs text-gray-500">
-                {stripFolderPrefix(file.destFile, file.mediaType, plexConfig)}
-              </span>
+          <div className="flex flex-col">
+            {file.destFile ? (
+              <Tooltip
+                content={stripFolderPrefix(file.destFile, file.mediaType, plexConfig)}
+                className="max-w-lg break-all"
+                placement="right-end"
+                showArrow
+                color="primary"
+                delay={300}
+                closeDelay={300}
+              >
+                <span className="cursor-help font-medium">{getFileName(file.destFile)}</span>
+              </Tooltip>
+            ) : (
+              <span>-</span>
             )}
           </div>
         ),
@@ -157,7 +175,34 @@ export function ScannedFilesTable({
     )
   }, [data, page, onPageChange])
 
+  const handleDeleteSelected = useCallback(async () => {
+    const selectedIds = selectedKeys === "all"
+    ? filteredItems.map(item => item.id)
+    : Array.from(selectedKeys).map(key => Number(key));
+    
+    try {
+      await mediaApi.deleteScannedFiles(selectedIds)
+
+      const result = await mediaApi.getScannedFiles({
+        page,
+        pageSize,
+        sortBy,
+        sortOrder,
+        searchTerm: filterValue,
+        status: Array.from(statusFilter)[0] as unknown as MediaStatus,
+        mediaType: Array.from(mediaTypeFilter)[0] as unknown as MediaType,
+      })
+
+      setData(result)
+      setSelectedKeys(new Set())
+    } catch (error) {
+      console.error("Failed to delete files:", error)
+    }
+  }, [selectedKeys, page, pageSize, sortBy, sortOrder, filterValue, statusFilter, mediaTypeFilter])
+
   const topContent = React.useMemo(() => {
+    const selectedCount = selectedKeys === "all" ? filteredItems.length : Array.from(selectedKeys).length
+
     return (
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
@@ -215,30 +260,42 @@ export function ScannedFilesTable({
                 </SelectItem>
               )}
             </Select>
-            <Button
-              color="primary"
-              endContent={<Edit className="h-4 w-4" />}
-              isDisabled={selectedKeys === "all" || Array.from(selectedKeys).length === 0}
-            >
+            <Button color="primary" endContent={<Edit className="h-4 w-4" />} isDisabled={selectedCount === 0}>
               Edit Selected
+            </Button>
+            <Button
+              color="danger"
+              endContent={<Trash2 className="h-4 w-4" />}
+              isDisabled={selectedCount === 0}
+              onPress={handleDeleteSelected}
+            >
+              Delete Selected
             </Button>
           </div>
         </div>
       </div>
     )
-  }, [filterValue, statusFilter, mediaTypeFilter, selectedKeys, filteredItems.length, onPageSizeChange])
+  }, [
+    filterValue,
+    statusFilter,
+    mediaTypeFilter,
+    selectedKeys,
+    filteredItems.length,
+    onPageSizeChange,
+    handleDeleteSelected,
+  ])
 
   const handleSort = React.useCallback(
     (descriptor: SortDescriptor) => {
       const column = String(descriptor.column)
       if (sortBy === column) {
-        onSortOrderChange?.(descriptor.direction === "ascending" ? "desc" : "asc")
+        onSortOrderChange?.(sortOrder === "asc" ? "desc" : "asc")
       } else {
         onSortByChange?.(column)
         onSortOrderChange?.("asc")
       }
     },
-    [sortBy, onSortOrderChange, onSortByChange]
+    [sortBy, sortOrder, onSortOrderChange, onSortByChange]
   )
 
   const handleSelectionChange = useCallback((selection: Selection) => {
@@ -251,7 +308,7 @@ export function ScannedFilesTable({
         isHeaderSticky
         aria-label="Scanned files table"
         selectionMode="multiple"
-        className="min-w-full"
+        className="h-[calc(100vh-200px)]"
         classNames={{
           th: "bg-default-200",
           td: "py-3",
@@ -267,7 +324,6 @@ export function ScannedFilesTable({
         topContentPlacement="outside"
         selectedKeys={selectedKeys}
         onSelectionChange={handleSelectionChange}
-        defaultSelectedKeys={new Set()}
       >
         <TableHeader>
           <TableColumn key="sourceFile" allowsSorting>
@@ -308,7 +364,7 @@ export function ScannedFilesTable({
           }
         >
           {(item) => (
-            <TableRow key={item.key}>{(columnKey) => <TableCell>{item[columnKey as keyof Row]}</TableCell>}</TableRow>
+            <TableRow key={item.key}>{(columnKey) => <TableCell>{getKeyValue(item, columnKey)}</TableCell>}</TableRow>
           )}
         </TableBody>
       </DynamicTable>
