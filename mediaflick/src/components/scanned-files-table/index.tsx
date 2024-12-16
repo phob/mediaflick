@@ -23,6 +23,7 @@ import { Edit, Search, Trash2 } from "lucide-react"
 
 import { mediaApi } from "@/lib/api/endpoints"
 import { MediaStatus, MediaType, PagedResult, PlexConfig, ScannedFile } from "@/lib/api/types"
+import { signalr } from "@/lib/api/signalr"
 import { getFileName, stripFolderPrefix } from "@/lib/files-folders"
 import { formatEpisodeNumber, getMediaTypeLabel, getStatusClass, getStatusLabel } from "@/lib/format-helper"
 
@@ -90,6 +91,18 @@ export function ScannedFilesTable({
   const [statusFilter, setStatusFilter] = useState<Selection>(new Set([MediaStatus.Success]))
   const [mediaTypeFilter, setMediaTypeFilter] = useState<Selection>(new Set([MediaType.TvShows]))
   const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set())
+  const [newEntries, setNewEntries] = useState<Set<number>>(new Set())
+
+  // Clear animation after delay
+  useEffect(() => {
+    if (newEntries.size === 0) return
+
+    const timeoutId = setTimeout(() => {
+      setNewEntries(new Set())
+    }, 2000) // 2 seconds matches the CSS animation duration
+
+    return () => clearTimeout(timeoutId)
+  }, [newEntries])
 
   const filteredItems = React.useMemo(() => {
     const hasSearchFilter = Boolean(filterValue)
@@ -364,7 +377,12 @@ export function ScannedFilesTable({
           }
         >
           {(item) => (
-            <TableRow key={item.key}>{(columnKey) => <TableCell>{getKeyValue(item, columnKey)}</TableCell>}</TableRow>
+            <TableRow 
+              key={item.key}
+              className={`transition-colors ${newEntries.has(item.key) ? "animate-new-row" : ""}`}
+            >
+              {(columnKey) => <TableCell>{getKeyValue(item, columnKey)}</TableCell>}
+            </TableRow>
           )}
         </TableBody>
       </DynamicTable>
@@ -381,6 +399,7 @@ export function ScannedFilesTable({
     topContent,
     selectedKeys,
     handleSelectionChange,
+    newEntries,
   ])
 
   useEffect(() => {
@@ -419,6 +438,167 @@ export function ScannedFilesTable({
 
     fetchData()
   }, [page, pageSize, sortBy, sortOrder, filterValue, statusFilter, mediaTypeFilter])
+
+  // Handle real-time updates from SignalR
+  useEffect(() => {
+    const shouldIncludeFile = (file: ScannedFile): boolean => {
+      if (!statusFilter || !mediaTypeFilter) {
+        console.log('Filters not initialized:', { statusFilter, mediaTypeFilter })
+        return false
+      }
+
+      const statusMatch = statusFilter === "all" || (statusFilter instanceof Set && (
+        statusFilter.size === 0 || 
+        Array.from(statusFilter).includes(file.status)
+      ))
+      const mediaTypeMatch = mediaTypeFilter === "all" || (mediaTypeFilter instanceof Set && (
+        mediaTypeFilter.size === 0 || 
+        Array.from(mediaTypeFilter).includes(file.mediaType)
+      ))
+      const searchMatch = !filterValue || 
+        file.sourceFile.toLowerCase().includes(filterValue.toLowerCase()) ||
+        (file.destFile?.toLowerCase() || "").includes(filterValue.toLowerCase())
+
+      console.log('Filter checks:', {
+        file,
+        statusFilter: Array.from(statusFilter instanceof Set ? statusFilter : []),
+        mediaTypeFilter: Array.from(mediaTypeFilter instanceof Set ? mediaTypeFilter : []),
+        statusMatch,
+        mediaTypeMatch,
+        searchMatch
+      })
+
+      return statusMatch && mediaTypeMatch && searchMatch
+    }
+
+    // Add a sorting function
+    const sortItems = (items: ScannedFile[]): ScannedFile[] => {
+      return [...items].sort((a, b) => {
+        const aValue = a[sortBy as keyof ScannedFile]
+        const bValue = b[sortBy as keyof ScannedFile]
+        
+        if (aValue === bValue) return 0
+        if (aValue === null || aValue === undefined) return 1
+        if (bValue === null || bValue === undefined) return -1
+
+        const comparison = aValue < bValue ? -1 : 1
+        return sortOrder === 'asc' ? comparison : -comparison
+      })
+    }
+
+    const handleFileAdded = (file: ScannedFile): void => {
+      console.log('File added, checking filters:', file)
+      if (!shouldIncludeFile(file)) return
+
+      // Set new entry animation first
+      setNewEntries(prev => new Set([...prev, file.id]))
+      console.log('Added to newEntries:', file.id)
+
+      setData((prevData): PagedResult<ScannedFile> | null => {
+        if (!prevData) return null
+
+        const newItems = sortItems([file, ...prevData.items]).slice(0, pageSize)
+        const newTotalItems = prevData.totalItems + 1
+
+        return {
+          ...prevData,
+          items: newItems,
+          totalItems: newTotalItems,
+          totalPages: Math.ceil(newTotalItems / pageSize)
+        }
+      })
+    }
+
+    const handleFileUpdated = (file: ScannedFile): void => {
+      console.log('File updated:', file)
+      setData((prevData): PagedResult<ScannedFile> | null => {
+        if (!prevData?.items) return null
+
+        const itemIndex = prevData.items.findIndex(item => item.id === file.id)
+        const matchesFilters = shouldIncludeFile(file)
+
+        // File exists in current view
+        if (itemIndex !== -1) {
+          if (!matchesFilters) {
+            // Remove if it no longer matches filters
+            const filteredItems = prevData.items.filter((_, index) => index !== itemIndex)
+            const newTotalItems = prevData.totalItems - 1
+            
+            return {
+              ...prevData,
+              items: filteredItems,
+              totalItems: newTotalItems,
+              totalPages: Math.ceil(newTotalItems / pageSize)
+            }
+          }
+
+          // Update and resort
+          const updatedItems = sortItems([
+            file,
+            ...prevData.items.filter((_, index) => index !== itemIndex)
+          ]).slice(0, pageSize)
+          
+          return {
+            ...prevData,
+            items: updatedItems
+          }
+        }
+        
+        // File doesn't exist in current view but matches filters - add it
+        if (matchesFilters) {
+          // Set new entry animation for files that are newly added to view
+          setNewEntries(prev => new Set([...prev, file.id]))
+          console.log('Added to newEntries from update:', file.id)
+
+          const newItems = sortItems([file, ...prevData.items]).slice(0, pageSize)
+          const newTotalItems = prevData.totalItems + 1
+          
+          return {
+            ...prevData,
+            items: newItems,
+            totalItems: newTotalItems,
+            totalPages: Math.ceil(newTotalItems / pageSize)
+          }
+        }
+
+        return prevData
+      })
+    }
+
+    const handleFileRemoved = (file: ScannedFile): void => {
+      setData((prevData): PagedResult<ScannedFile> | null => {
+        if (!prevData?.items) return null
+
+        const itemIndex = prevData.items.findIndex(item => item.id === file.id)
+        if (itemIndex === -1) return prevData
+
+        const filteredItems = prevData.items.filter((_, index) => index !== itemIndex)
+        const newTotalItems = Math.max(0, prevData.totalItems - 1)
+        
+        return {
+          ...prevData,
+          items: filteredItems,
+          totalItems: newTotalItems,
+          totalPages: Math.max(1, Math.ceil(newTotalItems / pageSize))
+        }
+      })
+    }
+
+    // Only set up subscriptions if we have data and filters are properly initialized
+    if (!data || !statusFilter || !mediaTypeFilter) return
+
+    // Subscribe to SignalR events
+    const unsubscribeAdd = signalr.subscribe('OnFileAdded', handleFileAdded)
+    const unsubscribeUpdate = signalr.subscribe('OnFileUpdated', handleFileUpdated)
+    const unsubscribeRemove = signalr.subscribe('OnFileRemoved', handleFileRemoved)
+
+    // Cleanup subscriptions
+    return () => {
+      unsubscribeAdd()
+      unsubscribeUpdate()
+      unsubscribeRemove()
+    }
+  }, [data, pageSize, statusFilter, mediaTypeFilter, filterValue])
 
   return tableComponent
 }

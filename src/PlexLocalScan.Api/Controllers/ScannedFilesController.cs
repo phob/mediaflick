@@ -7,6 +7,7 @@ using PlexLocalScan.Data.Models;
 using PlexLocalScan.Api.Models;
 using PlexLocalScan.Shared.Interfaces;
 using PlexLocalScan.Shared.Options;
+using PlexLocalScan.Shared.Services;
 
 namespace PlexLocalScan.Api.Controllers;
 
@@ -21,7 +22,8 @@ public class ScannedFilesController(
     IImdbUpdateService imdbUpdateService,
     ICleanupHandler cleanupHandler,
     PlexScanContext context,
-    IOptions<PlexOptions> plexOptions) : ControllerBase
+    IOptions<PlexOptions> plexOptions,
+    FileTrackingNotificationService notificationService) : ControllerBase
 {
     private readonly ILogger<ScannedFilesController> _logger = logger;
     private readonly ISymlinkRecreationService _symlinkRecreationService = symlinkRecreationService;
@@ -29,6 +31,7 @@ public class ScannedFilesController(
     private readonly ICleanupHandler _cleanupHandler = cleanupHandler;
     private readonly PlexScanContext _context = context;
     private readonly IOptions<PlexOptions> _plexOptions = plexOptions;
+    private readonly FileTrackingNotificationService _notificationService = notificationService;
 
 
     /// <summary>
@@ -300,6 +303,9 @@ public class ScannedFilesController(
         _context.ScannedFiles.Remove(scannedFile);
         await _context.SaveChangesAsync();
 
+        // Notify clients about the deletion
+        await _notificationService.NotifyFileRemoved(scannedFile);
+
         _logger.LogInformation("Successfully deleted scanned file with ID: {Id}", id);
         return Ok(new { deletedId = id });
     }
@@ -347,6 +353,9 @@ public class ScannedFilesController(
                         {
                             System.IO.File.Delete(file.DestFile);
                         }
+                        
+                        // Notify clients about each deletion
+                        await _notificationService.NotifyFileRemoved(file);
                     }
                     
                     // Clean up empty directories once per media type

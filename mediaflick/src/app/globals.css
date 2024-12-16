@@ -1,3 +1,18 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+  @keyframes highlightRow {
+    0%, 20% {
+      background-color: rgb(var(--nextui-primary-200) / 0.5);
+    }
+    100% {
+      background-color: transparent;
+    }
+  }
+
+  .animate-new-row {
+    animation: highlightRow 2s ease-out forwards;
+  }
+}

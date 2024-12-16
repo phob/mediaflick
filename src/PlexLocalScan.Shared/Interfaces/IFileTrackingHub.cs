@@ -1,4 +1,4 @@
-using PlexLocalScan.Data.Models;
+using PlexLocalScan.Shared.Models;
 
 namespace PlexLocalScan.Shared.Interfaces;
 
@@ -10,15 +10,15 @@ public interface IFileTrackingHub
     /// <summary>
     /// Notifies clients when a file has been added to tracking
     /// </summary>
-    Task OnFileAdded(ScannedFile file);
+    Task OnFileAdded(ScannedFileDto file);
     
     /// <summary>
     /// Notifies clients when a file has been removed from tracking
     /// </summary>
-    Task OnFileRemoved(ScannedFile file);
+    Task OnFileRemoved(ScannedFileDto file);
     
     /// <summary>
     /// Notifies clients when a file's tracking status has been updated
     /// </summary>
-    Task OnFileUpdated(ScannedFile file);
+    Task OnFileUpdated(ScannedFileDto file);
 } 

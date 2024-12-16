@@ -46,6 +46,9 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 
 var services = builder.Services;
 
+// Add SignalR
+services.AddSignalR();
+
 // Add services to the container
 services.AddControllers()
     .AddJsonOptions(options =>
@@ -59,6 +62,9 @@ services.AddSwaggerGen(c =>
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     c.IncludeXmlComments(xmlPath);
 });
+
+// Add SignalR services
+services.AddScoped<FileTrackingNotificationService>();
 
 // Reuse the same services from Console project
 services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
@@ -143,6 +149,9 @@ app.UseCors();
 
 //app.UseHttpsRedirection();
 //app.UseAuthorization();
+
+// Map SignalR hub
+app.MapHub<FileTrackingHub>(FileTrackingHub.Route);
 
 if (app.Environment.IsDevelopment())
 {

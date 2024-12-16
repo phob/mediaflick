@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
 using PlexLocalScan.Data.Models;
 using PlexLocalScan.Shared.Interfaces;
+using PlexLocalScan.Shared.Models;
 
 namespace PlexLocalScan.Shared.Services;
 
@@ -21,7 +22,7 @@ public class FileTrackingHub : Hub<IFileTrackingHub>
     /// </summary>
     public async Task NotifyFileAdded(ScannedFile file)
     {
-        await Clients.All.OnFileAdded(file);
+        await Clients.All.OnFileAdded(ScannedFileDto.FromScannedFile(file));
     }
     
     /// <summary>
@@ -29,7 +30,7 @@ public class FileTrackingHub : Hub<IFileTrackingHub>
     /// </summary>
     public async Task NotifyFileRemoved(ScannedFile file)
     {
-        await Clients.All.OnFileRemoved(file);
+        await Clients.All.OnFileRemoved(ScannedFileDto.FromScannedFile(file));
     }
     
     /// <summary>
@@ -37,6 +38,6 @@ public class FileTrackingHub : Hub<IFileTrackingHub>
     /// </summary>
     public async Task NotifyFileUpdated(ScannedFile file)
     {
-        await Clients.All.OnFileUpdated(file);
+        await Clients.All.OnFileUpdated(ScannedFileDto.FromScannedFile(file));
     }
 } 
