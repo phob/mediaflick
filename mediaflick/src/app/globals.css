@@ -4,7 +4,8 @@
 
 @layer utilities {
   @keyframes highlightRow {
-    0%, 20% {
+    0%,
+    20% {
       background-color: rgb(var(--nextui-primary-200) / 0.5);
     }
     100% {

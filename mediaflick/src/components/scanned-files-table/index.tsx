@@ -273,13 +273,18 @@ export function ScannedFilesTable({
                 </SelectItem>
               )}
             </Select>
-            <Button color="primary" endContent={<Edit className="h-4 w-4" />} isDisabled={selectedCount === 0}>
+            <Button color="default" 
+            endContent={<Edit className="h-4 w-4" />} 
+            isDisabled={selectedCount === 0}
+            aria-label="Edit Selected"
+            >
               Edit Selected
             </Button>
             <Button
               color="danger"
               endContent={<Trash2 className="h-4 w-4" />}
               isDisabled={selectedCount === 0}
+              aria-label="Delete Selected"
               onPress={handleDeleteSelected}
             >
               Delete Selected

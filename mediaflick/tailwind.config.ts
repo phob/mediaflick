@@ -33,6 +33,7 @@ module.exports = {
       themes: {
         light: {
           colors: {
+            background: "#fcfcfc",
             primary: {
               DEFAULT: "#ccff00",
               foreground: "#000000", // Changed to black for better contrast
@@ -41,6 +42,7 @@ module.exports = {
         },
         dark: {
           colors: {
+            background: "#151515",
             primary: {
               DEFAULT: "#ccff00",
               foreground: "#000000", // Changed to black for better contrast

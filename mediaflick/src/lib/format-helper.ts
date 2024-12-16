@@ -3,15 +3,15 @@ import { MediaStatus, MediaType } from "@/lib/api/types"
 export const getStatusClass = (status: MediaStatus) => {
   switch (status) {
     case MediaStatus.Processing:
-      return "bg-yellow-100 text-yellow-800"
+      return "bg-yellow-700 text-white"
     case MediaStatus.Success:
-      return "bg-green-100 text-green-800"
+      return "bg-green-700 text-white"
     case MediaStatus.Failed:
-      return "bg-red-100 text-red-800"
+      return "bg-red-700 text-white"
     case MediaStatus.Duplicate:
-      return "bg-gray-100 text-gray-800"
+      return "bg-gray-700 text-white"
     default:
-      return "bg-gray-100 text-gray-800"
+      return "bg-gray-700 text-white"
   }
 }
 
