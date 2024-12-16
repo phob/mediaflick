@@ -36,12 +36,14 @@ const convertDtoToScannedFile = (dto: ScannedFileDto): ScannedFile => ({
 })
 
 type FileEventHandler = (file: ScannedFile) => void
-type FileEventType = 'OnFileAdded' | 'OnFileUpdated' | 'OnFileRemoved'
+type HeartbeatHandler = (timestamp: number) => void
+type FileEventType = 'OnFileAdded' | 'OnFileUpdated' | 'OnFileRemoved' | 'OnHeartbeat'
 
 class FileTrackingSignalR {
     private connection: HubConnection | null = null;
-    private eventHandlers: Map<FileEventType, Set<FileEventHandler>> = new Map();
+    private eventHandlers: Map<FileEventType, Set<FileEventHandler | HeartbeatHandler>> = new Map();
     private isConnected: boolean = false
+    private lastHeartbeat: number = 0
 
     constructor() {
         if (typeof window !== 'undefined') {
@@ -57,17 +59,29 @@ class FileTrackingSignalR {
 
     private setupEventHandlers(): void {
         if (!this.connection) return;
-        const events: FileEventType[] = ['OnFileAdded', 'OnFileUpdated', 'OnFileRemoved']
+        const events: FileEventType[] = ['OnFileAdded', 'OnFileUpdated', 'OnFileRemoved', 'OnHeartbeat']
         
         events.forEach(eventType => {
             this.eventHandlers.set(eventType, new Set())
             
             if (this.connection) {
-                this.connection.on(eventType, (dto: ScannedFileDto) => {
-                    const file = convertDtoToScannedFile(dto)
-                    console.log(`${eventType}:`, file)
-                    this.eventHandlers.get(eventType)?.forEach(handler => handler(file))
-                })
+                if (eventType === 'OnHeartbeat') {
+                    this.connection.on(eventType, (timestamp: number) => {
+                        this.lastHeartbeat = timestamp
+                        console.log(`${eventType}:`, new Date(timestamp))
+                        this.eventHandlers.get(eventType)?.forEach(handler => 
+                            (handler as HeartbeatHandler)(timestamp)
+                        )
+                    })
+                } else {
+                    this.connection.on(eventType, (dto: ScannedFileDto) => {
+                        const file = convertDtoToScannedFile(dto)
+                        console.log(`${eventType}:`, file)
+                        this.eventHandlers.get(eventType)?.forEach(handler => 
+                            (handler as FileEventHandler)(file)
+                        )
+                    })
+                }
             }
         })
     }
@@ -84,7 +98,9 @@ class FileTrackingSignalR {
         }
     }
 
-    public subscribe(eventType: FileEventType, handler: FileEventHandler): () => void {
+    public subscribe(eventType: Exclude<FileEventType, 'OnHeartbeat'>, handler: FileEventHandler): () => void
+    public subscribe(eventType: 'OnHeartbeat', handler: HeartbeatHandler): () => void
+    public subscribe(eventType: FileEventType, handler: FileEventHandler | HeartbeatHandler): () => void {
         const handlers = this.eventHandlers.get(eventType)
         if (handlers) {
             handlers.add(handler)
@@ -96,12 +112,16 @@ class FileTrackingSignalR {
         }
     }
 
-    public unsubscribe(eventType: FileEventType, handler: FileEventHandler): void {
+    public unsubscribe(eventType: FileEventType, handler: FileEventHandler | HeartbeatHandler): void {
         this.eventHandlers.get(eventType)?.delete(handler)
     }
 
     public isConnectedToHub(): boolean {
         return this.isConnected
+    }
+
+    public getLastHeartbeat(): number {
+        return this.lastHeartbeat
     }
 }
 

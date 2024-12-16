@@ -21,4 +21,9 @@ public interface IFileTrackingHub
     /// Notifies clients when a file's tracking status has been updated
     /// </summary>
     Task OnFileUpdated(ScannedFileDto file);
+
+    /// <summary>
+    /// Sends server timestamp to clients for heartbeat
+    /// </summary>
+    Task OnHeartbeat(long timestamp);
 } 
