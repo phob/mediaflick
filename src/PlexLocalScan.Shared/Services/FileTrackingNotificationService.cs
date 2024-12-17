@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.SignalR;
 using PlexLocalScan.Data.Models;
 using PlexLocalScan.Shared.Models;
 using PlexLocalScan.Shared.Interfaces;

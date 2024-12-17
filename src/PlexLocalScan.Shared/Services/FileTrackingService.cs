@@ -6,22 +6,12 @@ using PlexLocalScan.Shared.Interfaces;
 
 namespace PlexLocalScan.Shared.Services;
 
-public class FileTrackingService : IFileTrackingService
+public class FileTrackingService(
+    PlexScanContext dbContext,
+    ILogger<FileTrackingService> logger,
+    FileTrackingNotificationService notificationService)
+    : IFileTrackingService
 {
-    private readonly PlexScanContext _dbContext;
-    private readonly ILogger<FileTrackingService> _logger;
-    private readonly FileTrackingNotificationService _notificationService;
-
-    public FileTrackingService(
-        PlexScanContext dbContext, 
-        ILogger<FileTrackingService> logger,
-        FileTrackingNotificationService notificationService)
-    {
-        _dbContext = dbContext;
-        _logger = logger;
-        _notificationService = notificationService;
-    }
-
     // Compiled queries for better performance
     private static readonly Func<PlexScanContext, string, Task<ScannedFile?>> GetBySourceFileQuery =
         EF.CompileAsyncQuery((PlexScanContext context, string sourceFile) =>
@@ -37,15 +27,15 @@ public class FileTrackingService : IFileTrackingService
 
     private async Task<ScannedFile?> GetExistingScannedFileAsync(string sourceFile, string? type = null)
     {
-        var scannedFile = await GetBySourceFileQuery(_dbContext, sourceFile);
+        var scannedFile = await GetBySourceFileQuery(dbContext, sourceFile);
 
         if (scannedFile == null) return null;
         if (scannedFile.Status == FileStatus.Success && type == "add")
         {
-            _logger.LogInformation("File already tracked and successful: {SourceFile}", sourceFile);
+            logger.LogInformation("File already tracked and successful: {SourceFile}", sourceFile);
             return scannedFile;
         }
-        _logger.LogDebug("File already tracked: {SourceFile}", sourceFile);
+        logger.LogDebug("File already tracked: {SourceFile}", sourceFile);
 
         return scannedFile;
     }
@@ -70,21 +60,21 @@ public class FileTrackingService : IFileTrackingService
             UpdatedAt = DateTime.UtcNow
         };
 
-        await _dbContext.ScannedFiles.AddAsync(scannedFile);
+        await dbContext.ScannedFiles.AddAsync(scannedFile);
         
         try
         {
-            await _dbContext.SaveChangesAsync();
-            _logger.LogInformation("Tracked new file: {SourceFile} -> {DestFile}", sourceFile, destFile);
+            await dbContext.SaveChangesAsync();
+            logger.LogInformation("Tracked new file: {SourceFile} -> {DestFile}", sourceFile, destFile);
             
             // Notify clients about the new file
-            await _notificationService.NotifyFileAdded(scannedFile);
+            await notificationService.NotifyFileAdded(scannedFile);
             
             return scannedFile;
         }
         catch (DbUpdateException ex)
         {
-            _logger.LogError(ex, "Error adding file to tracking: {SourceFile}", sourceFile);
+            logger.LogError(ex, "Error adding file to tracking: {SourceFile}", sourceFile);
             // Check if it was a concurrency issue - another process might have added the file
             var existingFile = await GetExistingScannedFileAsync(sourceFile, "add");
             return existingFile;
@@ -107,7 +97,7 @@ public class FileTrackingService : IFileTrackingService
         try
         {
             // Use a transaction for the update to ensure atomicity
-            await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            await using var transaction = await dbContext.Database.BeginTransactionAsync();
             
             bool hasChanges = false;
             
@@ -152,44 +142,44 @@ public class FileTrackingService : IFileTrackingService
             // Only save if there are actual changes
             if (hasChanges)
             {
-                var saveResult = await _dbContext.SaveChangesAsync();
+                var saveResult = await dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
                 
                 if (saveResult > 0)
                 {
-                    _logger.LogInformation("Updated status to {Status} for file: {File}", status, sourceFile);
+                    logger.LogInformation("Updated status to {Status} for file: {File}", status, sourceFile);
                     
                     // Notify clients about the update
-                    await _notificationService.NotifyFileUpdated(scannedFile);
+                    await notificationService.NotifyFileUpdated(scannedFile);
                     
                     return true;
                 }
             }
             
-            _logger.LogDebug("No changes were needed for file: {File}", sourceFile);
+            logger.LogDebug("No changes were needed for file: {File}", sourceFile);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating status for file: {File}", sourceFile);
+            logger.LogError(ex, "Error updating status for file: {File}", sourceFile);
             throw;
         }
     }
 
     public async Task<bool> UpdateStatusByTmdbIdAsync(int tmdbId, FileStatus status)
     {
-        var scannedFiles = await GetByTmdbIdQuery(_dbContext, tmdbId);
+        var scannedFiles = await GetByTmdbIdQuery(dbContext, tmdbId);
 
         if (!scannedFiles.Any())
         {
-            _logger.LogWarning("No files found for TMDb ID: {TmdbId}", tmdbId);
+            logger.LogWarning("No files found for TMDb ID: {TmdbId}", tmdbId);
             return false;
         }
 
         try
         {
             // Use a transaction for batch update
-            await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            await using var transaction = await dbContext.Database.BeginTransactionAsync();
             
             var updateTime = DateTime.UtcNow;
             var hasChanges = false;
@@ -206,34 +196,34 @@ public class FileTrackingService : IFileTrackingService
 
             if (hasChanges)
             {
-                var saveResult = await _dbContext.SaveChangesAsync();
+                var saveResult = await dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
                 
                 if (saveResult > 0)
                 {
-                    _logger.LogInformation("Updated status to {Status} for {Count} files with TMDb ID: {TmdbId}", 
+                    logger.LogInformation("Updated status to {Status} for {Count} files with TMDb ID: {TmdbId}", 
                         status, saveResult, tmdbId);
                     return true;
                 }
             }
             
-            _logger.LogDebug("No status changes were needed for TMDb ID: {TmdbId}", tmdbId);
+            logger.LogDebug("No status changes were needed for TMDb ID: {TmdbId}", tmdbId);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating status for TMDb ID: {TmdbId}", tmdbId);
+            logger.LogError(ex, "Error updating status for TMDb ID: {TmdbId}", tmdbId);
             throw;
         }
     }
 
     public async Task<ScannedFile?> GetBySourceFileAsync(string sourceFile)
     {
-        return await GetBySourceFileQuery(_dbContext, sourceFile);
+        return await GetBySourceFileQuery(dbContext, sourceFile);
     }
 
     public async Task<ScannedFile?> GetByDestFileAsync(string destFile)
     {
-        return await GetByDestFileQuery(_dbContext, destFile);
+        return await GetByDestFileQuery(dbContext, destFile);
     }
 }
