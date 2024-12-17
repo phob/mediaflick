@@ -1,21 +1,21 @@
 using Microsoft.AspNetCore.SignalR;
-using PlexLocalScan.Api.Hubs;
 using PlexLocalScan.Data.Models;
 using PlexLocalScan.Shared.Models;
+using PlexLocalScan.Shared.Interfaces;
 
-namespace PlexLocalScan.Api.Controllers;
+namespace PlexLocalScan.Shared.Services;
 
 /// <summary>
 /// Service for sending file tracking notifications through SignalR
 /// </summary>
-public class FileTrackingNotificationService(IHubContext<FileTrackingHub, Shared.Interfaces.IFileTrackingHub> hubContext)
+public class FileTrackingNotificationService(IFileTrackingHub hubContext)
 {
     /// <summary>
     /// Notifies clients that a file has been added to tracking
     /// </summary>
     public async Task NotifyFileAdded(ScannedFile file)
     {
-        await hubContext.Clients.All.OnFileAdded(ScannedFileDto.FromScannedFile(file));
+        await hubContext.OnFileAdded(ScannedFileDto.FromScannedFile(file));
     }
 
     /// <summary>
@@ -23,7 +23,7 @@ public class FileTrackingNotificationService(IHubContext<FileTrackingHub, Shared
     /// </summary>
     public async Task NotifyFileRemoved(ScannedFile file)
     {
-        await hubContext.Clients.All.OnFileRemoved(ScannedFileDto.FromScannedFile(file));
+        await hubContext.OnFileRemoved(ScannedFileDto.FromScannedFile(file));
     }
 
     /// <summary>
@@ -31,6 +31,6 @@ public class FileTrackingNotificationService(IHubContext<FileTrackingHub, Shared
     /// </summary>
     public async Task NotifyFileUpdated(ScannedFile file)
     {
-        await hubContext.Clients.All.OnFileUpdated(ScannedFileDto.FromScannedFile(file));
+        await hubContext.OnFileUpdated(ScannedFileDto.FromScannedFile(file));
     }
 } 

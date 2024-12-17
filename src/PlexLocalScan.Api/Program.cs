@@ -1,9 +1,9 @@
-using System.Reflection;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using PlexLocalScan.Api.Hubs;
 using PlexLocalScan.Data.Data;
 using PlexLocalScan.Shared.Options;
 using PlexLocalScan.Shared.Services;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using PlexLocalScan.Shared.Interfaces;
 using Scalar.AspNetCore;
 using Serilog;
@@ -16,7 +16,7 @@ builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy =>
     {
         policy
-            .WithOrigins("http://localhost:3000") // Frontend URL
+            .WithOrigins("http://localhost:3000")
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();
@@ -56,13 +56,7 @@ services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
     });
 services.AddEndpointsApiExplorer();
-services.AddSwaggerGen(c =>
-{
-    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-    c.IncludeXmlComments(xmlPath);
-});
-
+services.AddOpenApi();
 // Add SignalR services
 services.AddScoped<FileTrackingNotificationService>();
 
@@ -87,11 +81,12 @@ services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
     .AddScoped<IDateTimeProvider, DateTimeProvider>()
     .AddScoped<IFileSystemService, FileSystemService>()
     .AddScoped<IFileTrackingService, FileTrackingService>()
+    .AddScoped<IFileTrackingHub, FileTrackingHub>()
     .AddHostedService<FileWatcherService>()
-    .AddDbContext<PlexScanContext>((serviceProvider, options) =>
+    .AddDbContext<PlexScanContext>((_, options) =>
     {
-        var databaseOptions = serviceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value;
-        options.UseSqlite(databaseOptions.ConnectionString);
+        var connectionString = $"Data Source={Path.Combine(AppContext.BaseDirectory, "config", "plexscan.db")}";
+        options.UseSqlite(connectionString);
     })
     .AddHttpClient()
     .AddMemoryCache()
@@ -127,15 +122,10 @@ app.UseExceptionHandler(errorApp =>
         }
     });
 });
-
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger(options =>
-    {
-        options.RouteTemplate = "/openapi/{documentName}.json";
-    });
-
+    app.MapOpenApi();
     app.MapScalarApiReference(options =>
     {
         options.Theme = ScalarTheme.Mars;

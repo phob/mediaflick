@@ -25,15 +25,6 @@ public class ScannedFilesController(
     IOptions<PlexOptions> plexOptions,
     FileTrackingNotificationService notificationService) : ControllerBase
 {
-    private readonly ILogger<ScannedFilesController> _logger = logger;
-    private readonly ISymlinkRecreationService _symlinkRecreationService = symlinkRecreationService;
-    private readonly IImdbUpdateService _imdbUpdateService = imdbUpdateService;
-    private readonly ICleanupHandler _cleanupHandler = cleanupHandler;
-    private readonly PlexScanContext _context = context;
-    private readonly IOptions<PlexOptions> _plexOptions = plexOptions;
-    private readonly FileTrackingNotificationService _notificationService = notificationService;
-
-
     /// <summary>
     /// Retrieves a paged list of scanned files with optional filtering and sorting
     /// </summary>
@@ -48,11 +39,11 @@ public class ScannedFilesController(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
     {
-        _logger.LogInformation(
+        logger.LogInformation(
             "Getting scanned files. Page: {Page}, PageSize: {PageSize}, Status: {Status}, MediaType: {MediaType}, SearchTerm: {SearchTerm}, SortBy: {SortBy}, SortOrder: {SortOrder}",
             page, pageSize, filter.Status, filter.MediaType, filter.SearchTerm, filter.SortBy, filter.SortOrder);
 
-        var query = _context.ScannedFiles.AsQueryable();
+        var query = context.ScannedFiles.AsQueryable();
 
         // Apply filters
         if (filter.Status.HasValue)
@@ -109,7 +100,7 @@ public class ScannedFilesController(
             .Take(pageSize)
             .ToListAsync();
 
-        _logger.LogInformation(
+        logger.LogInformation(
             "Retrieved {Count} scanned files. Total items: {TotalItems}, Total pages: {TotalPages}",
             items.Count, totalItems, (int)Math.Ceiling(totalItems / (double)pageSize));
 
@@ -134,16 +125,16 @@ public class ScannedFilesController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ScannedFile>> GetScannedFile(int id)
     {
-        _logger.LogInformation("Getting scanned file with ID: {Id}", id);
-        var scannedFile = await _context.ScannedFiles.FindAsync(id);
+        logger.LogInformation("Getting scanned file with ID: {Id}", id);
+        var scannedFile = await context.ScannedFiles.FindAsync(id);
 
         if (scannedFile == null)
         {
-            _logger.LogWarning("Scanned file with ID {Id} not found", id);
+            logger.LogWarning("Scanned file with ID {Id} not found", id);
             return NotFound();
         }
 
-        _logger.LogInformation("Retrieved scanned file: {@ScannedFile}", scannedFile);
+        logger.LogInformation("Retrieved scanned file: {@ScannedFile}", scannedFile);
         return Ok(scannedFile);
     }
 
@@ -155,23 +146,23 @@ public class ScannedFilesController(
     [ProducesResponseType(typeof(ScannedFileStats), StatusCodes.Status200OK)]
     public async Task<ActionResult<ScannedFileStats>> GetStats()
     {
-        _logger.LogInformation("Getting scanned files statistics");
+        logger.LogInformation("Getting scanned files statistics");
 
         var stats = new ScannedFileStats
         {
-            TotalFiles = await _context.ScannedFiles.CountAsync(),
-            ByStatus = await _context.ScannedFiles
+            TotalFiles = await context.ScannedFiles.CountAsync(),
+            ByStatus = await context.ScannedFiles
                 .GroupBy(f => f.Status)
                 .Select(g => new StatusCount { Status = g.Key, Count = g.Count() })
                 .ToListAsync(),
-            ByMediaType = await _context.ScannedFiles
+            ByMediaType = await context.ScannedFiles
                 .Where(f => f.MediaType.HasValue)
                 .GroupBy(f => f.MediaType!.Value)
                 .Select(g => new MediaTypeCount { MediaType = g.Key, Count = g.Count() })
                 .ToListAsync()
         };
 
-        _logger.LogInformation("Retrieved statistics: {@Stats}", stats);
+        logger.LogInformation("Retrieved statistics: {@Stats}", stats);
         return Ok(stats);
     }
 
@@ -191,13 +182,13 @@ public class ScannedFilesController(
     {
         try
         {
-            _logger.LogInformation("Updating scanned file {Id} with request: {@Request}", id, request);
+            logger.LogInformation("Updating scanned file {Id} with request: {@Request}", id, request);
 
-            var scannedFile = await _context.ScannedFiles.FindAsync(id);
+            var scannedFile = await context.ScannedFiles.FindAsync(id);
 
             if (scannedFile == null)
             {
-                _logger.LogWarning("Scanned file with ID {Id} not found", id);
+                logger.LogWarning("Scanned file with ID {Id} not found", id);
                 return NotFound();
             }
 
@@ -214,13 +205,13 @@ public class ScannedFilesController(
             scannedFile.UpdatedAt = DateTime.UtcNow;
             scannedFile.UpdateToVersion++;
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             
             return Ok(scannedFile);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to update scanned file {Id}", id);
+            logger.LogError(ex, "Failed to update scanned file {Id}", id);
             return BadRequest(new { error = "Failed to update the scanned file", details = ex.Message });
         }
     }
@@ -240,31 +231,31 @@ public class ScannedFilesController(
     {
         try
         {
-            var scannedFile = await _context.ScannedFiles.FindAsync(id);
+            var scannedFile = await context.ScannedFiles.FindAsync(id);
             if (scannedFile == null)
             {
-                _logger.LogWarning("Scanned file with ID {Id} not found", id);
+                logger.LogWarning("Scanned file with ID {Id} not found", id);
                 return NotFound();
             }
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
             // Attempt to recreate the symlink with the new information
-            var success = await _symlinkRecreationService.RecreateSymlinkIfNeededAsync(scannedFile);
+            var success = await symlinkRecreationService.RecreateSymlinkIfNeededAsync(scannedFile);
             if (!success)
             {
-                _logger.LogError("Failed to recreate symlink for scanned file {Id}", id);
+                logger.LogError("Failed to recreate symlink for scanned file {Id}", id);
                 return BadRequest(new { error = "Failed to recreate symlink" });
             }
 
             // Refresh the entity from the database to get the latest version
-            await _context.Entry(scannedFile).ReloadAsync();
-            _logger.LogInformation("Successfully updated scanned file {Id}: {@ScannedFile}", id, scannedFile);
+            await context.Entry(scannedFile).ReloadAsync();
+            logger.LogInformation("Successfully updated scanned file {Id}: {@ScannedFile}", id, scannedFile);
             return Ok(scannedFile);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to update scanned file {Id}", id);
+            logger.LogError(ex, "Failed to update scanned file {Id}", id);
             return BadRequest(new { error = "Failed to update the scanned file", details = ex.Message });
         }
     }
@@ -280,15 +271,15 @@ public class ScannedFilesController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteScannedFile(int id)
     {
-        _logger.LogInformation("Deleting scanned file with ID: {Id}", id);
+        logger.LogInformation("Deleting scanned file with ID: {Id}", id);
 
-        var scannedFile = await _context.ScannedFiles.FindAsync(id);
+        var scannedFile = await context.ScannedFiles.FindAsync(id);
         if (scannedFile == null)
         {
-            _logger.LogWarning("Scanned file with ID {Id} not found", id);
+            logger.LogWarning("Scanned file with ID {Id} not found", id);
             return NotFound();
         }
-        var folderMapping = _plexOptions.Value.FolderMappings
+        var folderMapping = plexOptions.Value.FolderMappings
             .FirstOrDefault(fm => fm.MediaType == scannedFile.MediaType);
 
         if (folderMapping != null)
@@ -297,16 +288,16 @@ public class ScannedFilesController(
             {
                 System.IO.File.Delete(scannedFile.DestFile);
             }
-            await _cleanupHandler.CleanupDeadSymlinksAsync(folderMapping.DestinationFolder);
+            await cleanupHandler.CleanupDeadSymlinksAsync(folderMapping.DestinationFolder);
         }
 
-        _context.ScannedFiles.Remove(scannedFile);
-        await _context.SaveChangesAsync();
+        context.ScannedFiles.Remove(scannedFile);
+        await context.SaveChangesAsync();
 
         // Notify clients about the deletion
-        await _notificationService.NotifyFileRemoved(scannedFile);
+        await notificationService.NotifyFileRemoved(scannedFile);
 
-        _logger.LogInformation("Successfully deleted scanned file with ID: {Id}", id);
+        logger.LogInformation("Successfully deleted scanned file with ID: {Id}", id);
         return Ok(new { deletedId = id });
     }
 
@@ -319,16 +310,16 @@ public class ScannedFilesController(
     [HttpDelete("batch")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> DeleteScannedFiles([FromBody] int[] ids)
+    public async Task<IActionResult> DeleteScannedFiles([FromBody] int[]? ids)
     {
-        if (ids == null || !ids.Any())
+        if (ids == null || ids.Length == 0)
         {
             return BadRequest(new { error = "No IDs provided for deletion" });
         }
 
-        _logger.LogInformation("Deleting multiple scanned files. IDs: {@Ids}", ids);
+        logger.LogInformation("Deleting multiple scanned files. IDs: {@Ids}", ids);
 
-        var filesToDelete = await _context.ScannedFiles
+        var filesToDelete = await context.ScannedFiles
             .Where(f => ids.Contains(f.Id))
             .ToListAsync();
 
@@ -341,7 +332,7 @@ public class ScannedFilesController(
             {
                 if (!mediaTypeGroup.Key.HasValue) continue;
                 
-                var folderMapping = _plexOptions.Value.FolderMappings
+                var folderMapping = plexOptions.Value.FolderMappings
                     .FirstOrDefault(fm => fm.MediaType == mediaTypeGroup.Key);
 
                 if (folderMapping != null)
@@ -355,26 +346,26 @@ public class ScannedFilesController(
                         }
                         
                         // Notify clients about each deletion
-                        await _notificationService.NotifyFileRemoved(file);
+                        await notificationService.NotifyFileRemoved(file);
                     }
                     
                     // Clean up empty directories once per media type
-                    await _cleanupHandler.CleanupDeadSymlinksAsync(folderMapping.DestinationFolder);
+                    await cleanupHandler.CleanupDeadSymlinksAsync(folderMapping.DestinationFolder);
                 }
             }
 
-            _context.ScannedFiles.RemoveRange(filesToDelete);
-            await _context.SaveChangesAsync();
+            context.ScannedFiles.RemoveRange(filesToDelete);
+            await context.SaveChangesAsync();
         }
 
-        _logger.LogInformation("Successfully deleted {Count} scanned files", filesToDelete.Count);
+        logger.LogInformation("Successfully deleted {Count} scanned files", filesToDelete.Count);
         return Ok(new { deletedIds = ids });
     }
 
     [HttpPost("recreate-symlinks")]
     public async Task<IActionResult> RecreateSymlinks()
     {
-        var successCount = await _symlinkRecreationService.RecreateAllSymlinksAsync();
+        var successCount = await symlinkRecreationService.RecreateAllSymlinksAsync();
         return Ok(new { SuccessCount = successCount });
     }
 
@@ -383,12 +374,12 @@ public class ScannedFilesController(
     {
         try
         {
-            var (updated, failed) = await _imdbUpdateService.UpdateMissingImdbIdsAsync(batchSize);
+            var (updated, failed) = await imdbUpdateService.UpdateMissingImdbIdsAsync(batchSize);
             return Ok(new { updated, failed });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating IMDb IDs");
+            logger.LogError(ex, "Error updating IMDb IDs");
             return StatusCode(500, "An error occurred while updating IMDb IDs");
         }
     }

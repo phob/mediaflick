@@ -9,41 +9,38 @@ public record MediaSearchResult(int TmdbId, string Title, int? Year);
 
 public class MediaLookupService(ITMDbClientWrapper tmdbClient, ILogger<MediaLookupService> logger) : IMediaLookupService
 {
-    private readonly ITMDbClientWrapper _tmdbClient = tmdbClient;
-    private readonly ILogger<MediaLookupService> _logger = logger;
-
     public async Task<IEnumerable<MediaSearchResult>> SearchMovieTmdbIdsAsync(string title)
     {
-        var searchResults = await _tmdbClient.SearchMovieAsync(title);
+        var searchResults = await tmdbClient.SearchMovieAsync(title);
         return searchResults.Results.Select(r => new MediaSearchResult(r.Id, r.Title, r.ReleaseDate?.Year)).ToList();
     }
 
     public async Task<IEnumerable<MediaSearchResult>> SearchTvShowTmdbIdsAsync(string title)
     {
-        _logger.LogInformation("Searching for TV show with title: {Title}", title);
-        var searchResults = await _tmdbClient.SearchTvShowAsync(title);
+        logger.LogInformation("Searching for TV show with title: {Title}", title);
+        var searchResults = await tmdbClient.SearchTvShowAsync(title);
         
         if (searchResults == null)
         {
-            _logger.LogWarning("SearchTvShowAsync returned null");
+            logger.LogWarning("SearchTvShowAsync returned null");
             return Enumerable.Empty<MediaSearchResult>();
         }
 
         if (searchResults.Results == null)
         {
-            _logger.LogWarning("SearchTvShowAsync results collection is null");
+            logger.LogWarning("SearchTvShowAsync results collection is null");
             return Enumerable.Empty<MediaSearchResult>();
         }
 
         var results = searchResults.Results.Select(r => new MediaSearchResult(r.Id, r.Name, r.FirstAirDate?.Year)).ToList();
-        _logger.LogInformation("Found {Count} TV show results", results.Count);
+        logger.LogInformation("Found {Count} TV show results", results.Count);
         
         return results;
     }
 
     public async Task<MediaInfo?> GetMovieMediaInfoAsync(int tmdbId)
     {
-        var movie = await _tmdbClient.GetMovieAsync(tmdbId);
+        var movie = await tmdbClient.GetMovieAsync(tmdbId);
         if (movie != null)
         {
             var mediaInfo = new MediaInfo
@@ -63,12 +60,12 @@ public class MediaLookupService(ITMDbClientWrapper tmdbClient, ILogger<MediaLook
 
     public async Task<MediaInfo?> GetTvShowMediaInfoAsync(int tmdbId)
     {
-        var tvShow = await _tmdbClient.GetTvShowAsync(tmdbId);
+        var tvShow = await tmdbClient.GetTvShowAsync(tmdbId);
         if (tvShow == null) return null;
 
         // Fetch all seasons in parallel
         var seasonTasks = tvShow.Seasons
-            .Select(season => _tmdbClient.GetTvSeasonAsync(tmdbId, season.SeasonNumber))
+            .Select(season => tmdbClient.GetTvSeasonAsync(tmdbId, season.SeasonNumber))
             .ToList();
 
         var seasons = await Task.WhenAll(seasonTasks);
@@ -109,7 +106,7 @@ public class MediaLookupService(ITMDbClientWrapper tmdbClient, ILogger<MediaLook
 
     public async Task<SeasonInfo?> GetTvShowSeasonMediaInfoAsync(int tmdbId, int seasonNumber)
     {
-        var season = await _tmdbClient.GetTvSeasonAsync(tmdbId, seasonNumber);
+        var season = await tmdbClient.GetTvSeasonAsync(tmdbId, seasonNumber);
         if (season != null)
         {
             var seasonInfo = new SeasonInfo
@@ -138,7 +135,7 @@ public class MediaLookupService(ITMDbClientWrapper tmdbClient, ILogger<MediaLook
 
     public async Task<EpisodeInfo?> GetTvShowEpisodeMediaInfoAsync(int tmdbId, int seasonNumber, int episodeNumber)
     {
-        var episode = await _tmdbClient.GetTvEpisodeAsync(tmdbId, seasonNumber, episodeNumber);
+        var episode = await tmdbClient.GetTvEpisodeAsync(tmdbId, seasonNumber, episodeNumber);
         if (episode != null)
         {
             return new EpisodeInfo
@@ -156,6 +153,6 @@ public class MediaLookupService(ITMDbClientWrapper tmdbClient, ILogger<MediaLook
 
     public async Task<string?> GetImageUrlAsync(string path, string size)
     {
-        return await _tmdbClient.GetImageUrl(path, size);
+        return await tmdbClient.GetImageUrl(path, size);
     }
 }

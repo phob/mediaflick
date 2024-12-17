@@ -12,9 +12,7 @@ public class SymlinkController(
     IOptions<PlexOptions> plexOptions,
     ILogger<SymlinkController> logger) : ControllerBase
 {
-    private readonly ICleanupHandler _cleanupHandler = cleanupHandler;
     private readonly PlexOptions _plexOptions = plexOptions.Value;
-    private readonly ILogger<SymlinkController> _logger = logger;
 
     /// <summary>
     /// Cleans up dead symlinks and empty folders in the destination folder
@@ -32,14 +30,14 @@ public class SymlinkController(
             foreach (var mapping in _plexOptions.FolderMappings)
             {
                 var destinationFolder = mapping.DestinationFolder;
-                _logger.LogInformation("Starting cleanup of dead symlinks in {DestinationFolder}", destinationFolder);
-                await _cleanupHandler.CleanupDeadSymlinksAsync(destinationFolder);
+                logger.LogInformation("Starting cleanup of dead symlinks in {DestinationFolder}", destinationFolder);
+                await cleanupHandler.CleanupDeadSymlinksAsync(destinationFolder);
             }
             return Ok(new { message = "Cleanup completed successfully" });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during symlink cleanup");
+            logger.LogError(ex, "Error during symlink cleanup");
             return StatusCode(500, new { error = "An error occurred during cleanup" });
         }
     }

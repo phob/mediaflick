@@ -10,7 +10,7 @@ public class TMDbClientWrapper(string apiKey) : ITMDbClientWrapper
     private readonly TMDbClient _client = new(apiKey);
     private const string BaseImageUrl = "https://image.tmdb.org/t/p/";
 
-    public Task<string> GetImageUrl(string path, string size)
+    public Task<string?> GetImageUrl(string path, string size)
     {
         if (string.IsNullOrEmpty(path)) return Task.FromResult<string>(null);
         

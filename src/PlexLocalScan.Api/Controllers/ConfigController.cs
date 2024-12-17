@@ -11,18 +11,14 @@ public class ConfigController(
     IOptions<TMDbOptions> tmdbOptions,
     IOptions<MediaDetectionOptions> mediaDetectionOptions) : ControllerBase
 {
-    private readonly IOptions<PlexOptions> _plexOptions = plexOptions;
-    private readonly IOptions<TMDbOptions> _tmdbOptions = tmdbOptions;
-    private readonly IOptions<MediaDetectionOptions> _mediaDetectionOptions = mediaDetectionOptions;
-
     [HttpGet]
     public IActionResult GetAllConfigurations()
     {
         var config = new
         {
-            Plex = _plexOptions.Value,
-            TMDb = _tmdbOptions.Value,
-            MediaDetection = _mediaDetectionOptions.Value
+            Plex = plexOptions.Value,
+            TMDb = tmdbOptions.Value,
+            MediaDetection = mediaDetectionOptions.Value
         };
 
         return Ok(config);
@@ -31,18 +27,18 @@ public class ConfigController(
     [HttpGet("plex")]
     public IActionResult GetPlexConfig()
     {
-        return Ok(_plexOptions.Value);
+        return Ok(plexOptions.Value);
     }
 
     [HttpGet("tmdb")]
     public IActionResult GetTMDbConfig()
     {
-        return Ok(_tmdbOptions.Value);
+        return Ok(tmdbOptions.Value);
     }
 
     [HttpGet("media-detection")]
     public IActionResult GetMediaDetectionConfig()
     {
-        return Ok(_mediaDetectionOptions.Value);
+        return Ok(mediaDetectionOptions.Value);
     }
 } 

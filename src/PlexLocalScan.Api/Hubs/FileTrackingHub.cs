@@ -3,12 +3,12 @@ using PlexLocalScan.Data.Models;
 using PlexLocalScan.Shared.Interfaces;
 using PlexLocalScan.Shared.Models;
 
-namespace PlexLocalScan.Shared.Services;
+namespace PlexLocalScan.Api.Hubs;
 
 /// <summary>
 /// SignalR hub for real-time file tracking notifications
 /// </summary>
-public class FileTrackingHub : Hub<IFileTrackingHub>, IDisposable
+public class FileTrackingHub : Hub, IFileTrackingHub
 {
     private const string HubRoute = "/hubs/filetracking";
     private readonly System.Timers.Timer _heartbeatTimer;
@@ -33,12 +33,12 @@ public class FileTrackingHub : Hub<IFileTrackingHub>, IDisposable
         await base.OnConnectedAsync();
     }
     
-    private async Task SendHeartbeat()
+    public async Task SendHeartbeat()
     {
         try 
         {
             var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            await Clients.All.OnHeartbeat(timestamp);
+            await Clients.All.SendAsync(nameof(IFileTrackingHub.OnHeartbeat), timestamp);
         }
         catch
         {
@@ -49,25 +49,30 @@ public class FileTrackingHub : Hub<IFileTrackingHub>, IDisposable
     /// <summary>
     /// Notifies all connected clients about a new file being tracked
     /// </summary>
-    public async Task NotifyFileAdded(ScannedFile file)
+    public async Task OnFileAdded(ScannedFileDto file)
     {
-        await Clients.All.OnFileAdded(ScannedFileDto.FromScannedFile(file));
+        await Clients.All.SendAsync(nameof(IFileTrackingHub.OnFileAdded), file);
     }
     
     /// <summary>
     /// Notifies all connected clients about a file being removed from tracking
     /// </summary>
-    public async Task NotifyFileRemoved(ScannedFile file)
+    public async Task OnFileRemoved(ScannedFileDto file)
     {
-        await Clients.All.OnFileRemoved(ScannedFileDto.FromScannedFile(file));
+        await Clients.All.SendAsync(nameof(IFileTrackingHub.OnFileRemoved), file);
     }
     
     /// <summary>
     /// Notifies all connected clients about a file's tracking status being updated
     /// </summary>
-    public async Task NotifyFileUpdated(ScannedFile file)
+    public async Task OnFileUpdated(ScannedFileDto file)
     {
-        await Clients.All.OnFileUpdated(ScannedFileDto.FromScannedFile(file));
+        await Clients.All.SendAsync(nameof(IFileTrackingHub.OnFileUpdated), file);
+    }
+
+    public async Task OnHeartbeat(long timestamp)
+    {
+        await Clients.All.SendAsync(nameof(IFileTrackingHub.OnHeartbeat), timestamp);
     }
 
     protected override void Dispose(bool disposing)
