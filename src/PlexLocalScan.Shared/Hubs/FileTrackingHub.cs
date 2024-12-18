@@ -3,12 +3,12 @@ using PlexLocalScan.Data.Models;
 using PlexLocalScan.Shared.Interfaces;
 using PlexLocalScan.Shared.Models;
 
-namespace PlexLocalScan.Api.Hubs;
+namespace PlexLocalScan.Shared.Hubs;
 
 /// <summary>
 /// SignalR hub for real-time file tracking notifications
 /// </summary>
-public class FileTrackingHub : Hub, IFileTrackingHub
+public class FileTrackingHub : Hub<IFileTrackingHub>
 {
     private const string HubRoute = "/hubs/filetracking";
     private readonly System.Timers.Timer _heartbeatTimer;
@@ -38,20 +38,20 @@ public class FileTrackingHub : Hub, IFileTrackingHub
         try 
         {
             var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            await Clients.All.SendAsync(nameof(IFileTrackingHub.OnHeartbeat), timestamp);
+            await Clients.All.OnHeartbeat(timestamp);
         }
         catch
         {
             // Ignore any errors during heartbeat
         }
     }
-    
+
     /// <summary>
     /// Notifies all connected clients about a new file being tracked
     /// </summary>
     public async Task OnFileAdded(ScannedFileDto file)
     {
-        await Clients.All.SendAsync(nameof(IFileTrackingHub.OnFileAdded), file);
+        await Clients.All.OnFileAdded(file);
     }
     
     /// <summary>
@@ -59,7 +59,7 @@ public class FileTrackingHub : Hub, IFileTrackingHub
     /// </summary>
     public async Task OnFileRemoved(ScannedFileDto file)
     {
-        await Clients.All.SendAsync(nameof(IFileTrackingHub.OnFileRemoved), file);
+        await Clients.All.OnFileRemoved(file);
     }
     
     /// <summary>
@@ -67,13 +67,14 @@ public class FileTrackingHub : Hub, IFileTrackingHub
     /// </summary>
     public async Task OnFileUpdated(ScannedFileDto file)
     {
-        await Clients.All.SendAsync(nameof(IFileTrackingHub.OnFileUpdated), file);
+        await Clients.All.OnFileUpdated(file);
     }
 
     public async Task OnHeartbeat(long timestamp)
     {
-        await Clients.All.SendAsync(nameof(IFileTrackingHub.OnHeartbeat), timestamp);
+        await Clients.All.OnHeartbeat(timestamp);
     }
+
 
     protected override void Dispose(bool disposing)
     {
@@ -85,11 +86,6 @@ public class FileTrackingHub : Hub, IFileTrackingHub
             }
             _disposed = true;
         }
-    }
-
-    public new void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
+        base.Dispose(disposing);
     }
 } 

@@ -1,6 +1,6 @@
 ﻿using PlexLocalScan.Data.Models;
 
-namespace PlexLocalScan.Shared.Services;
+namespace PlexLocalScan.Shared.Interfaces;
 
 public interface IFileTrackingNotificationService
 {

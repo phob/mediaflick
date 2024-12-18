@@ -1,10 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using PlexLocalScan.Api.Hubs;
 using PlexLocalScan.Data.Data;
 using PlexLocalScan.Shared.Options;
 using PlexLocalScan.Shared.Services;
 using PlexLocalScan.Shared.Interfaces;
+using PlexLocalScan.Shared.Hubs;
 using Scalar.AspNetCore;
 using Serilog;
 
@@ -65,7 +65,6 @@ services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
     .Configure<DatabaseOptions>(builder.Configuration.GetSection("Database"))
     .Configure<FolderMappingOptions>(builder.Configuration.GetSection("FolderMapping"))
     .AddSingleton<IPlexHandler, PlexHandler>()
-    .AddScoped<IFileTrackingHub, FileTrackingHub>()
     .AddScoped<IFileTrackingNotificationService, FileTrackingNotificationService>()
     .AddScoped<ISymlinkHandler, SymlinkHandler>()
     .AddScoped<ITMDbClientWrapper>(sp =>

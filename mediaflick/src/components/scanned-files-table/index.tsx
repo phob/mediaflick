@@ -21,9 +21,12 @@ import type { Selection, SortDescriptor } from "@nextui-org/react"
 import { format } from "date-fns"
 import { Edit, Search, Trash2 } from "lucide-react"
 
+import { EditModal } from "@/components/scanned-files-table/edit-modal"
+import { Row } from "@/components/scanned-files-table/types"
+import { mediaTypeOptions, statusOptions } from "@/components/scanned-files-table/types"
 import { mediaApi } from "@/lib/api/endpoints"
-import { MediaStatus, MediaType, PagedResult, PlexConfig, ScannedFile } from "@/lib/api/types"
 import { signalr } from "@/lib/api/signalr"
+import { MediaStatus, MediaType, PagedResult, PlexConfig, ScannedFile } from "@/lib/api/types"
 import { getFileName, stripFolderPrefix } from "@/lib/files-folders"
 import { formatEpisodeNumber, getMediaTypeLabel, getStatusClass, getStatusLabel } from "@/lib/format-helper"
 
@@ -37,33 +40,6 @@ interface ScannedFilesTableProps {
   onSortByChange?: (sortBy: string) => void
   onSortOrderChange?: (sortOrder: string) => void
 }
-
-type Row = {
-  key: number
-  sourceFile: React.ReactNode
-  destFile: React.ReactNode
-  tmdbId: number
-  imdbId: string
-  mediaType: string
-  episode: string
-  status: React.ReactNode
-  createdAt: string
-  updatedAt: string
-}
-
-const statusOptions = [
-  { uid: "Processing", name: "Processing" },
-  { uid: "Success", name: "Success" },
-  { uid: "Failed", name: "Failed" },
-  { uid: "Duplicate", name: "Duplicate" },
-] as const
-
-const mediaTypeOptions = [
-  { uid: MediaType.TvShows, name: "TV Shows" },
-  { uid: MediaType.Movies, name: "Movies" },
-  { uid: MediaType.Extras, name: "Extras" },
-  { uid: MediaType.Unknown, name: "Unknown" },
-] as const
 
 const DynamicTable = dynamic(
   () =>
@@ -92,6 +68,7 @@ export function ScannedFilesTable({
   const [mediaTypeFilter, setMediaTypeFilter] = useState<Selection>(new Set([MediaType.TvShows]))
   const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set())
   const [newEntries, setNewEntries] = useState<Set<number>>(new Set())
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
   // Clear animation after delay
   useEffect(() => {
@@ -189,10 +166,9 @@ export function ScannedFilesTable({
   }, [data, page, onPageChange])
 
   const handleDeleteSelected = useCallback(async () => {
-    const selectedIds = selectedKeys === "all"
-    ? filteredItems.map(item => item.id)
-    : Array.from(selectedKeys).map(key => Number(key));
-    
+    const selectedIds =
+      selectedKeys === "all" ? filteredItems.map((item) => item.id) : Array.from(selectedKeys).map((key) => Number(key))
+
     try {
       await mediaApi.deleteScannedFiles(selectedIds)
 
@@ -212,6 +188,52 @@ export function ScannedFilesTable({
       console.error("Failed to delete files:", error)
     }
   }, [selectedKeys, page, pageSize, sortBy, sortOrder, filterValue, statusFilter, mediaTypeFilter])
+
+  const handleSelectionChange = useCallback((selection: Selection) => {
+    console.log("Selection changed:", {
+      selection,
+      isAll: selection === "all",
+      selectionType: typeof selection,
+      selectionSize: selection instanceof Set ? selection.size : "N/A",
+      selectionValues: selection instanceof Set ? Array.from(selection) : "all",
+    })
+    setSelectedKeys(selection)
+  }, [])
+
+  const selectedRows = React.useMemo(() => {
+    let selected: Row[]
+    if (selectedKeys === "all") {
+      selected = rows
+    } else if (selectedKeys instanceof Set) {
+      const selectedKeysArray = Array.from(selectedKeys).map(Number)
+      selected = rows.filter((row) => selectedKeysArray.includes(row.key))
+    } else {
+      selected = []
+    }
+
+    console.log("Selected rows:", {
+      selectedKeys,
+      isAll: selectedKeys === "all",
+      rowsLength: rows.length,
+      selectedLength: selected.length,
+      selectedIds: selected.map((row) => row.key),
+    })
+
+    return selected
+  }, [selectedKeys, rows])
+
+  const handleEditSelected = useCallback(() => {
+    console.log("Opening edit modal with rows:", {
+      selectedCount: selectedRows.length,
+      selectedIds: selectedRows.map((row) => row.key),
+    })
+    setIsEditModalOpen(true)
+  }, [selectedRows])
+
+  const handleSaveEdits = useCallback(() => {
+    // TODO: Implement save functionality
+    setIsEditModalOpen(false)
+  }, [])
 
   const topContent = React.useMemo(() => {
     const selectedCount = selectedKeys === "all" ? filteredItems.length : Array.from(selectedKeys).length
@@ -273,10 +295,12 @@ export function ScannedFilesTable({
                 </SelectItem>
               )}
             </Select>
-            <Button color="default" 
-            endContent={<Edit className="h-4 w-4" />} 
-            isDisabled={selectedCount === 0}
-            aria-label="Edit Selected"
+            <Button
+              color="default"
+              endContent={<Edit className="h-4 w-4" />}
+              isDisabled={selectedCount === 0}
+              aria-label="Edit Selected"
+              onPress={handleEditSelected}
             >
               Edit Selected
             </Button>
@@ -301,6 +325,7 @@ export function ScannedFilesTable({
     filteredItems.length,
     onPageSizeChange,
     handleDeleteSelected,
+    handleEditSelected,
   ])
 
   const handleSort = React.useCallback(
@@ -315,10 +340,6 @@ export function ScannedFilesTable({
     },
     [sortBy, sortOrder, onSortOrderChange, onSortByChange]
   )
-
-  const handleSelectionChange = useCallback((selection: Selection) => {
-    setSelectedKeys(selection)
-  }, [])
 
   const tableComponent = React.useMemo(() => {
     return (
@@ -382,7 +403,7 @@ export function ScannedFilesTable({
           }
         >
           {(item) => (
-            <TableRow 
+            <TableRow
               key={item.key}
               className={`transition-colors ${newEntries.has(item.key) ? "animate-new-row" : ""}`}
             >
@@ -448,29 +469,29 @@ export function ScannedFilesTable({
   useEffect(() => {
     const shouldIncludeFile = (file: ScannedFile): boolean => {
       if (!statusFilter || !mediaTypeFilter) {
-        console.log('Filters not initialized:', { statusFilter, mediaTypeFilter })
+        console.log("Filters not initialized:", { statusFilter, mediaTypeFilter })
         return false
       }
 
-      const statusMatch = statusFilter === "all" || (statusFilter instanceof Set && (
-        statusFilter.size === 0 || 
-        Array.from(statusFilter).includes(file.status)
-      ))
-      const mediaTypeMatch = mediaTypeFilter === "all" || (mediaTypeFilter instanceof Set && (
-        mediaTypeFilter.size === 0 || 
-        Array.from(mediaTypeFilter).includes(file.mediaType)
-      ))
-      const searchMatch = !filterValue || 
+      const statusMatch =
+        statusFilter === "all" ||
+        (statusFilter instanceof Set && (statusFilter.size === 0 || Array.from(statusFilter).includes(file.status)))
+      const mediaTypeMatch =
+        mediaTypeFilter === "all" ||
+        (mediaTypeFilter instanceof Set &&
+          (mediaTypeFilter.size === 0 || Array.from(mediaTypeFilter).includes(file.mediaType)))
+      const searchMatch =
+        !filterValue ||
         file.sourceFile.toLowerCase().includes(filterValue.toLowerCase()) ||
         (file.destFile?.toLowerCase() || "").includes(filterValue.toLowerCase())
 
-      console.log('Filter checks:', {
+      console.log("Filter checks:", {
         file,
         statusFilter: Array.from(statusFilter instanceof Set ? statusFilter : []),
         mediaTypeFilter: Array.from(mediaTypeFilter instanceof Set ? mediaTypeFilter : []),
         statusMatch,
         mediaTypeMatch,
-        searchMatch
+        searchMatch,
       })
 
       return statusMatch && mediaTypeMatch && searchMatch
@@ -481,23 +502,23 @@ export function ScannedFilesTable({
       return [...items].sort((a, b) => {
         const aValue = a[sortBy as keyof ScannedFile]
         const bValue = b[sortBy as keyof ScannedFile]
-        
+
         if (aValue === bValue) return 0
         if (aValue === null || aValue === undefined) return 1
         if (bValue === null || bValue === undefined) return -1
 
         const comparison = aValue < bValue ? -1 : 1
-        return sortOrder === 'asc' ? comparison : -comparison
+        return sortOrder === "asc" ? comparison : -comparison
       })
     }
 
     const handleFileAdded = (file: ScannedFile): void => {
-      console.log('File added, checking filters:', file)
+      console.log("File added, checking filters:", file)
       if (!shouldIncludeFile(file)) return
 
       // Set new entry animation first
-      setNewEntries(prev => new Set([...prev, file.id]))
-      console.log('Added to newEntries:', file.id)
+      setNewEntries((prev) => new Set([...prev, file.id]))
+      console.log("Added to newEntries:", file.id)
 
       setData((prevData): PagedResult<ScannedFile> | null => {
         if (!prevData) return null
@@ -509,17 +530,17 @@ export function ScannedFilesTable({
           ...prevData,
           items: newItems,
           totalItems: newTotalItems,
-          totalPages: Math.ceil(newTotalItems / pageSize)
+          totalPages: Math.ceil(newTotalItems / pageSize),
         }
       })
     }
 
     const handleFileUpdated = (file: ScannedFile): void => {
-      console.log('File updated:', file)
+      console.log("File updated:", file)
       setData((prevData): PagedResult<ScannedFile> | null => {
         if (!prevData?.items) return null
 
-        const itemIndex = prevData.items.findIndex(item => item.id === file.id)
+        const itemIndex = prevData.items.findIndex((item) => item.id === file.id)
         const matchesFilters = shouldIncludeFile(file)
 
         // File exists in current view
@@ -528,41 +549,41 @@ export function ScannedFilesTable({
             // Remove if it no longer matches filters
             const filteredItems = prevData.items.filter((_, index) => index !== itemIndex)
             const newTotalItems = prevData.totalItems - 1
-            
+
             return {
               ...prevData,
               items: filteredItems,
               totalItems: newTotalItems,
-              totalPages: Math.ceil(newTotalItems / pageSize)
+              totalPages: Math.ceil(newTotalItems / pageSize),
             }
           }
 
           // Update and resort
-          const updatedItems = sortItems([
-            file,
-            ...prevData.items.filter((_, index) => index !== itemIndex)
-          ]).slice(0, pageSize)
-          
+          const updatedItems = sortItems([file, ...prevData.items.filter((_, index) => index !== itemIndex)]).slice(
+            0,
+            pageSize
+          )
+
           return {
             ...prevData,
-            items: updatedItems
+            items: updatedItems,
           }
         }
-        
+
         // File doesn't exist in current view but matches filters - add it
         if (matchesFilters) {
           // Set new entry animation for files that are newly added to view
-          setNewEntries(prev => new Set([...prev, file.id]))
-          console.log('Added to newEntries from update:', file.id)
+          setNewEntries((prev) => new Set([...prev, file.id]))
+          console.log("Added to newEntries from update:", file.id)
 
           const newItems = sortItems([file, ...prevData.items]).slice(0, pageSize)
           const newTotalItems = prevData.totalItems + 1
-          
+
           return {
             ...prevData,
             items: newItems,
             totalItems: newTotalItems,
-            totalPages: Math.ceil(newTotalItems / pageSize)
+            totalPages: Math.ceil(newTotalItems / pageSize),
           }
         }
 
@@ -574,17 +595,17 @@ export function ScannedFilesTable({
       setData((prevData): PagedResult<ScannedFile> | null => {
         if (!prevData?.items) return null
 
-        const itemIndex = prevData.items.findIndex(item => item.id === file.id)
+        const itemIndex = prevData.items.findIndex((item) => item.id === file.id)
         if (itemIndex === -1) return prevData
 
         const filteredItems = prevData.items.filter((_, index) => index !== itemIndex)
         const newTotalItems = Math.max(0, prevData.totalItems - 1)
-        
+
         return {
           ...prevData,
           items: filteredItems,
           totalItems: newTotalItems,
-          totalPages: Math.max(1, Math.ceil(newTotalItems / pageSize))
+          totalPages: Math.max(1, Math.ceil(newTotalItems / pageSize)),
         }
       })
     }
@@ -593,9 +614,9 @@ export function ScannedFilesTable({
     if (!data || !statusFilter || !mediaTypeFilter) return
 
     // Subscribe to SignalR events
-    const unsubscribeAdd = signalr.subscribe('OnFileAdded', handleFileAdded)
-    const unsubscribeUpdate = signalr.subscribe('OnFileUpdated', handleFileUpdated)
-    const unsubscribeRemove = signalr.subscribe('OnFileRemoved', handleFileRemoved)
+    const unsubscribeAdd = signalr.subscribe("OnFileAdded", handleFileAdded)
+    const unsubscribeUpdate = signalr.subscribe("OnFileUpdated", handleFileUpdated)
+    const unsubscribeRemove = signalr.subscribe("OnFileRemoved", handleFileRemoved)
 
     // Cleanup subscriptions
     return () => {
@@ -605,5 +626,15 @@ export function ScannedFilesTable({
     }
   }, [data, pageSize, statusFilter, mediaTypeFilter, filterValue])
 
-  return tableComponent
+  return (
+    <>
+      {tableComponent}
+      <EditModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        selectedRows={selectedRows}
+        onSave={handleSaveEdits}
+      />
+    </>
+  )
 }

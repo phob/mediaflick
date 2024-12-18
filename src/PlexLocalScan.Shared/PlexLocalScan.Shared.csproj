@@ -7,13 +7,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="9.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.0" />
     <PackageReference Include="TMDbLib" Version="2.2.0" />
   </ItemGroup>
 
+  <ItemGroup>  
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />  
+  </ItemGroup>
+  
   <ItemGroup>
     <ProjectReference Include="..\PlexLocalScan.Data\PlexLocalScan.Data.csproj" />
   </ItemGroup>

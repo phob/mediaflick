@@ -23,7 +23,7 @@ public class ScannedFilesController(
     ICleanupHandler cleanupHandler,
     PlexScanContext context,
     IOptions<PlexOptions> plexOptions,
-    FileTrackingNotificationService notificationService) : ControllerBase
+    IFileTrackingNotificationService notificationService) : ControllerBase
 {
     /// <summary>
     /// Retrieves a paged list of scanned files with optional filtering and sorting
