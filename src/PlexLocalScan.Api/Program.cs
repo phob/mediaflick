@@ -57,8 +57,6 @@ services.AddControllers()
     });
 services.AddEndpointsApiExplorer();
 services.AddOpenApi();
-// Add SignalR services
-services.AddScoped<FileTrackingNotificationService>();
 
 // Reuse the same services from Console project
 services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
@@ -67,6 +65,8 @@ services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
     .Configure<DatabaseOptions>(builder.Configuration.GetSection("Database"))
     .Configure<FolderMappingOptions>(builder.Configuration.GetSection("FolderMapping"))
     .AddSingleton<IPlexHandler, PlexHandler>()
+    .AddScoped<IFileTrackingHub, FileTrackingHub>()
+    .AddScoped<IFileTrackingNotificationService, FileTrackingNotificationService>()
     .AddScoped<ISymlinkHandler, SymlinkHandler>()
     .AddScoped<ITMDbClientWrapper>(sp =>
     {
@@ -80,8 +80,9 @@ services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
     .AddScoped<IMediaLookupService, MediaLookupService>()
     .AddScoped<IDateTimeProvider, DateTimeProvider>()
     .AddScoped<IFileSystemService, FileSystemService>()
+    .AddScoped<ICleanupHandler, CleanupHandler>()
+    .AddScoped<ISymlinkRecreationService, SymlinkRecreationService>()
     .AddScoped<IFileTrackingService, FileTrackingService>()
-    .AddScoped<IFileTrackingHub, FileTrackingHub>()
     .AddHostedService<FileWatcherService>()
     .AddDbContext<PlexScanContext>((_, options) =>
     {
@@ -89,9 +90,7 @@ services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
         options.UseSqlite(connectionString);
     })
     .AddHttpClient()
-    .AddMemoryCache()
-    .AddScoped<ICleanupHandler, CleanupHandler>()
-    .AddScoped<ISymlinkRecreationService, SymlinkRecreationService>();
+    .AddMemoryCache();
 
 var app = builder.Build();
 

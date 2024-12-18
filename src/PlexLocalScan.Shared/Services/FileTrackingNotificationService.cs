@@ -7,7 +7,7 @@ namespace PlexLocalScan.Shared.Services;
 /// <summary>
 /// Service for sending file tracking notifications through SignalR
 /// </summary>
-public class FileTrackingNotificationService(IFileTrackingHub hubContext)
+public class FileTrackingNotificationService(IFileTrackingHub hubContext) : IFileTrackingNotificationService
 {
     /// <summary>
     /// Notifies clients that a file has been added to tracking

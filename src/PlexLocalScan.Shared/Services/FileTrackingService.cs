@@ -9,7 +9,7 @@ namespace PlexLocalScan.Shared.Services;
 public class FileTrackingService(
     PlexScanContext dbContext,
     ILogger<FileTrackingService> logger,
-    FileTrackingNotificationService notificationService)
+    IFileTrackingNotificationService notificationService)
     : IFileTrackingService
 {
     // Compiled queries for better performance
