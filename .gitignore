@@ -6,7 +6,7 @@ publish/
 docker-compose.override.yml
 
 ## Ignore config directory
-config/
+/src/**/config/
 
 ## .NET
 *.user
