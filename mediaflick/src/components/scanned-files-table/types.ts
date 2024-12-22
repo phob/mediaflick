@@ -8,7 +8,9 @@ export type Row = {
   tmdbId: number
   imdbId: string
   mediaType: string
-  episode: string
+  episode?: string
+  seasonNumber?: number
+  episodeNumber?: number
   status: ReactNode
   createdAt: string
   updatedAt: string

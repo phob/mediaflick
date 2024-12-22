@@ -1,107 +1,123 @@
-import { fetchApi } from '@/lib/api/client'
+import { fetchApi } from "@/lib/api/client"
 import {
-    EpisodeInfo,
-    MediaInfo,
-    MediaSearchResult,
-    MediaStatus,
-    MediaType,
-    PagedResult,
-    ScannedFile,
-    ScannedFileStats,
-    SeasonInfo,
-    UpdateScannedFileRequest,
-} from '@/lib/api/types'
+  EpisodeInfo,
+  MediaInfo,
+  MediaSearchResult,
+  MediaStatus,
+  MediaType,
+  PagedResult,
+  ScannedFile,
+  ScannedFileStats,
+  UpdateScannedFileRequest,
+} from "@/lib/api/types"
 
 // API Methods
 export const mediaApi = {
-    // Configuration
-    getAllConfigurations: () => 
-        fetchApi('/config'),
-        
-    getPlexConfig: () => 
-        fetchApi('/config/plex'),
-        
-    getTMDbConfig: () => 
-        fetchApi('/config/tmdb'),
-        
-    getMediaDetectionConfig: () => 
-        fetchApi('/config/media-detection'),
+  // Configuration
+  getAllConfigurations: () => fetchApi("/config"),
 
-    // Media Lookup
-    searchMovies: (title: string) =>
-        fetchApi<MediaSearchResult[]>(`/medialookup/movies/search?title=${encodeURIComponent(title)}`),
+  getPlexConfig: () => fetchApi("/config/plex"),
 
-    searchTvShows: (title: string) =>
-        fetchApi<MediaSearchResult[]>(`/medialookup/tvshows/search?title=${encodeURIComponent(title)}`),
+  getTMDbConfig: () => fetchApi("/config/tmdb"),
 
-    getMovie: (tmdbId: number) => fetchApi<MediaInfo>(`/medialookup/movies/${tmdbId}`),
+  getMediaDetectionConfig: () => fetchApi("/config/media-detection"),
 
-    getTvShow: (tmdbId: number) => fetchApi<MediaInfo>(`/medialookup/tvshows/${tmdbId}`),
+  // Media Lookup
+  searchMovies: (title: string) =>
+    fetchApi<MediaSearchResult[]>(`/medialookup/movies/search?title=${encodeURIComponent(title)}`),
 
-    getTvSeason: (tmdbId: number, seasonNumber: number) =>
-        fetchApi<MediaInfo>(`/medialookup/tvshows/${tmdbId}/seasons/${seasonNumber}`),
+  searchTvShows: (title: string) =>
+    fetchApi<MediaSearchResult[]>(`/medialookup/tvshows/search?title=${encodeURIComponent(title)}`),
 
-    getTvEpisode: (tmdbId: number, seasonNumber: number, episodeNumber: number) =>
-        fetchApi<EpisodeInfo>(`/medialookup/tvshows/${tmdbId}/seasons/${seasonNumber}/episodes/${episodeNumber}`),
+  getMovie: (tmdbId: number) => fetchApi<MediaInfo>(`/medialookup/movies/${tmdbId}`),
 
-    getImageUrl: (path: string, size: string = 'w500') => fetchApi<string>(`/medialookup/images/${path}?size=${size}`),
+  getTvShow: (tmdbId: number) => fetchApi<MediaInfo>(`/medialookup/tvshows/${tmdbId}`),
 
-    // Scanned Files
-    getScannedFiles: (params: { searchTerm?: string; status?: MediaStatus; mediaType?: MediaType; page?: number; pageSize?: number; sortBy?: string; sortOrder?: string }) => {
-        const queryParams = new URLSearchParams({
-            searchTerm: params.searchTerm || '',
-            status: (params.status || '').toString(),
-            mediaType: (params.mediaType || '').toString(),
-            page: (params.page || 1).toString(),
-            pageSize: (params.pageSize || 10).toString(),
-            sortBy: (params.sortBy || 'createdAt').toString(),
-            sortOrder: (params.sortOrder || 'desc').toString(),
-        })
-        return fetchApi<PagedResult<ScannedFile>>(`/scannedfiles?${queryParams.toString()}`)
-    },
+  getTvSeason: (tmdbId: number, seasonNumber: number) =>
+    fetchApi<MediaInfo>(`/medialookup/tvshows/${tmdbId}/seasons/${seasonNumber}`),
 
-    getScannedFile: (id: number) => fetchApi<ScannedFile>(`/scannedfiles/${id}`),
+  getTvEpisode: (tmdbId: number, seasonNumber: number, episodeNumber: number) =>
+    fetchApi<EpisodeInfo>(`/medialookup/tvshows/${tmdbId}/seasons/${seasonNumber}/episodes/${episodeNumber}`),
 
-    getScannedFileStats: () => fetchApi<ScannedFileStats>('/scannedfiles/stats'),
+  getImageUrl: (path: string, size: string = "w500") => fetchApi<string>(`/medialookup/images/${path}?size=${size}`),
 
-    updateScannedFile: (id: number, data: UpdateScannedFileRequest) =>
-        fetchApi<ScannedFile>(`/scannedfiles/${id}`, {
-            method: 'PATCH',
-            body: JSON.stringify(data),
-        }),
+  // Scanned Files
+  getScannedFiles: (params: {
+    searchTerm?: string
+    status?: MediaStatus
+    mediaType?: MediaType
+    page?: number
+    pageSize?: number
+    sortBy?: string
+    sortOrder?: string
+    ids?: number[]
+  }) => {
+    const queryParams = new URLSearchParams({
+      searchTerm: params.searchTerm || "",
+      status: (params.status || "").toString(),
+      mediaType: (params.mediaType || "").toString(),
+      page: (params.page || 1).toString(),
+      pageSize: (params.pageSize || 10).toString(),
+      sortBy: (params.sortBy || "createdAt").toString(),
+      sortOrder: (params.sortOrder || "desc").toString(),
+    })
 
-    recreateSymlink: (id: number) =>
-        fetchApi<ScannedFile>(`/scannedfiles/${id}/recreate-symlink`, {
-            method: 'PATCH',
-        }),
+    // If IDs are provided, use POST method with IDs in body, otherwise use GET
+    if (params.ids && params.ids.length > 0) {
+      return fetchApi<PagedResult<ScannedFile>>(`/scannedfiles?${queryParams.toString()}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(params.ids),
+      })
+    }
 
-    deleteScannedFile: (id: number) =>
-        fetchApi(`/scannedfiles/${id}`, {
-            method: 'DELETE',
-        }),
+    return fetchApi<PagedResult<ScannedFile>>(`/scannedfiles?${queryParams.toString()}`)
+  },
 
-    deleteScannedFiles: (ids: number[]) =>
-        fetchApi('/scannedfiles/batch', {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(ids),
-        }),
+  getScannedFile: (id: number) => fetchApi<ScannedFile>(`/scannedfiles/${id}`),
 
-    recreateAllSymlinks: () =>
-        fetchApi<{ successCount: number }>('/scannedfiles/recreate-symlinks', {
-            method: 'POST',
-        }),
+  getScannedFileStats: () => fetchApi<ScannedFileStats>("/scannedfiles/stats"),
 
-    updateImdbIds: (batchSize: number = 50) =>
-        fetchApi<{ updated: number; failed: number }>(`/scannedfiles/update-imdb-ids?batchSize=${batchSize}`, {
-            method: 'POST',
-        }),
+  updateScannedFile: (id: number, data: UpdateScannedFileRequest) =>
+    fetchApi<ScannedFile>(`/scannedfiles/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
 
-    // Symlink Management
-    cleanupDeadSymlinks: () =>
-        fetchApi<{ message: string }>('/symlink/cleanup', {
-            method: 'POST',
-        }),
+  recreateSymlink: (id: number) =>
+    fetchApi<ScannedFile>(`/scannedfiles/${id}/recreate-symlink`, {
+      method: "PATCH",
+    }),
+
+  deleteScannedFile: (id: number) =>
+    fetchApi(`/scannedfiles/${id}`, {
+      method: "DELETE",
+    }),
+
+  deleteScannedFiles: (ids: number[]) =>
+    fetchApi("/scannedfiles/batch", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(ids),
+    }),
+
+  recreateAllSymlinks: () =>
+    fetchApi<{ successCount: number }>("/scannedfiles/recreate-symlinks", {
+      method: "POST",
+    }),
+
+  updateImdbIds: (batchSize: number = 50) =>
+    fetchApi<{ updated: number; failed: number }>(`/scannedfiles/update-imdb-ids?batchSize=${batchSize}`, {
+      method: "POST",
+    }),
+
+  // Symlink Management
+  cleanupDeadSymlinks: () =>
+    fetchApi<{ message: string }>("/symlink/cleanup", {
+      method: "POST",
+    }),
 }

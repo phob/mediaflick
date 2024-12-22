@@ -187,7 +187,7 @@ export function ScannedFilesTable({
     } catch (error) {
       console.error("Failed to delete files:", error)
     }
-  }, [selectedKeys, page, pageSize, sortBy, sortOrder, filterValue, statusFilter, mediaTypeFilter])
+  }, [selectedKeys, page, pageSize, sortBy, sortOrder, filteredItems, filterValue, statusFilter, mediaTypeFilter])
 
   const handleSelectionChange = useCallback((selection: Selection) => {
     console.log("Selection changed:", {
@@ -230,10 +230,26 @@ export function ScannedFilesTable({
     setIsEditModalOpen(true)
   }, [selectedRows])
 
-  const handleSaveEdits = useCallback(() => {
-    // TODO: Implement save functionality
-    setIsEditModalOpen(false)
-  }, [])
+  const handleSaveEdits = useCallback(
+    async (updatedRows: Row[]) => {
+      console.log("Saving edited rows:", updatedRows)
+      // TODO: Call API to update the rows
+      setIsEditModalOpen(false)
+
+      // Refresh the table data after saving
+      const result = await mediaApi.getScannedFiles({
+        page,
+        pageSize,
+        sortBy,
+        sortOrder,
+        searchTerm: filterValue,
+        status: Array.from(statusFilter)[0] as unknown as MediaStatus,
+        mediaType: Array.from(mediaTypeFilter)[0] as unknown as MediaType,
+      })
+      setData(result)
+    },
+    [page, pageSize, sortBy, sortOrder, filterValue, statusFilter, mediaTypeFilter]
+  )
 
   const topContent = React.useMemo(() => {
     const selectedCount = selectedKeys === "all" ? filteredItems.length : Array.from(selectedKeys).length

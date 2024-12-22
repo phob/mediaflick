@@ -26,24 +26,33 @@ public class ScannedFilesController(
     IFileTrackingNotificationService notificationService) : ControllerBase
 {
     /// <summary>
-    /// Retrieves a paged list of scanned files with optional filtering and sorting
+    /// Retrieves a paged list of scanned files with optional filtering, sorting, and specific IDs
     /// </summary>
     /// <param name="filter">Filter criteria for the search</param>
+    /// <param name="ids">Optional array of specific scanned file IDs to retrieve</param>
     /// <param name="page">Page number (1-based)</param>
     /// <param name="pageSize">Number of items per page</param>
     /// <response code="200">Returns the paged list of scanned files</response>
     [HttpGet]
+    [HttpPost]
     [ProducesResponseType(typeof(PagedResult<ScannedFile>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PagedResult<ScannedFile>>> GetScannedFiles(
         [FromQuery] ScannedFileFilter filter,
+        [FromBody] int[]? ids = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
     {
         logger.LogInformation(
-            "Getting scanned files. Page: {Page}, PageSize: {PageSize}, Status: {Status}, MediaType: {MediaType}, SearchTerm: {SearchTerm}, SortBy: {SortBy}, SortOrder: {SortOrder}",
-            page, pageSize, filter.Status, filter.MediaType, filter.SearchTerm, filter.SortBy, filter.SortOrder);
+            "Getting scanned files. IDs: {Ids}, Page: {Page}, PageSize: {PageSize}, Status: {Status}, MediaType: {MediaType}, SearchTerm: {SearchTerm}, SortBy: {SortBy}, SortOrder: {SortOrder}",
+            ids != null ? string.Join(",", ids) : "all", page, pageSize, filter.Status, filter.MediaType, filter.SearchTerm, filter.SortBy, filter.SortOrder);
 
         var query = context.ScannedFiles.AsQueryable();
+
+        // Apply ID filter if provided
+        if (ids != null && ids.Length > 0)
+        {
+            query = query.Where(f => ids.Contains(f.Id));
+        }
 
         // Apply filters
         if (filter.Status.HasValue)
@@ -258,47 +267,6 @@ public class ScannedFilesController(
             logger.LogError(ex, "Failed to update scanned file {Id}", id);
             return BadRequest(new { error = "Failed to update the scanned file", details = ex.Message });
         }
-    }
-
-    /// <summary>
-    /// Deletes a single scanned file by its ID
-    /// </summary>
-    /// <param name="id">The ID of the scanned file to delete</param>
-    /// <response code="200">If the scanned file was successfully deleted</response>
-    /// <response code="404">If the scanned file is not found</response>
-    [HttpDelete("{id}")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> DeleteScannedFile(int id)
-    {
-        logger.LogInformation("Deleting scanned file with ID: {Id}", id);
-
-        var scannedFile = await context.ScannedFiles.FindAsync(id);
-        if (scannedFile == null)
-        {
-            logger.LogWarning("Scanned file with ID {Id} not found", id);
-            return NotFound();
-        }
-        var folderMapping = plexOptions.Value.FolderMappings
-            .FirstOrDefault(fm => fm.MediaType == scannedFile.MediaType);
-
-        if (folderMapping != null)
-        {
-            if (!string.IsNullOrEmpty(scannedFile.DestFile))
-            {
-                System.IO.File.Delete(scannedFile.DestFile);
-            }
-            await cleanupHandler.CleanupDeadSymlinksAsync(folderMapping.DestinationFolder);
-        }
-
-        context.ScannedFiles.Remove(scannedFile);
-        await context.SaveChangesAsync();
-
-        // Notify clients about the deletion
-        await notificationService.NotifyFileRemoved(scannedFile);
-
-        logger.LogInformation("Successfully deleted scanned file with ID: {Id}", id);
-        return Ok(new { deletedId = id });
     }
 
     /// <summary>
