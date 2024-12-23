@@ -108,13 +108,6 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave }: EditModalPr
       const results = await (selectedMediaType === MediaType.Movies
         ? mediaApi.searchMovies(value)
         : mediaApi.searchTvShows(value))
-      console.log("Search results (detailed):", {
-        count: results.length,
-        firstResult: results[0],
-        hasPosters: results.some((r) => r.posterPath),
-        allFields: results[0] ? Object.keys(results[0]) : [],
-        posterPaths: results.map((r) => r.posterPath).filter(Boolean),
-      })
       setSearchResults(results)
     } catch (error) {
       console.error("Failed to search:", error)
@@ -144,8 +137,8 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave }: EditModalPr
         }))
       )
       // Clear search after selection
-      //setSearchValue("")
-      //setSearchResults([])
+      setSearchValue("")
+      setSearchResults([])
     }
   }
 
@@ -199,6 +192,9 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave }: EditModalPr
                   isLoading={searchLoading}
                   onSelectionChange={handleMediaSelect}
                   defaultItems={searchResults}
+                  listboxProps={{
+                    className: "max-h-[250px] overflow-y-auto",
+                  }}
                 >
                   {(item) => (
                     <AutocompleteItem key={item.tmdbId} textValue={item.title}>

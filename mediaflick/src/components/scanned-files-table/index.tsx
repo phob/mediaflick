@@ -189,13 +189,6 @@ export function ScannedFilesTable({
   }, [selectedKeys, page, pageSize, sortBy, sortOrder, filteredItems, filterValue, statusFilter, mediaTypeFilter])
 
   const handleSelectionChange = useCallback((selection: Selection) => {
-    console.log("Selection changed:", {
-      selection,
-      isAll: selection === "all",
-      selectionType: typeof selection,
-      selectionSize: selection instanceof Set ? selection.size : "N/A",
-      selectionValues: selection instanceof Set ? Array.from(selection) : "all",
-    })
     setSelectedKeys(selection)
   }, [])
 
@@ -210,29 +203,15 @@ export function ScannedFilesTable({
       selected = []
     }
 
-    console.log("Selected rows:", {
-      selectedKeys,
-      isAll: selectedKeys === "all",
-      rowsLength: rows.length,
-      selectedLength: selected.length,
-      selectedIds: selected.map((row) => row.key),
-    })
-
     return selected
   }, [selectedKeys, rows])
 
   const handleEditSelected = useCallback(() => {
-    console.log("Opening edit modal with rows:", {
-      selectedCount: selectedRows.length,
-      selectedIds: selectedRows.map((row) => row.key),
-    })
     setIsEditModalOpen(true)
-  }, [selectedRows])
+  }, [])
 
   const handleSaveEdits = useCallback(
-    async (updatedRows: Row[]) => {
-      console.log("Saving edited rows:", updatedRows)
-      // TODO: Call API to update the rows
+    async (_updatedRows: Row[]) => {
       setIsEditModalOpen(false)
 
       // Refresh the table data after saving
@@ -467,8 +446,8 @@ export function ScannedFilesTable({
           mediaType: Array.from(mediaTypeFilter)[0] as unknown as MediaType,
         })
         setData(result)
-      } catch (error: unknown) {
-        console.error("Failed to fetch data", error)
+      } catch (error) {
+        console.error("Failed to fetch data:", error)
       } finally {
         setLoading(false)
       }
@@ -481,7 +460,6 @@ export function ScannedFilesTable({
   useEffect(() => {
     const shouldIncludeFile = (file: ScannedFile): boolean => {
       if (!statusFilter || !mediaTypeFilter) {
-        console.log("Filters not initialized:", { statusFilter, mediaTypeFilter })
         return false
       }
 
@@ -496,15 +474,6 @@ export function ScannedFilesTable({
         !filterValue ||
         file.sourceFile.toLowerCase().includes(filterValue.toLowerCase()) ||
         (file.destFile?.toLowerCase() || "").includes(filterValue.toLowerCase())
-
-      console.log("Filter checks:", {
-        file,
-        statusFilter: Array.from(statusFilter instanceof Set ? statusFilter : []),
-        mediaTypeFilter: Array.from(mediaTypeFilter instanceof Set ? mediaTypeFilter : []),
-        statusMatch,
-        mediaTypeMatch,
-        searchMatch,
-      })
 
       return statusMatch && mediaTypeMatch && searchMatch
     }
@@ -525,12 +494,8 @@ export function ScannedFilesTable({
     }
 
     const handleFileAdded = (file: ScannedFile): void => {
-      console.log("File added, checking filters:", file)
-      if (!shouldIncludeFile(file)) return
-
       // Set new entry animation first
       setNewEntries((prev) => new Set([...prev, file.id]))
-      console.log("Added to newEntries:", file.id)
 
       setData((prevData): PagedResult<ScannedFile> | null => {
         if (!prevData) return null
@@ -548,7 +513,6 @@ export function ScannedFilesTable({
     }
 
     const handleFileUpdated = (file: ScannedFile): void => {
-      console.log("File updated:", file)
       setData((prevData): PagedResult<ScannedFile> | null => {
         if (!prevData?.items) return null
 
@@ -586,7 +550,6 @@ export function ScannedFilesTable({
         if (matchesFilters) {
           // Set new entry animation for files that are newly added to view
           setNewEntries((prev) => new Set([...prev, file.id]))
-          console.log("Added to newEntries from update:", file.id)
 
           const newItems = sortItems([file, ...prevData.items]).slice(0, pageSize)
           const newTotalItems = prevData.totalItems + 1
