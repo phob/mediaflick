@@ -5,14 +5,14 @@ using PlexLocalScan.Shared.Models.Media;
 
 namespace PlexLocalScan.Shared.Services;
 
-public record MediaSearchResult(int TmdbId, string Title, int? Year);
+public record MediaSearchResult(int TmdbId, string Title, int? Year, string? PosterPath);
 
 public class MediaLookupService(ITMDbClientWrapper tmdbClient, ILogger<MediaLookupService> logger) : IMediaLookupService
 {
     public async Task<IEnumerable<MediaSearchResult>> SearchMovieTmdbIdsAsync(string title)
     {
         var searchResults = await tmdbClient.SearchMovieAsync(title);
-        return searchResults.Results.Select(r => new MediaSearchResult(r.Id, r.Title, r.ReleaseDate?.Year)).ToList();
+        return searchResults.Results.Select(r => new MediaSearchResult(r.Id, r.Title, r.ReleaseDate?.Year, r.PosterPath)).ToList();
     }
 
     public async Task<IEnumerable<MediaSearchResult>> SearchTvShowTmdbIdsAsync(string title)
@@ -32,7 +32,7 @@ public class MediaLookupService(ITMDbClientWrapper tmdbClient, ILogger<MediaLook
             return Enumerable.Empty<MediaSearchResult>();
         }
 
-        var results = searchResults.Results.Select(r => new MediaSearchResult(r.Id, r.Name, r.FirstAirDate?.Year)).ToList();
+        var results = searchResults.Results.Select(r => new MediaSearchResult(r.Id, r.Name, r.FirstAirDate?.Year, r.PosterPath)).ToList();
         logger.LogInformation("Found {Count} TV show results", results.Count);
         
         return results;

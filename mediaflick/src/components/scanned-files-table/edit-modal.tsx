@@ -1,8 +1,9 @@
-"use client"
-
+import Image from "next/image"
 import React, { useEffect, useState } from "react"
 
 import {
+  Autocomplete,
+  AutocompleteItem,
   Button,
   Input,
   Modal,
@@ -10,6 +11,8 @@ import {
   ModalContent,
   ModalFooter,
   ModalHeader,
+  Select,
+  SelectItem,
   Spinner,
   Table,
   TableBody,
@@ -21,7 +24,9 @@ import {
 
 import type { Row } from "@/components/scanned-files-table/types"
 import { mediaApi } from "@/lib/api/endpoints"
-import { ScannedFile } from "@/lib/api/types"
+import { getTMDBImageUrl } from "@/lib/api/tmdb"
+import { MediaSearchResult, MediaType, ScannedFile } from "@/lib/api/types"
+import { getFileName } from "@/lib/files-folders"
 
 interface EditModalProps {
   isOpen: boolean
@@ -35,9 +40,18 @@ interface EditableRow extends Row {
   episodeNumber?: number
 }
 
+const mediaTypeOptions = [
+  { uid: MediaType.TvShows, name: "TV Shows" },
+  { uid: MediaType.Movies, name: "Movies" },
+] as const
+
 export function EditModal({ isOpen, onClose, selectedRows, onSave }: EditModalProps) {
   const [editableRows, setEditableRows] = useState<EditableRow[]>([])
   const [loading, setLoading] = useState(false)
+  const [searchResults, setSearchResults] = useState<MediaSearchResult[]>([])
+  const [selectedMediaType, setSelectedMediaType] = useState<MediaType>(MediaType.TvShows)
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [searchValue, setSearchValue] = useState("")
 
   useEffect(() => {
     const fetchSelectedFiles = async () => {
@@ -49,11 +63,12 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave }: EditModalPr
         const result = await mediaApi.getScannedFiles({
           ids: selectedIds,
           pageSize: selectedIds.length,
+          sortBy: "sourceFile",
+          sortOrder: "asc",
         })
 
         // Transform ScannedFiles to EditableRows
         const transformedRows = result.items.map((file: ScannedFile): EditableRow => {
-          // Parse the episode field which is in format "S01E02" or empty
           return {
             key: file.id,
             sourceFile: file.sourceFile,
@@ -79,6 +94,60 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave }: EditModalPr
 
     fetchSelectedFiles()
   }, [isOpen, selectedRows])
+
+  const handleSearch = async (value: string) => {
+    setSearchValue(value)
+
+    if (!value) {
+      setSearchResults([])
+      return
+    }
+
+    setSearchLoading(true)
+    try {
+      const results = await (selectedMediaType === MediaType.Movies
+        ? mediaApi.searchMovies(value)
+        : mediaApi.searchTvShows(value))
+      console.log("Search results (detailed):", {
+        count: results.length,
+        firstResult: results[0],
+        hasPosters: results.some((r) => r.posterPath),
+        allFields: results[0] ? Object.keys(results[0]) : [],
+        posterPaths: results.map((r) => r.posterPath).filter(Boolean),
+      })
+      setSearchResults(results)
+    } catch (error) {
+      console.error("Failed to search:", error)
+      setSearchResults([])
+    } finally {
+      setSearchLoading(false)
+    }
+  }
+
+  const handleMediaTypeChange = (type: MediaType) => {
+    setSelectedMediaType(type)
+    setSearchResults([]) // Clear search results when media type changes
+    setSearchValue("") // Clear search input when media type changes
+  }
+
+  const handleMediaSelect = (key: React.Key | null) => {
+    if (!key) return
+
+    const tmdbId = Number(key)
+    if (!isNaN(tmdbId)) {
+      // Update all selected rows with the new TMDB ID
+      setEditableRows((prev) =>
+        prev.map((row) => ({
+          ...row,
+          tmdbId,
+          mediaType: selectedMediaType,
+        }))
+      )
+      // Clear search after selection
+      //setSearchValue("")
+      //setSearchResults([])
+    }
+  }
 
   const handleSeasonChange = (index: number, value: string) => {
     setEditableRows((prev) => {
@@ -114,12 +183,56 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave }: EditModalPr
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="4xl" scrollBehavior="inside">
+    <Modal isOpen={isOpen} onClose={onClose} size="5xl" scrollBehavior="inside">
       <ModalContent>
         {(onClose) => (
           <>
             <ModalHeader className="flex flex-col gap-1">Edit Selected Files</ModalHeader>
             <ModalBody>
+              <div className="mb-4 flex items-center gap-4">
+                <Autocomplete
+                  label="Search Media"
+                  className="flex-1"
+                  size="sm"
+                  inputValue={searchValue}
+                  onInputChange={handleSearch}
+                  isLoading={searchLoading}
+                  onSelectionChange={handleMediaSelect}
+                  defaultItems={searchResults}
+                >
+                  {(item) => (
+                    <AutocompleteItem key={item.tmdbId} textValue={item.title}>
+                      <div className="flex items-center gap-2">
+                        {item.posterPath && (
+                          <Image
+                            src={getTMDBImageUrl(item.posterPath, "w92") || ""}
+                            alt={item.title}
+                            width={32}
+                            height={48}
+                            className="rounded object-cover"
+                          />
+                        )}
+                        <div>
+                          {item.title} {item.year ? `(${item.year})` : ""}
+                        </div>
+                      </div>
+                    </AutocompleteItem>
+                  )}
+                </Autocomplete>
+                <Select
+                  label="Media Type"
+                  className="w-36"
+                  selectedKeys={new Set([selectedMediaType])}
+                  onChange={(e) => handleMediaTypeChange(e.target.value as MediaType)}
+                  size="sm"
+                >
+                  {mediaTypeOptions.map((type) => (
+                    <SelectItem key={type.uid} value={type.uid}>
+                      {type.name}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </div>
               {loading ? (
                 <div className="flex justify-center p-4">
                   <Spinner size="lg" label="Loading files..." />
@@ -136,7 +249,7 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave }: EditModalPr
                   <TableBody items={editableRows}>
                     {(item: EditableRow) => (
                       <TableRow key={item.key}>
-                        <TableCell>{item.sourceFile}</TableCell>
+                        <TableCell>{getFileName(item.sourceFile as string)}</TableCell>
                         <TableCell>{item.tmdbId}</TableCell>
                         <TableCell>
                           <Input

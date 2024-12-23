@@ -61,7 +61,6 @@ export function ScannedFilesTable({
 }: ScannedFilesTableProps) {
   const [data, setData] = useState<PagedResult<ScannedFile> | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [plexConfig, setPlexConfig] = useState<PlexConfig | null>(null)
   const [filterValue, setFilterValue] = useState("")
   const [statusFilter, setStatusFilter] = useState<Selection>(new Set([MediaStatus.Success]))
@@ -431,8 +430,6 @@ export function ScannedFilesTable({
     )
   }, [
     loading,
-    error,
-    data,
     rows,
     sortBy,
     sortOrder,
@@ -470,9 +467,8 @@ export function ScannedFilesTable({
           mediaType: Array.from(mediaTypeFilter)[0] as unknown as MediaType,
         })
         setData(result)
-        setError(null)
       } catch (error: unknown) {
-        setError(error instanceof Error ? error.message : "Failed to fetch data")
+        console.error("Failed to fetch data", error)
       } finally {
         setLoading(false)
       }
@@ -640,7 +636,7 @@ export function ScannedFilesTable({
       unsubscribeUpdate()
       unsubscribeRemove()
     }
-  }, [data, pageSize, statusFilter, mediaTypeFilter, filterValue])
+  }, [data, pageSize, statusFilter, mediaTypeFilter, filterValue, sortBy, sortOrder])
 
   return (
     <>

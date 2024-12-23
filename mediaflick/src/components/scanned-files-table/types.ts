@@ -1,17 +1,18 @@
-import { MediaType } from "@/lib/api/types"
 import type { ReactNode } from "react"
+
+import { MediaType } from "@/lib/api/types"
 
 export type Row = {
   key: number
-  sourceFile: ReactNode
-  destFile: ReactNode
+  sourceFile: string | ReactNode
+  destFile: string | ReactNode
   tmdbId: number
   imdbId: string
   mediaType: string
   episode?: string
   seasonNumber?: number
   episodeNumber?: number
-  status: ReactNode
+  status: string | ReactNode
   createdAt: string
   updatedAt: string
 }
@@ -29,4 +30,3 @@ export const mediaTypeOptions = [
   { uid: MediaType.Extras, name: "Extras" },
   { uid: MediaType.Unknown, name: "Unknown" },
 ] as const
-
