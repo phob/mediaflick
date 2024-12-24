@@ -83,7 +83,6 @@ public class FileWatcherService : BackgroundService
         foreach (var mapping in _options.FolderMappings)
         {
             var fullSourcePath = Path.GetFullPath(mapping.SourceFolder);
-            _logger.LogDebug("Scanning source folder: {SourceFolder}", fullSourcePath);
 
             if (!Directory.Exists(fullSourcePath))
             {

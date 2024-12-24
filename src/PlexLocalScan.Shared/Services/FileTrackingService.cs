@@ -75,18 +75,49 @@ public class FileTrackingService(
         catch (DbUpdateException ex)
         {
             logger.LogError(ex, "Error adding file to tracking: {SourceFile}", sourceFile);
+            
+            // Check if it's a unique constraint violation
+            if (ex.InnerException?.Message.Contains("UNIQUE constraint failed") == true)
+            {
+                // Try to determine which constraint failed
+                if (ex.InnerException.Message.Contains("SourceFile"))
+                {
+                    // Source file conflict - just return the existing file
+                    return await GetExistingScannedFileAsync(sourceFile, "add");
+                }
+                else if (ex.InnerException.Message.Contains("DestFile"))
+                {
+                    // Dest file conflict - clear the dest file and mark as duplicate
+                    scannedFile.DestFile = null;
+                    scannedFile.Status = FileStatus.Duplicate;
+                    
+                    try
+                    {
+                        await dbContext.SaveChangesAsync();
+                        logger.LogInformation("Cleared DestFile and marked as duplicate for: {SourceFile}", sourceFile);
+                        await notificationService.NotifyFileAdded(scannedFile);
+                        return scannedFile;
+                    }
+                    catch (Exception retryEx)
+                    {
+                        logger.LogError(retryEx, "Error saving file after clearing DestFile: {SourceFile}", sourceFile);
+                        throw;
+                    }
+                }
+            }
+            
+            // For other types of exceptions or if we can't determine the constraint
             // Check if it was a concurrency issue - another process might have added the file
-            var existingFile = await GetExistingScannedFileAsync(sourceFile, "add");
-            return existingFile;
+            return await GetExistingScannedFileAsync(sourceFile, "add");
         }
     }
 
-    public async Task<bool> UpdateStatusAsync(string sourceFile, string? destFile, MediaType? mediaType, int? tmdbId, string? imdbId, FileStatus status)
+    public async Task<bool> UpdateStatusAsync(string sourceFile, string? destFile, MediaType? mediaType, int? tmdbId, string? imdbId, FileStatus? status)
     {
         return await UpdateStatusAsync(sourceFile, destFile, mediaType, tmdbId, imdbId, null, null, status);
     }
 
-    public async Task<bool> UpdateStatusAsync(string sourceFile, string? destFile, MediaType? mediaType, int? tmdbId, string? imdbId, int? seasonNumber, int? episodeNumber, FileStatus status)
+    public async Task<bool> UpdateStatusAsync(string sourceFile, string? destFile, MediaType? mediaType, int? tmdbId, string? imdbId, int? seasonNumber, int? episodeNumber, FileStatus? status)
     {
         var scannedFile = await GetExistingScannedFileAsync(sourceFile, "update");
         if (scannedFile == null)
@@ -132,27 +163,52 @@ public class FileTrackingService(
                 scannedFile.EpisodeNumber = episodeNumber.Value;
                 hasChanges = true;
             }
-            if (status != scannedFile.Status)
+            if (status.HasValue && status.Value != scannedFile.Status)
             {
-                scannedFile.Status = status;
-                scannedFile.UpdatedAt = DateTime.UtcNow;
+                scannedFile.Status = status.Value;
                 hasChanges = true;
             }
 
             // Only save if there are actual changes
             if (hasChanges)
             {
-                var saveResult = await dbContext.SaveChangesAsync();
-                await transaction.CommitAsync();
-                
-                if (saveResult > 0)
+                try
                 {
-                    logger.LogInformation("Updated status to {Status} for file: {File}", status, sourceFile);
+                    scannedFile.UpdatedAt = DateTime.UtcNow;
+                    var saveResult = await dbContext.SaveChangesAsync();
+                    await transaction.CommitAsync();
                     
-                    // Notify clients about the update
-                    await notificationService.NotifyFileUpdated(scannedFile);
-                    
-                    return true;
+                    if (saveResult > 0)
+                    {
+                        logger.LogInformation("Updated status to {Status} for file: {File}", status, sourceFile);
+                        
+                        // Notify clients about the update
+                        await notificationService.NotifyFileUpdated(scannedFile);
+                        
+                        return true;
+                    }
+                }
+                catch (DbUpdateException ex)
+                {
+                    if (ex.InnerException?.Message.Contains("UNIQUE constraint failed") == true)
+                    {
+                        // Handle DestFile unique constraint violation
+                        if (ex.InnerException.Message.Contains("DestFile"))
+                        {
+                            // Clear the dest file and mark as duplicate
+                            scannedFile.DestFile = null;
+                            scannedFile.Status = FileStatus.Duplicate;
+                            scannedFile.UpdatedAt = DateTime.UtcNow;
+                            
+                            await dbContext.SaveChangesAsync();
+                            await transaction.CommitAsync();
+                            
+                            logger.LogInformation("Cleared DestFile and marked as duplicate for: {SourceFile}", sourceFile);
+                            await notificationService.NotifyFileUpdated(scannedFile);
+                            return true;
+                        }
+                    }
+                    throw;
                 }
             }
             
@@ -196,14 +252,56 @@ public class FileTrackingService(
 
             if (hasChanges)
             {
-                var saveResult = await dbContext.SaveChangesAsync();
-                await transaction.CommitAsync();
-                
-                if (saveResult > 0)
+                try 
                 {
-                    logger.LogInformation("Updated status to {Status} for {Count} files with TMDb ID: {TmdbId}", 
-                        status, saveResult, tmdbId);
-                    return true;
+                    var saveResult = await dbContext.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                    
+                    if (saveResult > 0)
+                    {
+                        logger.LogInformation("Updated status to {Status} for {Count} files with TMDb ID: {TmdbId}", 
+                            status, saveResult, tmdbId);
+                        return true;
+                    }
+                }
+                catch (DbUpdateException ex)
+                {
+                    if (ex.InnerException?.Message.Contains("UNIQUE constraint failed") == true)
+                    {
+                        // Since this is a batch update, handle each file individually if there's a constraint violation
+                        foreach (var file in scannedFiles)
+                        {
+                            try
+                            {
+                                if (file.Status != status)
+                                {
+                                    file.Status = status;
+                                    file.UpdatedAt = updateTime;
+                                    await dbContext.SaveChangesAsync();
+                                }
+                            }
+                            catch (DbUpdateException innerEx)
+                            {
+                                if (innerEx.InnerException?.Message.Contains("UNIQUE constraint failed") == true 
+                                    && innerEx.InnerException.Message.Contains("DestFile"))
+                                {
+                                    // Clear the dest file and mark as duplicate
+                                    file.DestFile = null;
+                                    file.Status = FileStatus.Duplicate;
+                                    file.UpdatedAt = updateTime;
+                                    await dbContext.SaveChangesAsync();
+                                    logger.LogInformation("Cleared DestFile and marked as duplicate for file with TMDb ID: {TmdbId}", tmdbId);
+                                }
+                                else
+                                {
+                                    throw;
+                                }
+                            }
+                        }
+                        await transaction.CommitAsync();
+                        return true;
+                    }
+                    throw;
                 }
             }
             

@@ -80,16 +80,35 @@ public class SymlinkRecreationService(
             await symlinkHandler.CreateSymlinksAsync(scannedFile.SourceFile, destFolder, mediaInfo, mediaInfo.MediaType);
 
             // Update the version number to match
+            logger.LogDebug("Updating version number for file {SourceFile} to {UpdateToVersion}. Status will change from {OldStatus} to {NewStatus}", 
+                scannedFile.SourceFile, scannedFile.UpdateToVersion, scannedFile.Status, FileStatus.Success);
+
             scannedFile.VersionUpdated = scannedFile.UpdateToVersion;
-            await fileTrackingService.UpdateStatusAsync(
-                scannedFile.SourceFile,
-                scannedFile.DestFile,
-                scannedFile.MediaType,
-                scannedFile.TmdbId,
-                scannedFile.ImdbId,
-                scannedFile.SeasonNumber,
-                scannedFile.EpisodeNumber,
-                FileStatus.Success);
+
+            if (scannedFile is {Status: FileStatus.Duplicate, DestFile: null})
+            {
+                await fileTrackingService.UpdateStatusAsync(
+                    scannedFile.SourceFile,
+                    scannedFile.DestFile,
+                    scannedFile.MediaType,
+                    scannedFile.TmdbId,
+                    scannedFile.ImdbId,
+                    scannedFile.SeasonNumber,
+                    scannedFile.EpisodeNumber,
+                    FileStatus.Duplicate);
+            }
+            else
+            {
+                await fileTrackingService.UpdateStatusAsync(
+                    scannedFile.SourceFile,
+                    scannedFile.DestFile,
+                    scannedFile.MediaType,
+                    scannedFile.TmdbId,
+                    scannedFile.ImdbId,
+                    scannedFile.SeasonNumber,
+                    scannedFile.EpisodeNumber,
+                    FileStatus.Success);
+            }
 
             return true;
         }
@@ -148,7 +167,7 @@ public class SymlinkRecreationService(
                         duplicate.MediaType,
                         duplicate.TmdbId,
                         duplicate.ImdbId,
-                        FileStatus.Failed);
+                        FileStatus.Duplicate);
                     failedCount++;
                 }
             }
@@ -178,7 +197,7 @@ public class SymlinkRecreationService(
                         duplicate.MediaType,
                         duplicate.TmdbId,
                         duplicate.ImdbId,
-                        FileStatus.Failed);
+                        FileStatus.Duplicate);
                     failedCount++;
                 }
             }

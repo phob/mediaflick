@@ -1,32 +1,13 @@
-import Image from "next/image"
 import React, { useEffect, useState } from "react"
 
-import {
-  Autocomplete,
-  AutocompleteItem,
-  Button,
-  Input,
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  Select,
-  SelectItem,
-  Spinner,
-  Table,
-  TableBody,
-  TableCell,
-  TableColumn,
-  TableHeader,
-  TableRow,
-} from "@nextui-org/react"
+import { Button, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem } from "@nextui-org/react"
 
+import { MediaSearch } from "@/components/media-search/media-search"
+import { MovieEditTable } from "@/components/scanned-files-table/movie-edit-table"
+import { TvShowEditTable } from "@/components/scanned-files-table/tv-show-edit-table"
 import type { Row } from "@/components/scanned-files-table/types"
 import { mediaApi } from "@/lib/api/endpoints"
-import { getTMDBImageUrl } from "@/lib/api/tmdb"
-import { MediaSearchResult, MediaType, ScannedFile } from "@/lib/api/types"
-import { getFileName } from "@/lib/files-folders"
+import { MediaType, ScannedFile } from "@/lib/api/types"
 
 interface EditModalProps {
   isOpen: boolean
@@ -38,6 +19,8 @@ interface EditModalProps {
 interface EditableRow extends Row {
   seasonNumber?: number
   episodeNumber?: number
+  title?: string
+  year?: number
 }
 
 const mediaTypeOptions = [
@@ -48,10 +31,7 @@ const mediaTypeOptions = [
 export function EditModal({ isOpen, onClose, selectedRows, onSave }: EditModalProps) {
   const [editableRows, setEditableRows] = useState<EditableRow[]>([])
   const [loading, setLoading] = useState(false)
-  const [searchResults, setSearchResults] = useState<MediaSearchResult[]>([])
-  const [selectedMediaType, setSelectedMediaType] = useState<MediaType>(MediaType.TvShows)
-  const [searchLoading, setSearchLoading] = useState(false)
-  const [searchValue, setSearchValue] = useState("")
+  const [selectedMediaType, setSelectedMediaType] = useState<MediaType.Movies | MediaType.TvShows>(MediaType.TvShows)
 
   useEffect(() => {
     const fetchSelectedFiles = async () => {
@@ -95,84 +75,23 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave }: EditModalPr
     fetchSelectedFiles()
   }, [isOpen, selectedRows])
 
-  const handleSearch = async (value: string) => {
-    setSearchValue(value)
-
-    if (!value) {
-      setSearchResults([])
-      return
-    }
-
-    setSearchLoading(true)
-    try {
-      const results = await (selectedMediaType === MediaType.Movies
-        ? mediaApi.searchMovies(value)
-        : mediaApi.searchTvShows(value))
-      setSearchResults(results)
-    } catch (error) {
-      console.error("Failed to search:", error)
-      setSearchResults([])
-    } finally {
-      setSearchLoading(false)
-    }
-  }
-
-  const handleMediaTypeChange = (type: MediaType) => {
+  const handleMediaTypeChange = (type: MediaType.Movies | MediaType.TvShows) => {
     setSelectedMediaType(type)
-    setSearchResults([]) // Clear search results when media type changes
-    setSearchValue("") // Clear search input when media type changes
   }
 
-  const handleMediaSelect = (key: React.Key | null) => {
-    if (!key) return
-
-    const tmdbId = Number(key)
-    if (!isNaN(tmdbId)) {
-      // Update all selected rows with the new TMDB ID
-      setEditableRows((prev) =>
-        prev.map((row) => ({
-          ...row,
-          tmdbId,
-          mediaType: selectedMediaType,
-        }))
-      )
-      // Clear search after selection
-      setSearchValue("")
-      setSearchResults([])
-    }
-  }
-
-  const handleSeasonChange = (index: number, value: string) => {
-    setEditableRows((prev) => {
-      const newRows = [...prev]
-      newRows[index] = {
-        ...newRows[index],
-        seasonNumber: value === "" ? undefined : Number(value),
-      }
-      return newRows
-    })
-  }
-
-  const handleEpisodeChange = (index: number, value: string) => {
-    setEditableRows((prev) => {
-      const newRows = [...prev]
-      newRows[index] = {
-        ...newRows[index],
-        episodeNumber: value === "" ? undefined : Number(value),
-      }
-      return newRows
-    })
+  const handleMediaSelect = (tmdbId: number) => {
+    // Update all selected rows with the new TMDB ID
+    setEditableRows((prev) =>
+      prev.map((row) => ({
+        ...row,
+        tmdbId,
+        mediaType: selectedMediaType,
+      }))
+    )
   }
 
   const handleSave = () => {
-    const updatedRows = editableRows.map((row) => ({
-      ...row,
-      episode:
-        row.seasonNumber && row.episodeNumber
-          ? `S${row.seasonNumber.toString().padStart(2, "0")}E${row.episodeNumber.toString().padStart(2, "0")}`
-          : "",
-    }))
-    onSave(updatedRows)
+    onSave(editableRows)
   }
 
   return (
@@ -183,43 +102,19 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave }: EditModalPr
             <ModalHeader className="flex flex-col gap-1">Edit Selected Files</ModalHeader>
             <ModalBody>
               <div className="mb-4 flex items-center gap-4">
-                <Autocomplete
-                  label="Search Media"
-                  className="flex-1"
-                  size="sm"
-                  inputValue={searchValue}
-                  onInputChange={handleSearch}
-                  isLoading={searchLoading}
-                  onSelectionChange={handleMediaSelect}
-                  defaultItems={searchResults}
-                  listboxProps={{
-                    className: "max-h-[250px] overflow-y-auto",
-                  }}
-                >
-                  {(item) => (
-                    <AutocompleteItem key={item.tmdbId} textValue={item.title}>
-                      <div className="flex items-center gap-2">
-                        {item.posterPath && (
-                          <Image
-                            src={getTMDBImageUrl(item.posterPath, "w92") || ""}
-                            alt={item.title}
-                            width={32}
-                            height={48}
-                            className="rounded object-cover"
-                          />
-                        )}
-                        <div>
-                          {item.title} {item.year ? `(${item.year})` : ""}
-                        </div>
-                      </div>
-                    </AutocompleteItem>
-                  )}
-                </Autocomplete>
+                {selectedMediaType === MediaType.TvShows ? (
+                  <MediaSearch className="flex-1" mediaType={selectedMediaType} onMediaSelect={handleMediaSelect} />
+                ) : (
+                  <div className="flex-1">
+                    <p>Movies are searched by their respective Table row.</p>
+                  </div>
+                )}
+
                 <Select
                   label="Media Type"
                   className="w-36"
                   selectedKeys={new Set([selectedMediaType])}
-                  onChange={(e) => handleMediaTypeChange(e.target.value as MediaType)}
+                  onChange={(e) => handleMediaTypeChange(e.target.value as MediaType.Movies | MediaType.TvShows)}
                   size="sm"
                 >
                   {mediaTypeOptions.map((type) => (
@@ -229,63 +124,14 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave }: EditModalPr
                   ))}
                 </Select>
               </div>
-              {loading ? (
-                <div className="flex justify-center p-4">
-                  <Spinner size="lg" label="Loading files..." />
-                </div>
+              {selectedMediaType === MediaType.Movies ? (
+                <MovieEditTable loading={loading} editableRows={editableRows} onRowsChange={setEditableRows} />
               ) : (
-                <Table aria-label="Selected files table">
-                  <TableHeader>
-                    <TableColumn key="sourceFile">Source File</TableColumn>
-                    <TableColumn key="tmdbId">TMDB ID</TableColumn>
-                    <TableColumn key="season">Season</TableColumn>
-                    <TableColumn key="episode">Episode</TableColumn>
-                    <TableColumn key="status">Status</TableColumn>
-                  </TableHeader>
-                  <TableBody items={editableRows}>
-                    {(item: EditableRow) => (
-                      <TableRow key={item.key}>
-                        <TableCell>{getFileName(item.sourceFile as string)}</TableCell>
-                        <TableCell>{item.tmdbId}</TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            size="sm"
-                            value={item.seasonNumber?.toString() ?? ""}
-                            onChange={(e) => {
-                              const index = editableRows.findIndex((row) => row.key === item.key)
-                              if (index !== -1) {
-                                handleSeasonChange(index, e.target.value)
-                              }
-                            }}
-                            className="w-20"
-                            min={1}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            size="sm"
-                            value={item.episodeNumber?.toString() ?? ""}
-                            onChange={(e) => {
-                              const index = editableRows.findIndex((row) => row.key === item.key)
-                              if (index !== -1) {
-                                handleEpisodeChange(index, e.target.value)
-                              }
-                            }}
-                            className="w-20"
-                            min={1}
-                          />
-                        </TableCell>
-                        <TableCell>{item.status}</TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                <TvShowEditTable loading={loading} editableRows={editableRows} onRowsChange={setEditableRows} />
               )}
             </ModalBody>
             <ModalFooter>
-              <Button color="danger" variant="light" onPress={onClose}>
+              <Button color="danger" onPress={onClose}>
                 Cancel
               </Button>
               <Button color="primary" onPress={handleSave} isDisabled={loading}>

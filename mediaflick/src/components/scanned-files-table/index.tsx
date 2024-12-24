@@ -210,24 +210,30 @@ export function ScannedFilesTable({
     setIsEditModalOpen(true)
   }, [])
 
-  const handleSaveEdits = useCallback(
-    async (_updatedRows: Row[]) => {
-      setIsEditModalOpen(false)
+  const handleSaveEdits = useCallback(async (updatedRows: Row[]) => {
+    setIsEditModalOpen(false)
+    setLoading(true)
 
-      // Refresh the table data after saving
-      const result = await mediaApi.getScannedFiles({
-        page,
-        pageSize,
-        sortBy,
-        sortOrder,
-        searchTerm: filterValue,
-        status: Array.from(statusFilter)[0] as unknown as MediaStatus,
-        mediaType: Array.from(mediaTypeFilter)[0] as unknown as MediaType,
-      })
-      setData(result)
-    },
-    [page, pageSize, sortBy, sortOrder, filterValue, statusFilter, mediaTypeFilter]
-  )
+    try {
+      // Update each file
+      await Promise.all(
+        updatedRows.map((row) =>
+          mediaApi.updateScannedFile(row.key, {
+            tmdbId: row.tmdbId,
+            seasonNumber: row.seasonNumber,
+            episodeNumber: row.episodeNumber,
+          })
+        )
+      )
+
+      // Recreate all symlinks
+      await mediaApi.recreateAllSymlinks()
+    } catch (error) {
+      console.error("Failed to save changes:", error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   const topContent = React.useMemo(() => {
     const selectedCount = selectedKeys === "all" ? filteredItems.length : Array.from(selectedKeys).length

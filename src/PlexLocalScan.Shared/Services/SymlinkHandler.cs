@@ -102,7 +102,7 @@ public class SymlinkHandler(
                 if (IsSymlink(fullTargetPath))
                 {
                     logger.LogDebug("Symlink already exists: {TargetPath}", fullTargetPath);
-                    await fileTrackingService.UpdateStatusAsync(sourcePath, fullTargetPath, null, null, null, FileStatus.Success);
+                    await fileTrackingService.UpdateStatusAsync(sourcePath, fullTargetPath, null, null, null, FileStatus.Duplicate);
                     return;
                 }
                 File.Delete(fullTargetPath);
@@ -133,7 +133,7 @@ public class SymlinkHandler(
             }
 
             await Task.Run(() => File.CreateSymbolicLink(destinationPath, sourcePath));
-            await fileTrackingService.UpdateStatusAsync(sourcePath, destinationPath, null, null, null, FileStatus.Success);
+            await fileTrackingService.UpdateStatusAsync(sourcePath, destinationPath, null, null, null, null);
         }
         catch (Exception ex)
         {
