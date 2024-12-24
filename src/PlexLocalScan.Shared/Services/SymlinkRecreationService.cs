@@ -35,7 +35,7 @@ public class SymlinkRecreationService(
                 mediaInfo = scannedFile.MediaType switch
                 {
                     MediaType.Movies => await movieDetectionService.DetectMovieByTmdbIdAsync(scannedFile.TmdbId.Value),
-                    MediaType.TvShows when scannedFile.SeasonNumber.HasValue && scannedFile.EpisodeNumber.HasValue =>
+                    MediaType.TvShows when scannedFile is {SeasonNumber: not null, EpisodeNumber: not null} =>
                         await tvShowDetectionService.DetectTvShowByTmdbIdAsync(
                             scannedFile.TmdbId.Value,
                             scannedFile.SeasonNumber.Value,
@@ -49,7 +49,7 @@ public class SymlinkRecreationService(
                 logger.LogWarning("Failed to get media info for file {SourceFile}", scannedFile.SourceFile);
                 return false;
             }
-
+            
             // Delete the old symlink if it exists
             if (!string.IsNullOrEmpty(scannedFile.DestFile) && File.Exists(scannedFile.DestFile))
             {
@@ -80,35 +80,24 @@ public class SymlinkRecreationService(
             await symlinkHandler.CreateSymlinksAsync(scannedFile.SourceFile, destFolder, mediaInfo, mediaInfo.MediaType);
 
             // Update the version number to match
-            logger.LogDebug("Updating version number for file {SourceFile} to {UpdateToVersion}. Status will change from {OldStatus} to {NewStatus}", 
-                scannedFile.SourceFile, scannedFile.UpdateToVersion, scannedFile.Status, FileStatus.Success);
-
             scannedFile.VersionUpdated = scannedFile.UpdateToVersion;
 
+            var fileStatus = FileStatus.Success;
             if (scannedFile is {Status: FileStatus.Duplicate, DestFile: null})
             {
-                await fileTrackingService.UpdateStatusAsync(
-                    scannedFile.SourceFile,
-                    scannedFile.DestFile,
-                    scannedFile.MediaType,
-                    scannedFile.TmdbId,
-                    scannedFile.ImdbId,
-                    scannedFile.SeasonNumber,
-                    scannedFile.EpisodeNumber,
-                    FileStatus.Duplicate);
+                fileStatus = FileStatus.Duplicate;
             }
-            else
-            {
-                await fileTrackingService.UpdateStatusAsync(
-                    scannedFile.SourceFile,
-                    scannedFile.DestFile,
-                    scannedFile.MediaType,
-                    scannedFile.TmdbId,
-                    scannedFile.ImdbId,
-                    scannedFile.SeasonNumber,
-                    scannedFile.EpisodeNumber,
-                    FileStatus.Success);
-            }
+
+            await fileTrackingService.UpdateStatusAsync(
+                scannedFile.SourceFile,
+                scannedFile.DestFile,
+                scannedFile.MediaType,
+                mediaInfo.TmdbId,
+                mediaInfo.ImdbId,
+                scannedFile.SeasonNumber,
+                scannedFile.EpisodeNumber,
+                fileStatus
+            );
 
             return true;
         }
@@ -135,11 +124,11 @@ public class SymlinkRecreationService(
 
             // Group files by TMDb ID to check for duplicates
             var movieGroups = filesToUpdate
-                .Where(f => f.MediaType == MediaType.Movies && f.TmdbId.HasValue)
+                .Where(f => f is {MediaType: MediaType.Movies, TmdbId: not null})
                 .GroupBy(f => f.TmdbId!.Value);
 
             var tvShowGroups = filesToUpdate
-                .Where(f => f.MediaType == MediaType.TvShows && f.TmdbId.HasValue && f.SeasonNumber.HasValue && f.EpisodeNumber.HasValue)
+                .Where(f => f is {MediaType: MediaType.TvShows, TmdbId: not null, SeasonNumber: not null, EpisodeNumber: not null})
                 .GroupBy(f => new { TmdbId = f.TmdbId!.Value, Season = f.SeasonNumber!.Value, Episode = f.EpisodeNumber!.Value });
 
             // Process movies - only keep the first file for each TMDb ID
