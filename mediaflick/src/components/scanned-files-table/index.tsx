@@ -261,15 +261,24 @@ export function ScannedFilesTable({
             placeholder="Search files..."
             startContent={<Search className="text-default-300" />}
             value={filterValue}
-            onClear={() => setFilterValue("")}
-            onValueChange={(value) => setFilterValue(value)}
+            onClear={() => {
+              setFilterValue("")
+              setSelectedKeys(new Set())
+            }}
+            onValueChange={(value) => {
+              setFilterValue(value)
+              setSelectedKeys(new Set())
+            }}
           />
           <div className="flex items-center gap-3">
             <Select
               label="Status"
               className="w-36"
               selectedKeys={statusFilter}
-              onSelectionChange={setStatusFilter}
+              onSelectionChange={(keys) => {
+                setStatusFilter(keys)
+                setSelectedKeys(new Set())
+              }}
               selectionMode="single"
               items={statusOptions}
               size="sm"
@@ -284,7 +293,10 @@ export function ScannedFilesTable({
               label="Media Type"
               className="w-36"
               selectedKeys={mediaTypeFilter}
-              onSelectionChange={setMediaTypeFilter}
+              onSelectionChange={(keys) => {
+                setMediaTypeFilter(keys)
+                setSelectedKeys(new Set())
+              }}
               selectionMode="single"
               items={mediaTypeOptions}
               size="sm"
@@ -615,6 +627,7 @@ export function ScannedFilesTable({
         onClose={() => setIsEditModalOpen(false)}
         selectedRows={selectedRows}
         onSave={handleSaveEdits}
+        initialMediaType={Array.from(mediaTypeFilter)[0] as MediaType.Movies | MediaType.TvShows}
       />
     </>
   )

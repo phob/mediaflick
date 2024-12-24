@@ -14,6 +14,7 @@ interface EditModalProps {
   onClose: () => void
   selectedRows: Row[]
   onSave: (updatedRows: Row[]) => void
+  initialMediaType: MediaType.Movies | MediaType.TvShows
 }
 
 interface EditableRow extends Row {
@@ -28,10 +29,14 @@ const mediaTypeOptions = [
   { uid: MediaType.Movies, name: "Movies" },
 ] as const
 
-export function EditModal({ isOpen, onClose, selectedRows, onSave }: EditModalProps) {
+export function EditModal({ isOpen, onClose, selectedRows, onSave, initialMediaType }: EditModalProps) {
   const [editableRows, setEditableRows] = useState<EditableRow[]>([])
   const [loading, setLoading] = useState(false)
-  const [selectedMediaType, setSelectedMediaType] = useState<MediaType.Movies | MediaType.TvShows>(MediaType.TvShows)
+  const [selectedMediaType, setSelectedMediaType] = useState<MediaType.Movies | MediaType.TvShows>(initialMediaType)
+
+  useEffect(() => {
+    setSelectedMediaType(initialMediaType)
+  }, [initialMediaType])
 
   useEffect(() => {
     const fetchSelectedFiles = async () => {
