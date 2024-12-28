@@ -7,7 +7,7 @@ using PlexLocalScan.Data.Models;
 using PlexLocalScan.Api.Models;
 using PlexLocalScan.Shared.Interfaces;
 using PlexLocalScan.Shared.Options;
-using PlexLocalScan.Shared.Services;
+using PlexLocalScan.Shared.Models;
 
 namespace PlexLocalScan.Api.Controllers;
 
@@ -35,8 +35,8 @@ public class ScannedFilesController(
     /// <response code="200">Returns the paged list of scanned files</response>
     [HttpGet]
     [HttpPost]
-    [ProducesResponseType(typeof(PagedResult<ScannedFile>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<PagedResult<ScannedFile>>> GetScannedFiles(
+    [ProducesResponseType(typeof(PagedResult<ScannedFileDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResult<ScannedFileDto>>> GetScannedFiles(
         [FromQuery] ScannedFileFilter filter,
         [FromBody] int[]? ids = null,
         [FromQuery] int page = 1,
@@ -113,9 +113,9 @@ public class ScannedFilesController(
             "Retrieved {Count} scanned files. Total items: {TotalItems}, Total pages: {TotalPages}",
             items.Count, totalItems, (int)Math.Ceiling(totalItems / (double)pageSize));
 
-        return Ok(new PagedResult<ScannedFile>
+        return Ok(new PagedResult<ScannedFileDto>
         {
-            Items = items,
+            Items = items.Select(ScannedFileDto.FromScannedFile).ToList(),
             TotalItems = totalItems,
             Page = page,
             PageSize = pageSize,
@@ -130,9 +130,9 @@ public class ScannedFilesController(
     /// <response code="200">Returns the requested scanned file</response>
     /// <response code="404">If the scanned file is not found</response>
     [HttpGet("{id}")]
-    [ProducesResponseType(typeof(ScannedFile), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ScannedFileDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ScannedFile>> GetScannedFile(int id)
+    public async Task<ActionResult<ScannedFileDto>> GetScannedFile(int id)
     {
         logger.LogInformation("Getting scanned file with ID: {Id}", id);
         var scannedFile = await context.ScannedFiles.FindAsync(id);
@@ -144,7 +144,7 @@ public class ScannedFilesController(
         }
 
         logger.LogInformation("Retrieved scanned file: {@ScannedFile}", scannedFile);
-        return Ok(scannedFile);
+        return Ok(ScannedFileDto.FromScannedFile(scannedFile));
     }
 
     /// <summary>

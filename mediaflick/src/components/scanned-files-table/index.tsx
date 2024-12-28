@@ -257,7 +257,7 @@ export function ScannedFilesTable({
         <div className="flex items-center justify-between gap-3">
           <Input
             isClearable
-            className="w-full sm:max-w-[44%]"
+            className="w-full sm:max-w-[44%] motion-opacity-in-0 motion-blur-in-md motion-ease-soft-spring motion-delay-200"
             placeholder="Search files..."
             startContent={<Search className="text-default-300" />}
             value={filterValue}
@@ -270,7 +270,7 @@ export function ScannedFilesTable({
               setSelectedKeys(new Set())
             }}
           />
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 motion-opacity-in-0 motion-translate-x-in-100 motion-ease-soft-spring motion-delay-200">
             <Select
               label="Status"
               className="w-36"
@@ -289,6 +289,8 @@ export function ScannedFilesTable({
                 </SelectItem>
               )}
             </Select>
+            </div>
+            <div className="flex items-center gap-3 motion-opacity-in-0 motion-translate-x-in-100 motion-ease-soft-spring motion-delay-250">
             <Select
               label="Media Type"
               className="w-36"
@@ -307,6 +309,8 @@ export function ScannedFilesTable({
                 </SelectItem>
               )}
             </Select>
+          </div>
+          <div className="flex items-center gap-3 motion-opacity-in-0 motion-translate-x-in-100 motion-ease-soft-spring motion-delay-300">
             <Button
               color="default"
               endContent={<Edit className="h-4 w-4" />}
@@ -314,14 +318,16 @@ export function ScannedFilesTable({
               aria-label="Edit Selected"
               onPress={handleEditSelected}
             >
-              Edit Selected
-            </Button>
-            <Button
-              color="danger"
-              endContent={<Trash2 className="h-4 w-4" />}
-              isDisabled={selectedCount === 0}
-              aria-label="Delete Selected"
-              onPress={handleDeleteSelected}
+                Edit Selected
+              </Button>
+            </div>
+            <div className="flex items-center gap-3  motion-opacity-in-0 motion-translate-x-in-100 motion-ease-soft-spring motion-delay-400">
+              <Button
+                color="danger"
+                endContent={<Trash2 className="h-4 w-4" />}
+                isDisabled={selectedCount === 0}
+                aria-label="Delete Selected"
+                onPress={handleDeleteSelected}
             >
               Delete Selected
             </Button>

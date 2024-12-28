@@ -36,7 +36,7 @@ export function LogoModule() {
           aria-label="FLICK"
         />
       </g>
-      <desc>© MetaFlick - All Rights Reserved</desc>
+      <desc>© MediaFlick - All Rights Reserved</desc>
     </svg>
   )
 }

@@ -25,8 +25,10 @@ export default function RootLayout({children,}: Readonly<{children: React.ReactN
           fontSans.variable,
         )}>
         <Providers>
-          <div className="sticky top-0 z-50">
-            <HeadBar />
+          <div className="sticky top-0 z-50 motion-translate-y-in-[-100%] motion-opacity-in-0 motion-blur-in-md">
+            <div>
+              <HeadBar />
+            </div>
           </div>
           <main className="min-h-[calc(100vh-4rem)] px-4">{children}</main>
         </Providers>

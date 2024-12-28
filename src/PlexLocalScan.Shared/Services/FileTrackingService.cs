@@ -12,6 +12,16 @@ public class FileTrackingService(
     IFileTrackingNotificationService notificationService)
     : IFileTrackingService
 {
+    private const string GENRE_SEPARATOR = "|";
+    
+    private static string? ConvertGenresToString(IEnumerable<string>? genres)
+        => genres?.Any() == true ? string.Join(GENRE_SEPARATOR, genres) : null;
+    
+    private static IEnumerable<string>? ConvertStringToGenres(string? genresString)
+        => !string.IsNullOrWhiteSpace(genresString) 
+            ? genresString.Split(GENRE_SEPARATOR, StringSplitOptions.RemoveEmptyEntries) 
+            : null;
+
     // Compiled queries for better performance
     private static readonly Func<PlexScanContext, string, Task<ScannedFile?>> GetBySourceFileQuery =
         EF.CompileAsyncQuery((PlexScanContext context, string sourceFile) =>
@@ -40,7 +50,7 @@ public class FileTrackingService(
         return scannedFile;
     }
 
-    public async Task<ScannedFile?> AddStatusAsync(string sourceFile, string? destFile, MediaType mediaType, int? tmdbId, string? imdbId)
+    public async Task<ScannedFile?> AddStatusAsync(string sourceFile, string? destFile, MediaType mediaType, int? tmdbId, string? imdbId, IEnumerable<string>? genres = null)
     {
         var scannedFile = await GetExistingScannedFileAsync(sourceFile, "add");
         if (scannedFile != null)
@@ -55,6 +65,7 @@ public class FileTrackingService(
             MediaType = mediaType,
             TmdbId = tmdbId,
             ImdbId = imdbId,
+            Genres = ConvertGenresToString(genres),
             Status = FileStatus.Processing,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -112,12 +123,13 @@ public class FileTrackingService(
         }
     }
 
-    public async Task<bool> UpdateStatusAsync(string sourceFile, string? destFile, MediaType? mediaType, int? tmdbId, string? imdbId, FileStatus? status)
+    public async Task<bool> UpdateStatusAsync(string sourceFile, string? destFile, MediaType? mediaType, int? tmdbId, string? imdbId, IEnumerable<string>? genres = null, FileStatus? status = null)
     {
-        return await UpdateStatusAsync(sourceFile, destFile, mediaType, tmdbId, imdbId, null, null, status);
+        return await UpdateStatusAsync(sourceFile, destFile, mediaType, tmdbId, imdbId, null, null, genres, status);
     }
 
-    public async Task<bool> UpdateStatusAsync(string sourceFile, string? destFile, MediaType? mediaType, int? tmdbId, string? imdbId, int? seasonNumber, int? episodeNumber, FileStatus? status)
+    public async Task<bool> UpdateStatusAsync(string sourceFile, string? destFile, MediaType? mediaType, int? tmdbId, string? imdbId, int? seasonNumber, int? episodeNumber, 
+        IEnumerable<string>? genres = null, FileStatus? status = null)
     {
         var scannedFile = await GetExistingScannedFileAsync(sourceFile, "update");
         if (scannedFile == null)
@@ -167,6 +179,16 @@ public class FileTrackingService(
             {
                 scannedFile.Status = status.Value;
                 hasChanges = true;
+            }
+
+            if (genres != null)
+            {
+                var newGenresString = ConvertGenresToString(genres);
+                if (newGenresString != scannedFile.Genres)
+                {
+                    scannedFile.Genres = newGenresString;
+                    hasChanges = true;
+                }
             }
 
             // Only save if there are actual changes
