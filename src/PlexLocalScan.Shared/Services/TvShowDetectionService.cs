@@ -43,7 +43,7 @@ public class TvShowDetectionService : ITvShowDetectionService
             var match = _tvShowPattern.Match(fileName);
             if (!match.Success)
             {
-                await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, null, FileStatus.Failed);
+                await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, null, null, null, null, null, null, FileStatus.Failed);
                 _logger.LogDebug("Filename does not match TV show pattern: {FileName}", fileName);
                 return null;
             }
@@ -51,7 +51,7 @@ public class TvShowDetectionService : ITvShowDetectionService
             var titleMatch = _titleCleanupPattern.Match(match.Groups["title"].Value.Replace(".", " ").Trim());
             if (!titleMatch.Success)
             {
-                await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, null, FileStatus.Failed);
+                await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, null, null, null, null, null, null, FileStatus.Failed);
                 _logger.LogWarning("Failed to clean title for TV show: {FileName}", fileName);
                 return null;
             }
@@ -77,11 +77,12 @@ public class TvShowDetectionService : ITvShowDetectionService
 
             if (bestMatch == null)
             {
-                await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, null, FileStatus.Failed);
+                await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, null, null, null, null, null, null, FileStatus.Failed);
                 _logger.LogWarning("No TMDb match found for TV show: {Title}", title);
                 return null;
             }
 
+            var tvShowDetails = await _tmdbClient.GetTvShowAsync(bestMatch.Id);
             var episodeInfo = await _tmdbClient.GetTvEpisodeAsync(bestMatch.Id, season, episode);
             var externalIds = await _tmdbClient.GetTvShowExternalIdsAsync(bestMatch.Id);
             var mediaInfo = new MediaInfo
@@ -95,9 +96,10 @@ public class TvShowDetectionService : ITvShowDetectionService
                 EpisodeNumber = episode,
                 EpisodeNumber2 = episode2,
                 EpisodeTitle = episodeInfo?.Name,
-                EpisodeTmdbId = episodeInfo?.Id
+                EpisodeTmdbId = episodeInfo?.Id,
+                Genres = tvShowDetails.Genres?.Select(g => g.Name).ToList()
             };
-            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, mediaInfo.TmdbId, mediaInfo.ImdbId, mediaInfo.SeasonNumber, mediaInfo.EpisodeNumber, FileStatus.Processing);
+            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, mediaInfo.TmdbId, mediaInfo.ImdbId, mediaInfo.SeasonNumber, mediaInfo.EpisodeNumber, mediaInfo.Genres, mediaInfo.Title, mediaInfo.Year, FileStatus.Processing);
             _cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
             return mediaInfo;
         }
@@ -138,7 +140,8 @@ public class TvShowDetectionService : ITvShowDetectionService
                 SeasonNumber = season,
                 EpisodeNumber = episode,
                 EpisodeTitle = episodeInfo?.Name,
-                EpisodeTmdbId = episodeInfo?.Id
+                EpisodeTmdbId = episodeInfo?.Id,
+                Genres = tvShowDetails.Genres?.Select(g => g.Name).ToList()
             };
 
             _cache.Set(cacheKey, mediaInfo, _options.CacheDuration);

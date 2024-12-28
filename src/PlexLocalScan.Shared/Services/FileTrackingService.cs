@@ -16,11 +16,6 @@ public class FileTrackingService(
     
     private static string? ConvertGenresToString(IEnumerable<string>? genres)
         => genres?.Any() == true ? string.Join(GENRE_SEPARATOR, genres) : null;
-    
-    private static IEnumerable<string>? ConvertStringToGenres(string? genresString)
-        => !string.IsNullOrWhiteSpace(genresString) 
-            ? genresString.Split(GENRE_SEPARATOR, StringSplitOptions.RemoveEmptyEntries) 
-            : null;
 
     // Compiled queries for better performance
     private static readonly Func<PlexScanContext, string, Task<ScannedFile?>> GetBySourceFileQuery =
@@ -123,13 +118,8 @@ public class FileTrackingService(
         }
     }
 
-    public async Task<bool> UpdateStatusAsync(string sourceFile, string? destFile, MediaType? mediaType, int? tmdbId, string? imdbId, IEnumerable<string>? genres = null, FileStatus? status = null)
-    {
-        return await UpdateStatusAsync(sourceFile, destFile, mediaType, tmdbId, imdbId, null, null, genres, status);
-    }
-
     public async Task<bool> UpdateStatusAsync(string sourceFile, string? destFile, MediaType? mediaType, int? tmdbId, string? imdbId, int? seasonNumber, int? episodeNumber, 
-        IEnumerable<string>? genres = null, FileStatus? status = null)
+        IEnumerable<string>? genres = null, string? title = null, int? year = null, FileStatus? status = null)
     {
         var scannedFile = await GetExistingScannedFileAsync(sourceFile, "update");
         if (scannedFile == null)
@@ -189,6 +179,17 @@ public class FileTrackingService(
                     scannedFile.Genres = newGenresString;
                     hasChanges = true;
                 }
+            }
+            if (title != null && title != scannedFile.Title)
+            {
+                scannedFile.Title = title;
+                hasChanges = true;
+            }
+            
+            if (year.HasValue && year.Value != scannedFile.Year)
+            {
+                scannedFile.Year = year.Value;
+                hasChanges = true;
             }
 
             // Only save if there are actual changes

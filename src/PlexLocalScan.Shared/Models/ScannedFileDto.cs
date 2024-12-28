@@ -23,10 +23,12 @@ public class ScannedFileDto
 
     private const string GENRE_SEPARATOR = "|";
     
-    private static IEnumerable<string>? ConvertStringToGenres(string? genresString)
+    public static IEnumerable<string>? ConvertStringToGenres(string? genresString)
         => !string.IsNullOrWhiteSpace(genresString) 
             ? genresString.Split(GENRE_SEPARATOR, StringSplitOptions.RemoveEmptyEntries) 
             : null;
+    public static string? ConvertGenresToString(IEnumerable<string>? genres)
+        => genres?.Any() == true ? string.Join(GENRE_SEPARATOR, genres) : null;
 
     public static ScannedFileDto FromScannedFile(ScannedFile file)
     {

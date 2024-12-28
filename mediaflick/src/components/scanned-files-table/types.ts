@@ -8,6 +8,9 @@ export type Row = {
   destFile: string | ReactNode
   tmdbId: number
   imdbId: string
+  genres?: string
+  title?: string
+  year?: number
   mediaType: string
   episode?: string
   seasonNumber?: number

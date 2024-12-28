@@ -139,6 +139,7 @@ export function ScannedFilesTable({
             )}
           </div>
         ),
+        genres: file.genres?.join(", "),
         tmdbId: file.tmdbId || 0,
         imdbId: file.imdbId || "-",
         mediaType: getMediaTypeLabel(file.mediaType),
@@ -388,6 +389,9 @@ export function ScannedFilesTable({
           </TableColumn>
           <TableColumn key="destFile" allowsSorting>
             Destination
+          </TableColumn>
+          <TableColumn key="genres" allowsSorting>
+            Genres
           </TableColumn>
           <TableColumn key="mediaType" allowsSorting>
             Media Type

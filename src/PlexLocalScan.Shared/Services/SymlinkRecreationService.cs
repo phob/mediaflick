@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using PlexLocalScan.Data.Data;
 using PlexLocalScan.Shared.Models.Media;
 using PlexLocalScan.Shared.Options;
-
+using PlexLocalScan.Shared.Models;
 namespace PlexLocalScan.Shared.Services;
 
 public class SymlinkRecreationService(
@@ -96,6 +96,9 @@ public class SymlinkRecreationService(
                 mediaInfo.ImdbId,
                 scannedFile.SeasonNumber,
                 scannedFile.EpisodeNumber,
+                mediaInfo.Genres,
+                mediaInfo.Title,
+                mediaInfo.Year,
                 fileStatus
             );
 
@@ -156,6 +159,11 @@ public class SymlinkRecreationService(
                         duplicate.MediaType,
                         duplicate.TmdbId,
                         duplicate.ImdbId,
+                        duplicate.SeasonNumber,
+                        duplicate.EpisodeNumber,
+                        ScannedFileDto.ConvertStringToGenres(duplicate.Genres),
+                        duplicate.Title,
+                        duplicate.Year,
                         FileStatus.Duplicate);
                     failedCount++;
                 }
@@ -186,6 +194,11 @@ public class SymlinkRecreationService(
                         duplicate.MediaType,
                         duplicate.TmdbId,
                         duplicate.ImdbId,
+                        duplicate.SeasonNumber,
+                        duplicate.EpisodeNumber,
+                        ScannedFileDto.ConvertStringToGenres(duplicate.Genres),
+                        duplicate.Title,
+                        duplicate.Year,
                         FileStatus.Duplicate);
                     failedCount++;
                 }

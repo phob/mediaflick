@@ -12,7 +12,7 @@ public class TMDbClientWrapper(string apiKey) : ITMDbClientWrapper
 
     public Task<string?> GetImageUrl(string path, string size)
     {
-        if (string.IsNullOrEmpty(path)) return Task.FromResult<string>(null);
+        if (string.IsNullOrEmpty(path)) return Task.FromResult<string?>(null);
         
         // Ensure path starts with /
         path = path.StartsWith("/") ? path : "/" + path;
@@ -21,7 +21,7 @@ public class TMDbClientWrapper(string apiKey) : ITMDbClientWrapper
         var validSizes = new[] { "w92", "w154", "w185", "w342", "w500", "w780", "original" };
         size = validSizes.Contains(size) ? size : "w500";
 
-        return Task.FromResult($"{BaseImageUrl}{size}{path}");
+        return Task.FromResult<string?>($"{BaseImageUrl}{size}{path}");
     }
 
     public Task<SearchContainer<SearchMovie>> SearchMovieAsync(string query)

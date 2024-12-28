@@ -2,12 +2,12 @@
 export interface MediaSearchResult {
     title: string
     year?: number
+    genres: string[]
     tmdbId: number
     posterPath: string
     backdropPath: string
     overview: string
     releaseDate: string
-    genres: string[]
     runtime: number
     rating: number
 }
@@ -15,6 +15,7 @@ export interface MediaSearchResult {
 export interface MediaInfo {
     Title: string
     Year?: number
+    Genres?: string[]
     TmdbId: number
     ImdbId: string
     MediaType: MediaType
@@ -67,6 +68,9 @@ export interface ScannedFile {
     mediaType: MediaType
     tmdbId?: number
     imdbId?: string
+    title?: string
+    year?: number
+    genres?: string[]
     seasonNumber?: number
     episodeNumber?: number
     status: MediaStatus

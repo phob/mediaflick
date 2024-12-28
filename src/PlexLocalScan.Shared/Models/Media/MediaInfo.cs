@@ -8,6 +8,7 @@ public record MediaInfo
     public int? Year { get; init; }
     public int? TmdbId { get; init; }
     public string? ImdbId { get; init; }
+    public List<string>? Genres { get; init; }
     public MediaType MediaType { get; init; }
     public int? SeasonNumber { get; init; }
     public int? EpisodeNumber { get; init; }

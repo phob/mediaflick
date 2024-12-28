@@ -44,7 +44,7 @@ public class MovieDetectionService : IMovieDetectionService
             var match = _moviePattern.Match(fileName);
             if (!match.Success)
             {
-                await _fileTrackingService.UpdateStatusAsync(fileName, null, MediaType.Movies, null, null, FileStatus.Failed);
+                await _fileTrackingService.UpdateStatusAsync(fileName, null, MediaType.Movies, null, null, null, null, null, null, null, FileStatus.Failed);
                 _logger.LogDebug("Filename does not match movie pattern: {FileName}", fileName);
                 return null;
             }
@@ -68,7 +68,7 @@ public class MovieDetectionService : IMovieDetectionService
             }
 
             _cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
-            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.Movies, mediaInfo.TmdbId, mediaInfo.ImdbId, FileStatus.Processing);
+            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.Movies, mediaInfo.TmdbId, mediaInfo.ImdbId, null, null, mediaInfo.Genres, mediaInfo.Title, mediaInfo.Year, FileStatus.Processing);
             return mediaInfo;
         }
         catch (Exception ex)
@@ -91,7 +91,7 @@ public class MovieDetectionService : IMovieDetectionService
         if (searchResults?.Results == null)
         {
             _logger.LogError("TMDb API returned null or invalid response for title: {Title}", title);
-            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.Movies, null, null, FileStatus.Failed);
+            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.Movies, null, null, null, null, null, null, null, FileStatus.Failed);
             return null;
         }
 
@@ -102,7 +102,7 @@ public class MovieDetectionService : IMovieDetectionService
         if (bestMatch == null)
         {
             _logger.LogWarning("No TMDb match found for movie: {Title} ({Year})", title, year);
-            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.Movies, null, null, FileStatus.Failed);
+            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.Movies, null, null, null, null, null, null, null, FileStatus.Failed);
             return null;
         }
         var externalIds = await _tmdbClient.GetMovieExternalIdsAsync(bestMatch.Id);
