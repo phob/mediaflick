@@ -1,10 +1,8 @@
 using Microsoft.AspNetCore.SignalR;
 using PlexLocalScan.Core.Tables;
-using PlexLocalScan.FileTracking.Hubs;
-using PlexLocalScan.FileTracking.Interfaces;
-using PlexLocalScan.Shared.Models;
+using PlexLocalScan.SignalR.Hubs;
 
-namespace PlexLocalScan.FileTracking.Services;
+namespace PlexLocalScan.SignalR.Services;
 
 /// <summary>
 /// Service for sending file tracking notifications through SignalR

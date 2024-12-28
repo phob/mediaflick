@@ -1,12 +1,13 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using PlexLocalScan.Data.Models;
-using PlexLocalScan.Shared.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using PlexLocalScan.Core.Media;
+using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Data.Data;
-using PlexLocalScan.Shared.Models.Media;
+using PlexLocalScan.FileTracking.Services;
+using PlexLocalScan.Shared.Interfaces;
 using PlexLocalScan.Shared.Options;
-using PlexLocalScan.Shared.Models;
+
 namespace PlexLocalScan.Shared.Services;
 
 public class SymlinkRecreationService(
@@ -15,7 +16,7 @@ public class SymlinkRecreationService(
     ITvShowDetectionService tvShowDetectionService,
     ISymlinkHandler symlinkHandler,
     ICleanupHandler cleanupHandler,
-    IFileTrackingService fileTrackingService,
+    IContextService contextService,
     IOptions<PlexOptions> plexOptions,
     PlexScanContext dbContext) : ISymlinkRecreationService
 {
@@ -88,7 +89,7 @@ public class SymlinkRecreationService(
                 fileStatus = FileStatus.Duplicate;
             }
 
-            await fileTrackingService.UpdateStatusAsync(
+            await contextService.UpdateStatusAsync(
                 scannedFile.SourceFile,
                 scannedFile.DestFile,
                 scannedFile.MediaType,
@@ -153,7 +154,7 @@ public class SymlinkRecreationService(
                 // Mark duplicates as failed
                 foreach (var duplicate in duplicates)
                 {
-                    await fileTrackingService.UpdateStatusAsync(
+                    await contextService.UpdateStatusAsync(
                         duplicate.SourceFile,
                         duplicate.DestFile,
                         duplicate.MediaType,
@@ -188,7 +189,7 @@ public class SymlinkRecreationService(
                 // Mark duplicates as failed
                 foreach (var duplicate in duplicates)
                 {
-                    await fileTrackingService.UpdateStatusAsync(
+                    await contextService.UpdateStatusAsync(
                         duplicate.SourceFile,
                         duplicate.DestFile,
                         duplicate.MediaType,

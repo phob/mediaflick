@@ -1,6 +1,6 @@
-using PlexLocalScan.Shared.Models;
+using PlexLocalScan.Core.Tables;
 
-namespace PlexLocalScan.FileTracking.Interfaces;
+namespace PlexLocalScan.SignalR.Services;
 
 /// <summary>
 /// Interface defining the contract for the FileTracking SignalR hub

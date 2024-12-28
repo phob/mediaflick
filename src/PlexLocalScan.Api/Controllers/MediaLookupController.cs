@@ -1,8 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using PlexLocalScan.Shared.Interfaces;
 using PlexLocalScan.Shared.Services;
-using PlexLocalScan.Shared.Models.Media;
 using System.ComponentModel;
+using PlexLocalScan.Core.Media;
+using PlexLocalScan.Core.Series;
 
 namespace PlexLocalScan.Api.Controllers;
 

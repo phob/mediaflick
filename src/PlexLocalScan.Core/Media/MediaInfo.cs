@@ -3,7 +3,7 @@ using PlexLocalScan.Core.Tables;
 
 namespace PlexLocalScan.Core.Media;
 
-public abstract record MediaInfo
+public record MediaInfo
 {
     public string Title { get; init; } = string.Empty;
     public int? Year { get; init; }
@@ -14,10 +14,10 @@ public abstract record MediaInfo
     public int? SeasonNumber { get; init; }
     public int? EpisodeNumber { get; init; }
     public string? EpisodeTitle { get; init; }
-    public int? EpisodeNumber2 { get; internal init; }
-    public int? EpisodeTmdbId { get; internal set; }
-    public string? PosterPath { get; internal set; }
-    public string? Summary { get; internal set; }
-    public string? Status { get; internal set; }
+    public int? EpisodeNumber2 { get; init; }
+    public int? EpisodeTmdbId { get; set; }
+    public string? PosterPath { get; set; }
+    public string? Summary { get; set; }
+    public string? Status { get; set; }
     public List<SeasonInfo> Seasons { get; init; } = [];
 } 

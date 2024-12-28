@@ -3,11 +3,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using PlexLocalScan.Data.Data;
-using PlexLocalScan.Data.Models;
 using PlexLocalScan.Api.Models;
+using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Shared.Interfaces;
 using PlexLocalScan.Shared.Options;
-using PlexLocalScan.Shared.Models;
+using PlexLocalScan.SignalR.Services;
 
 namespace PlexLocalScan.Api.Controllers;
 
@@ -23,7 +23,7 @@ public class ScannedFilesController(
     ICleanupHandler cleanupHandler,
     PlexScanContext context,
     IOptions<PlexOptions> plexOptions,
-    IFileTrackingNotificationService notificationService) : ControllerBase
+    INotificationService notificationService) : ControllerBase
 {
     /// <summary>
     /// Retrieves a paged list of scanned files with optional filtering, sorting, and specific IDs

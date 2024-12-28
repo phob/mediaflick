@@ -1,13 +1,14 @@
 using Microsoft.Extensions.Logging;
-using PlexLocalScan.Data.Models;
+using PlexLocalScan.Core.Media;
+using PlexLocalScan.Core.Tables;
+using PlexLocalScan.FileTracking.Services;
 using PlexLocalScan.Shared.Interfaces;
-using PlexLocalScan.Shared.Models.Media;
 
 namespace PlexLocalScan.Shared.Services;
 
 public class SymlinkHandler(
     ILogger<SymlinkHandler> logger,
-    IFileTrackingService fileTrackingService)
+    IContextService contextService)
     : ISymlinkHandler
 {
     private static readonly string[] SourceArray = [".mkv", ".mp4", ".avi"];
@@ -53,7 +54,7 @@ public class SymlinkHandler(
 
             await CreateFileLinkAsync(sourceFile, fullTargetPath);
             
-            await fileTrackingService.UpdateStatusAsync(sourceFile, fullTargetPath, mediaType, null, null, null, null, null, null, null, FileStatus.Failed);
+            await contextService.UpdateStatusAsync(sourceFile, fullTargetPath, mediaType, null, null, null, null, null, null, null, FileStatus.Failed);
             
             logger.LogInformation("Created fallback symlink for undetected media: {SourceFile} -> {TargetPath}", 
                 sourceFile, fullTargetPath);
@@ -102,7 +103,7 @@ public class SymlinkHandler(
                 if (IsSymlink(fullTargetPath))
                 {
                     logger.LogDebug("Symlink already exists: {TargetPath}", fullTargetPath);
-                    await fileTrackingService.UpdateStatusAsync(sourcePath, fullTargetPath, null, null, null, null, null, null, null, null, FileStatus.Duplicate);
+                    await contextService.UpdateStatusAsync(sourcePath, fullTargetPath, null, null, null, null, null, null, null, null, FileStatus.Duplicate);
                     return;
                 }
                 File.Delete(fullTargetPath);
@@ -133,7 +134,7 @@ public class SymlinkHandler(
             }
 
             await Task.Run(() => File.CreateSymbolicLink(destinationPath, sourcePath));
-            await fileTrackingService.UpdateStatusAsync(sourcePath, destinationPath, null, null, null, null, null, null, null, null, null);
+            await contextService.UpdateStatusAsync(sourcePath, destinationPath, null, null, null, null, null, null, null, null, null);
         }
         catch (Exception ex)
         {

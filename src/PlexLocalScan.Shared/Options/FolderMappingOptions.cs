@@ -1,4 +1,5 @@
-using PlexLocalScan.Data.Models;
+using PlexLocalScan.Core.Tables;
+
 namespace PlexLocalScan.Shared.Options;
 
 public class FolderMappingOptions

@@ -1,6 +1,6 @@
 ﻿using PlexLocalScan.Core.Tables;
 
-namespace PlexLocalScan.FileTracking.Interfaces;
+namespace PlexLocalScan.SignalR.Services;
 
 public interface INotificationService
 {

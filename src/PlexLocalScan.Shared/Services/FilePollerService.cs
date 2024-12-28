@@ -3,11 +3,12 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using PlexLocalScan.Shared.Options;
-using PlexLocalScan.Data.Models;
 using PlexLocalScan.Data.Data;
 using PlexLocalScan.Shared.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using PlexLocalScan.Core.Tables;
+using PlexLocalScan.FileTracking.Services;
 
 namespace PlexLocalScan.Shared.Services;
 
@@ -219,7 +220,7 @@ public class FilePollerService : BackgroundService
         try 
         {
             using var scope = _serviceScopeFactory.CreateScope();
-            var fileTrackingService = scope.ServiceProvider.GetRequiredService<IFileTrackingService>();
+            var fileTrackingService = scope.ServiceProvider.GetRequiredService<IContextService>();
             var mediaDetectionService = scope.ServiceProvider.GetRequiredService<IMediaDetectionService>();
             var symlinkHandler = scope.ServiceProvider.GetRequiredService<ISymlinkHandler>();
             

@@ -1,9 +1,8 @@
 using Microsoft.AspNetCore.SignalR;
-using PlexLocalScan.FileTracking.Interfaces;
-using PlexLocalScan.Shared.Interfaces;
-using PlexLocalScan.Shared.Models;
+using PlexLocalScan.Core.Tables;
+using PlexLocalScan.SignalR.Services;
 
-namespace PlexLocalScan.FileTracking.Hubs;
+namespace PlexLocalScan.SignalR.Hubs;
 
 /// <summary>
 /// SignalR hub for real-time file tracking notifications
@@ -17,7 +16,7 @@ public class FileTrackingHub : Hub<ISignalRHub>
     public FileTrackingHub()
     {
         _heartbeatTimer = new System.Timers.Timer(30000); // 30 second interval
-        _heartbeatTimer.Elapsed += async (s, e) => await SendHeartbeat();
+        _heartbeatTimer.Elapsed += async (_, _) => await SendHeartbeat();
         _heartbeatTimer.AutoReset = true;
         _heartbeatTimer.Start();
     }
@@ -82,7 +81,7 @@ public class FileTrackingHub : Hub<ISignalRHub>
         {
             if (disposing)
             {
-                _heartbeatTimer?.Dispose();
+                _heartbeatTimer.Dispose();
             }
             _disposed = true;
         }

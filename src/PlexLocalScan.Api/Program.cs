@@ -1,10 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using PlexLocalScan.Data.Data;
+using PlexLocalScan.FileTracking.Services;
 using PlexLocalScan.Shared.Options;
 using PlexLocalScan.Shared.Services;
 using PlexLocalScan.Shared.Interfaces;
-using PlexLocalScan.Shared.Hubs;
+using PlexLocalScan.SignalR.Hubs;
+using PlexLocalScan.SignalR.Services;
 using Scalar.AspNetCore;
 using Serilog;
 
@@ -65,7 +67,7 @@ services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
     .Configure<DatabaseOptions>(builder.Configuration.GetSection("Database"))
     .Configure<FolderMappingOptions>(builder.Configuration.GetSection("FolderMapping"))
     .AddSingleton<IPlexHandler, PlexHandler>()
-    .AddScoped<IFileTrackingNotificationService, FileTrackingNotificationService>()
+    .AddScoped<INotificationService, NotificationService>()
     .AddScoped<ISymlinkHandler, SymlinkHandler>()
     .AddScoped<ITmDbClientWrapper>(sp =>
     {
@@ -76,11 +78,10 @@ services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
     .AddScoped<ITvShowDetectionService, TvShowDetectionService>()
     .AddScoped<IMediaDetectionService, MediaDetectionService>()
     .AddScoped<IMediaLookupService, MediaSearchService>()
-    .AddScoped<IDateTimeProvider, DateTimeProvider>()
     .AddScoped<IFileSystemService, FileSystemService>()
     .AddScoped<ICleanupHandler, CleanupHandler>()
     .AddScoped<ISymlinkRecreationService, SymlinkRecreationService>()
-    .AddScoped<IFileTrackingService, FileTrackingService>()
+    .AddScoped<IContextService, ContextService>()
     .AddHostedService<FilePollerService>()
     .AddDbContext<PlexScanContext>((_, options) =>
     {

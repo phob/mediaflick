@@ -2,9 +2,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Caching.Memory;
 using System.Text.RegularExpressions;
-using PlexLocalScan.Data.Models;
+using PlexLocalScan.Core.Media;
+using PlexLocalScan.Core.Tables;
+using PlexLocalScan.FileTracking.Services;
 using PlexLocalScan.Shared.Interfaces;
-using PlexLocalScan.Shared.Models.Media;
 
 namespace PlexLocalScan.Shared.Services;
 
@@ -13,7 +14,7 @@ public class MovieDetectionService : IMovieDetectionService
     private readonly ILogger<MovieDetectionService> _logger;
     private readonly ITmDbClientWrapper _tmdbClient;
     private readonly IMemoryCache _cache;
-    private readonly IFileTrackingService _fileTrackingService;
+    private readonly IContextService _fileTrackingService;
     private readonly MediaDetectionOptions _options;
     private readonly Regex _moviePattern;
 
@@ -21,16 +22,14 @@ public class MovieDetectionService : IMovieDetectionService
         ILogger<MovieDetectionService> logger,
         ITmDbClientWrapper tmdbClient,
         IMemoryCache cache,
-        IFileTrackingService fileTrackingService,
-        IOptions<MediaDetectionOptions> options,
-        IDateTimeProvider dateTimeProvider)
+        IContextService fileTrackingService,
+        IOptions<MediaDetectionOptions> options)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _tmdbClient = tmdbClient ?? throw new ArgumentNullException(nameof(tmdbClient));
         _cache = cache ?? throw new ArgumentNullException(nameof(cache));
         _fileTrackingService = fileTrackingService ?? throw new ArgumentNullException(nameof(fileTrackingService));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
-        _dateTimeProvider = dateTimeProvider ?? throw new ArgumentNullException(nameof(dateTimeProvider));
 
         _moviePattern = new Regex(_options.MoviePattern, RegexOptions.Compiled | RegexOptions.IgnoreCase);
     }

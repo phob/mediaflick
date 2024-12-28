@@ -1,4 +1,5 @@
-﻿using PlexLocalScan.Shared.Models.Media;
+﻿using PlexLocalScan.Core.Media;
+using PlexLocalScan.Core.Series;
 using PlexLocalScan.Shared.Services;
 
 namespace PlexLocalScan.Shared.Interfaces;

@@ -1,7 +1,8 @@
 using Microsoft.Extensions.Logging;
-using PlexLocalScan.Data.Models;
+using PlexLocalScan.Core.Media;
+using PlexLocalScan.Core.Tables;
+using PlexLocalScan.FileTracking.Services;
 using PlexLocalScan.Shared.Interfaces;
-using PlexLocalScan.Shared.Models.Media;
 
 namespace PlexLocalScan.Shared.Services;
 
@@ -9,7 +10,7 @@ public class MediaDetectionService(
     ILogger<MediaDetectionService> logger,
     IMovieDetectionService movieDetectionService,
     ITvShowDetectionService tvShowDetectionService,
-    IFileTrackingService fileTrackingService,
+    IContextService contextService,
     IFileSystemService fileSystemService)
     : IMediaDetectionService
 {
@@ -32,7 +33,7 @@ public class MediaDetectionService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error detecting media info for {FileName}", fileName);
-            await fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, null, null, null, null, null, null, FileStatus.Failed);
+            await contextService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, null, null, null, null, null, null, FileStatus.Failed);
             throw;
         }
     }

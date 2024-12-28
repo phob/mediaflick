@@ -2,9 +2,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Caching.Memory;
 using System.Text.RegularExpressions;
-using PlexLocalScan.Data.Models;
+using PlexLocalScan.Core.Media;
+using PlexLocalScan.Core.Tables;
+using PlexLocalScan.FileTracking.Services;
 using PlexLocalScan.Shared.Interfaces;
-using PlexLocalScan.Shared.Models.Media;
 
 namespace PlexLocalScan.Shared.Services;
 
@@ -13,8 +14,8 @@ public class TvShowDetectionService : ITvShowDetectionService
     private readonly ILogger<TvShowDetectionService> _logger;
     private readonly ITmDbClientWrapper _tmdbClient;
     private readonly IMemoryCache _cache;
-    private readonly IFileTrackingService _fileTrackingService;
-    private readonly MediaDetectionOptions _options;
+    private readonly IContextService _contextService;
+    private readonly MediaDetectionOptions? _options;
     private readonly Regex _tvShowPattern;
     private readonly Regex _titleCleanupPattern;
 
@@ -22,14 +23,14 @@ public class TvShowDetectionService : ITvShowDetectionService
         ILogger<TvShowDetectionService> logger,
         ITmDbClientWrapper tmdbClient,
         IMemoryCache cache,
-        IFileTrackingService fileTrackingService,
+        IContextService contextService,
         IOptions<MediaDetectionOptions> options)
     {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _tmdbClient = tmdbClient ?? throw new ArgumentNullException(nameof(tmdbClient));
-        _cache = cache ?? throw new ArgumentNullException(nameof(cache));
-        _fileTrackingService = fileTrackingService ?? throw new ArgumentNullException(nameof(fileTrackingService));
-        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _logger = logger;
+        _tmdbClient = tmdbClient;
+        _cache = cache;
+        _contextService = contextService;
+        _options = options?.Value;
 
         _tvShowPattern = new Regex(_options.TvShowPattern, RegexOptions.Compiled | RegexOptions.IgnoreCase);
         _titleCleanupPattern = new Regex(_options.TitleCleanupPattern, RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -43,7 +44,7 @@ public class TvShowDetectionService : ITvShowDetectionService
             var match = _tvShowPattern.Match(fileName);
             if (!match.Success)
             {
-                await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, null, null, null, null, null, null, FileStatus.Failed);
+                await _contextService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, null, null, null, null, null, null, FileStatus.Failed);
                 _logger.LogDebug("Filename does not match TV show pattern: {FileName}", fileName);
                 return null;
             }
@@ -51,7 +52,7 @@ public class TvShowDetectionService : ITvShowDetectionService
             var titleMatch = _titleCleanupPattern.Match(match.Groups["title"].Value.Replace(".", " ").Trim());
             if (!titleMatch.Success)
             {
-                await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, null, null, null, null, null, null, FileStatus.Failed);
+                await _contextService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, null, null, null, null, null, null, FileStatus.Failed);
                 _logger.LogWarning("Failed to clean title for TV show: {FileName}", fileName);
                 return null;
             }
@@ -77,7 +78,7 @@ public class TvShowDetectionService : ITvShowDetectionService
 
             if (bestMatch == null)
             {
-                await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, null, null, null, null, null, null, FileStatus.Failed);
+                await _contextService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, null, null, null, null, null, null, FileStatus.Failed);
                 _logger.LogWarning("No TMDb match found for TV show: {Title}", title);
                 return null;
             }
@@ -99,7 +100,7 @@ public class TvShowDetectionService : ITvShowDetectionService
                 EpisodeTmdbId = episodeInfo?.Id,
                 Genres = tvShowDetails.Genres?.Select(g => g.Name).ToList()
             };
-            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.TvShows, mediaInfo.TmdbId, mediaInfo.ImdbId, mediaInfo.SeasonNumber, mediaInfo.EpisodeNumber, mediaInfo.Genres, mediaInfo.Title, mediaInfo.Year, FileStatus.Processing);
+            await _contextService.UpdateStatusAsync(filePath, null, MediaType.TvShows, mediaInfo.TmdbId, mediaInfo.ImdbId, mediaInfo.SeasonNumber, mediaInfo.EpisodeNumber, mediaInfo.Genres, mediaInfo.Title, mediaInfo.Year, FileStatus.Processing);
             _cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
             return mediaInfo;
         }

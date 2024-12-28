@@ -1,6 +1,4 @@
-using PlexLocalScan.Data.Models;
-
-namespace PlexLocalScan.Shared.Models;
+namespace PlexLocalScan.Core.Tables;
 
 public class ScannedFileDto
 {

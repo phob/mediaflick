@@ -1,4 +1,4 @@
-using PlexLocalScan.Data.Models;
+using PlexLocalScan.Core.Tables;
 
 namespace PlexLocalScan.Shared.Interfaces;
 

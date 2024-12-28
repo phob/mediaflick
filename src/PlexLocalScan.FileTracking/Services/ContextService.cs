@@ -2,8 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Data.Data;
-using PlexLocalScan.FileTracking.Interfaces;
-using PlexLocalScan.Shared.Models;
+using PlexLocalScan.SignalR.Services;
 
 namespace PlexLocalScan.FileTracking.Services;
 
@@ -79,39 +78,33 @@ public class ContextService(
             logger.LogError(ex, "Error adding file to tracking: {SourceFile}", sourceFile);
             
             // Check if it's a unique constraint violation
-            if (ex.InnerException?.Message.Contains("UNIQUE constraint failed") == true)
+            if (ex.InnerException?.Message.Contains("UNIQUE constraint failed") != true)
+                return await GetExistingScannedFileAsync(sourceFile, "add");
+            // Try to determine which constraint failed
+            if (ex.InnerException.Message.Contains("SourceFile"))
             {
-                // Try to determine which constraint failed
-                if (ex.InnerException.Message.Contains("SourceFile"))
-                {
-                    // Source file conflict - just return the existing file
-                    return await GetExistingScannedFileAsync(sourceFile, "add");
-                }
-
-                if (ex.InnerException.Message.Contains("DestFile"))
-                {
-                    // Dest file conflict - clear the dest file and mark as duplicate
-                    scannedFile.DestFile = null;
-                    scannedFile.Status = FileStatus.Duplicate;
-                    
-                    try
-                    {
-                        await dbContext.SaveChangesAsync();
-                        logger.LogInformation("Cleared DestFile and marked as duplicate for: {SourceFile}", sourceFile);
-                        await notificationService.NotifyFileAdded(scannedFile);
-                        return scannedFile;
-                    }
-                    catch (Exception retryEx)
-                    {
-                        logger.LogError(retryEx, "Error saving file after clearing DestFile: {SourceFile}", sourceFile);
-                        throw;
-                    }
-                }
+                // Source file conflict - just return the existing file
+                return await GetExistingScannedFileAsync(sourceFile, "add");
             }
-            
-            // For other types of exceptions or if we can't determine the constraint
-            // Check if it was a concurrency issue - another process might have added the file
-            return await GetExistingScannedFileAsync(sourceFile, "add");
+
+            if (!ex.InnerException.Message.Contains("DestFile"))
+                return await GetExistingScannedFileAsync(sourceFile, "add");
+            // Dest file conflict - clear the dest file and mark as duplicate
+            scannedFile.DestFile = null;
+            scannedFile.Status = FileStatus.Duplicate;
+                    
+            try
+            {
+                await dbContext.SaveChangesAsync();
+                logger.LogInformation("Cleared DestFile and marked as duplicate for: {SourceFile}", sourceFile);
+                await notificationService.NotifyFileAdded(scannedFile);
+                return scannedFile;
+            }
+            catch (Exception retryEx)
+            {
+                logger.LogError(retryEx, "Error saving file after clearing DestFile: {SourceFile}", sourceFile);
+                throw;
+            }
         }
     }
 
@@ -255,14 +248,11 @@ public class ContextService(
             var updateTime = DateTime.UtcNow;
             var hasChanges = false;
             
-            foreach (var file in scannedFiles)
+            foreach (var file in scannedFiles.Where(file => file.Status != status))
             {
-                if (file.Status != status)
-                {
-                    file.Status = status;
-                    file.UpdatedAt = updateTime;
-                    hasChanges = true;
-                }
+                file.Status = status;
+                file.UpdatedAt = updateTime;
+                hasChanges = true;
             }
 
             if (hasChanges)
@@ -288,12 +278,10 @@ public class ContextService(
                         {
                             try
                             {
-                                if (file.Status != status)
-                                {
-                                    file.Status = status;
-                                    file.UpdatedAt = updateTime;
-                                    await dbContext.SaveChangesAsync();
-                                }
+                                if (file.Status == status) continue;
+                                file.Status = status;
+                                file.UpdatedAt = updateTime;
+                                await dbContext.SaveChangesAsync();
                             }
                             catch (DbUpdateException innerEx)
                             {

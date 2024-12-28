@@ -1,7 +1,8 @@
-using PlexLocalScan.Data.Models;
 using PlexLocalScan.Shared.Interfaces;
 using Microsoft.Extensions.Logging;
-using PlexLocalScan.Shared.Models.Media;
+using PlexLocalScan.Core.Media;
+using PlexLocalScan.Core.Series;
+using PlexLocalScan.Core.Tables;
 
 namespace PlexLocalScan.Shared.Services;
 

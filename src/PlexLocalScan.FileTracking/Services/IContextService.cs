@@ -1,6 +1,6 @@
 using PlexLocalScan.Core.Tables;
 
-namespace PlexLocalScan.FileTracking.Interfaces;
+namespace PlexLocalScan.FileTracking.Services;
 
 public interface IContextService
 {
