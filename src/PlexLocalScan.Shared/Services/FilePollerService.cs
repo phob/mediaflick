@@ -11,16 +11,16 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace PlexLocalScan.Shared.Services;
 
-public class FileWatcherService : BackgroundService
+public class FilePollerService : BackgroundService
 {
-    private readonly ILogger<FileWatcherService> _logger;
+    private readonly ILogger<FilePollerService> _logger;
     private readonly IPlexHandler _plexHandler;
     private readonly PlexOptions _options;
     private readonly ConcurrentDictionary<string, HashSet<string>> _knownFolders = new();
     private readonly IServiceScopeFactory _serviceScopeFactory;
 
-    public FileWatcherService(
-        ILogger<FileWatcherService> logger,
+    public FilePollerService(
+        ILogger<FilePollerService> logger,
         IPlexHandler plexHandler,
         IServiceScopeFactory serviceScopeFactory,
         IOptions<PlexOptions> options)
@@ -39,7 +39,7 @@ public class FileWatcherService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("FileWatcherService started");
+        _logger.LogInformation("FilePollerService started");
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -68,7 +68,7 @@ public class FileWatcherService : BackgroundService
             }
         }
 
-        _logger.LogInformation("FileWatcherService shutting down");
+        _logger.LogInformation("FilePollerService shutting down");
     }
 
     private async Task ProcessAllMappingsAsync(CancellationToken stoppingToken)
@@ -282,7 +282,7 @@ public class FileWatcherService : BackgroundService
 
     public override Task StopAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("FileWatcherService stopping, clearing known folders");
+        _logger.LogInformation("FilePollerService stopping, clearing known folders");
         _knownFolders.Clear();
         return base.StopAsync(cancellationToken);
     }

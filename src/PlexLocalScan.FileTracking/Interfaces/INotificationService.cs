@@ -1,8 +1,8 @@
-﻿using PlexLocalScan.Data.Models;
+﻿using PlexLocalScan.Core.Tables;
 
-namespace PlexLocalScan.Shared.Interfaces;
+namespace PlexLocalScan.FileTracking.Interfaces;
 
-public interface IFileTrackingNotificationService
+public interface INotificationService
 {
     /// <summary>
     /// Notifies clients that a file has been added to tracking

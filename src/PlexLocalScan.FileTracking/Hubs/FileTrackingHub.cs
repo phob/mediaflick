@@ -1,14 +1,14 @@
 using Microsoft.AspNetCore.SignalR;
-using PlexLocalScan.Data.Models;
+using PlexLocalScan.FileTracking.Interfaces;
 using PlexLocalScan.Shared.Interfaces;
 using PlexLocalScan.Shared.Models;
 
-namespace PlexLocalScan.Shared.Hubs;
+namespace PlexLocalScan.FileTracking.Hubs;
 
 /// <summary>
 /// SignalR hub for real-time file tracking notifications
 /// </summary>
-public class FileTrackingHub : Hub<IFileTrackingHub>
+public class FileTrackingHub : Hub<ISignalRHub>
 {
     private const string HubRoute = "/hubs/filetracking";
     private readonly System.Timers.Timer _heartbeatTimer;

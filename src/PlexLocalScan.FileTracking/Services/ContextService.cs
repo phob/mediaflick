@@ -1,22 +1,18 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using PlexLocalScan.Data.Models;
+using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Data.Data;
-using PlexLocalScan.Shared.Interfaces;
+using PlexLocalScan.FileTracking.Interfaces;
+using PlexLocalScan.Shared.Models;
 
-namespace PlexLocalScan.Shared.Services;
+namespace PlexLocalScan.FileTracking.Services;
 
-public class FileTrackingService(
+public class ContextService(
     PlexScanContext dbContext,
-    ILogger<FileTrackingService> logger,
-    IFileTrackingNotificationService notificationService)
-    : IFileTrackingService
+    ILogger<ContextService> logger,
+    INotificationService notificationService)
+    : IContextService
 {
-    private const string GENRE_SEPARATOR = "|";
-    
-    private static string? ConvertGenresToString(IEnumerable<string>? genres)
-        => genres?.Any() == true ? string.Join(GENRE_SEPARATOR, genres) : null;
-
     // Compiled queries for better performance
     private static readonly Func<PlexScanContext, string, Task<ScannedFile?>> GetBySourceFileQuery =
         EF.CompileAsyncQuery((PlexScanContext context, string sourceFile) =>
@@ -60,7 +56,7 @@ public class FileTrackingService(
             MediaType = mediaType,
             TmdbId = tmdbId,
             ImdbId = imdbId,
-            Genres = ConvertGenresToString(genres),
+            Genres = ScannedFileDto.ConvertGenresToString(genres),
             Status = FileStatus.Processing,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -91,7 +87,8 @@ public class FileTrackingService(
                     // Source file conflict - just return the existing file
                     return await GetExistingScannedFileAsync(sourceFile, "add");
                 }
-                else if (ex.InnerException.Message.Contains("DestFile"))
+
+                if (ex.InnerException.Message.Contains("DestFile"))
                 {
                     // Dest file conflict - clear the dest file and mark as duplicate
                     scannedFile.DestFile = null;
@@ -132,7 +129,7 @@ public class FileTrackingService(
             // Use a transaction for the update to ensure atomicity
             await using var transaction = await dbContext.Database.BeginTransactionAsync();
             
-            bool hasChanges = false;
+            var hasChanges = false;
             
             // Only set properties that have changed
             if (destFile != null && destFile != scannedFile.DestFile)
@@ -173,7 +170,7 @@ public class FileTrackingService(
 
             if (genres != null)
             {
-                var newGenresString = ConvertGenresToString(genres);
+                var newGenresString = ScannedFileDto.ConvertGenresToString(genres);
                 if (newGenresString != scannedFile.Genres)
                 {
                     scannedFile.Genres = newGenresString;
@@ -213,25 +210,20 @@ public class FileTrackingService(
                 }
                 catch (DbUpdateException ex)
                 {
-                    if (ex.InnerException?.Message.Contains("UNIQUE constraint failed") == true)
-                    {
-                        // Handle DestFile unique constraint violation
-                        if (ex.InnerException.Message.Contains("DestFile"))
-                        {
-                            // Clear the dest file and mark as duplicate
-                            scannedFile.DestFile = null;
-                            scannedFile.Status = FileStatus.Duplicate;
-                            scannedFile.UpdatedAt = DateTime.UtcNow;
+                    if (ex.InnerException?.Message.Contains("UNIQUE constraint failed") != true) throw;
+                    // Handle DestFile unique constraint violation
+                    if (!ex.InnerException.Message.Contains("DestFile")) throw;
+                    // Clear the dest file and mark as duplicate
+                    scannedFile.DestFile = null;
+                    scannedFile.Status = FileStatus.Duplicate;
+                    scannedFile.UpdatedAt = DateTime.UtcNow;
                             
-                            await dbContext.SaveChangesAsync();
-                            await transaction.CommitAsync();
+                    await dbContext.SaveChangesAsync();
+                    await transaction.CommitAsync();
                             
-                            logger.LogInformation("Cleared DestFile and marked as duplicate for: {SourceFile}", sourceFile);
-                            await notificationService.NotifyFileUpdated(scannedFile);
-                            return true;
-                        }
-                    }
-                    throw;
+                    logger.LogInformation("Cleared DestFile and marked as duplicate for: {SourceFile}", sourceFile);
+                    await notificationService.NotifyFileUpdated(scannedFile);
+                    return true;
                 }
             }
             
@@ -336,15 +328,5 @@ public class FileTrackingService(
             logger.LogError(ex, "Error updating status for TMDb ID: {TmdbId}", tmdbId);
             throw;
         }
-    }
-
-    public async Task<ScannedFile?> GetBySourceFileAsync(string sourceFile)
-    {
-        return await GetBySourceFileQuery(dbContext, sourceFile);
-    }
-
-    public async Task<ScannedFile?> GetByDestFileAsync(string destFile)
-    {
-        return await GetByDestFileQuery(dbContext, destFile);
     }
 }

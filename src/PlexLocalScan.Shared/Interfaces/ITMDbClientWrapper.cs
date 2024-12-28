@@ -5,7 +5,7 @@ using TMDbLib.Objects.Movies;
 
 namespace PlexLocalScan.Shared.Interfaces;
 
-public interface ITMDbClientWrapper
+public interface ITmDbClientWrapper
 {
     Task<string?> GetImageUrl(string path, string size);
     Task<SearchContainer<SearchMovie>> SearchMovieAsync(string query);

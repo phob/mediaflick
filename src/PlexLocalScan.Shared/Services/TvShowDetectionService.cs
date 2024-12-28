@@ -11,7 +11,7 @@ namespace PlexLocalScan.Shared.Services;
 public class TvShowDetectionService : ITvShowDetectionService
 {
     private readonly ILogger<TvShowDetectionService> _logger;
-    private readonly ITMDbClientWrapper _tmdbClient;
+    private readonly ITmDbClientWrapper _tmdbClient;
     private readonly IMemoryCache _cache;
     private readonly IFileTrackingService _fileTrackingService;
     private readonly MediaDetectionOptions _options;
@@ -20,7 +20,7 @@ public class TvShowDetectionService : ITvShowDetectionService
 
     public TvShowDetectionService(
         ILogger<TvShowDetectionService> logger,
-        ITMDbClientWrapper tmdbClient,
+        ITmDbClientWrapper tmdbClient,
         IMemoryCache cache,
         IFileTrackingService fileTrackingService,
         IOptions<MediaDetectionOptions> options)

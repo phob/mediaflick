@@ -1,5 +1,5 @@
-using PlexLocalScan.Data.Models;
-using PlexLocalScan.Shared.Models.Media;
+using PlexLocalScan.Core.Media;
+using PlexLocalScan.Core.Tables;
 
 namespace PlexLocalScan.Shared.Interfaces;
 

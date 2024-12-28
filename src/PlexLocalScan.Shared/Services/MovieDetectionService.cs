@@ -11,16 +11,15 @@ namespace PlexLocalScan.Shared.Services;
 public class MovieDetectionService : IMovieDetectionService
 {
     private readonly ILogger<MovieDetectionService> _logger;
-    private readonly ITMDbClientWrapper _tmdbClient;
+    private readonly ITmDbClientWrapper _tmdbClient;
     private readonly IMemoryCache _cache;
     private readonly IFileTrackingService _fileTrackingService;
     private readonly MediaDetectionOptions _options;
-    private readonly IDateTimeProvider _dateTimeProvider;
     private readonly Regex _moviePattern;
 
     public MovieDetectionService(
         ILogger<MovieDetectionService> logger,
-        ITMDbClientWrapper tmdbClient,
+        ITmDbClientWrapper tmdbClient,
         IMemoryCache cache,
         IFileTrackingService fileTrackingService,
         IOptions<MediaDetectionOptions> options,
@@ -61,7 +60,7 @@ public class MovieDetectionService : IMovieDetectionService
                 return cachedInfo;
             }
 
-            var mediaInfo = await SearchTMDbForMovie(title, year, filePath);
+            var mediaInfo = await SearchTmDbForMovie(title, year, filePath);
             if (mediaInfo == null)
             {
                 return null;
@@ -78,12 +77,12 @@ public class MovieDetectionService : IMovieDetectionService
         }
     }
 
-    private async Task<MediaInfo?> SearchTMDbForMovie(string title, int year, string filePath)
+    private async Task<MediaInfo?> SearchTmDbForMovie(string title, int year, string filePath)
     {
         if (string.IsNullOrWhiteSpace(title))
             throw new ArgumentException("Title cannot be empty or whitespace", nameof(title));
 
-        if (year <= 1800 || year > _dateTimeProvider.Now.Year + 5)
+        if (year <= 1800 || year > DateTime.Now.Year + 5)
             throw new ArgumentOutOfRangeException(nameof(year), "Year must be between 1800 and 5 years in the future");
 
         var searchResults = await _tmdbClient.SearchMovieAsync(title);

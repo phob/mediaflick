@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-
-namespace PlexLocalScan.Data.Models;
+namespace PlexLocalScan.Core.Tables;
 
 public class ScannedFile
 {

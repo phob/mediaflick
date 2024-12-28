@@ -1,8 +1,9 @@
-using PlexLocalScan.Data.Models;
+using PlexLocalScan.Core.Series;
+using PlexLocalScan.Core.Tables;
 
-namespace PlexLocalScan.Shared.Models.Media;
+namespace PlexLocalScan.Core.Media;
 
-public record MediaInfo
+public abstract record MediaInfo
 {
     public string Title { get; init; } = string.Empty;
     public int? Year { get; init; }

@@ -60,29 +60,28 @@ services.AddOpenApi();
 
 // Reuse the same services from Console project
 services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
-    .Configure<TMDbOptions>(builder.Configuration.GetSection("TMDb"))
+    .Configure<TmDbOptions>(builder.Configuration.GetSection("TMDb"))
     .Configure<MediaDetectionOptions>(builder.Configuration.GetSection("MediaDetection"))
     .Configure<DatabaseOptions>(builder.Configuration.GetSection("Database"))
     .Configure<FolderMappingOptions>(builder.Configuration.GetSection("FolderMapping"))
     .AddSingleton<IPlexHandler, PlexHandler>()
     .AddScoped<IFileTrackingNotificationService, FileTrackingNotificationService>()
     .AddScoped<ISymlinkHandler, SymlinkHandler>()
-    .AddScoped<ITMDbClientWrapper>(sp =>
+    .AddScoped<ITmDbClientWrapper>(sp =>
     {
-        var tmdbOptions = sp.GetRequiredService<IOptions<TMDbOptions>>();
+        var tmdbOptions = sp.GetRequiredService<IOptions<TmDbOptions>>();
         return new TMDbClientWrapper(tmdbOptions.Value.ApiKey);
     })
     .AddScoped<IMovieDetectionService, MovieDetectionService>()
     .AddScoped<ITvShowDetectionService, TvShowDetectionService>()
     .AddScoped<IMediaDetectionService, MediaDetectionService>()
-    .AddScoped<IImdbUpdateService, ImdbUpdateService>()
-    .AddScoped<IMediaLookupService, MediaLookupService>()
+    .AddScoped<IMediaLookupService, MediaSearchService>()
     .AddScoped<IDateTimeProvider, DateTimeProvider>()
     .AddScoped<IFileSystemService, FileSystemService>()
     .AddScoped<ICleanupHandler, CleanupHandler>()
     .AddScoped<ISymlinkRecreationService, SymlinkRecreationService>()
     .AddScoped<IFileTrackingService, FileTrackingService>()
-    .AddHostedService<FileWatcherService>()
+    .AddHostedService<FilePollerService>()
     .AddDbContext<PlexScanContext>((_, options) =>
     {
         var connectionString = $"Data Source={Path.Combine(AppContext.BaseDirectory, "config", "plexscan.db")}";

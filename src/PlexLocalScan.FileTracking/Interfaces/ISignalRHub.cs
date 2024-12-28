@@ -1,11 +1,11 @@
 using PlexLocalScan.Shared.Models;
 
-namespace PlexLocalScan.Shared.Interfaces;
+namespace PlexLocalScan.FileTracking.Interfaces;
 
 /// <summary>
 /// Interface defining the contract for the FileTracking SignalR hub
 /// </summary>
-public interface IFileTrackingHub
+public interface ISignalRHub
 {
     /// <summary>
     /// Notifies clients when a file has been added to tracking

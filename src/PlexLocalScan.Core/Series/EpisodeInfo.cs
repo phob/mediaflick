@@ -1,4 +1,4 @@
-namespace PlexLocalScan.Shared.Models.Media;
+namespace PlexLocalScan.Core.Series;
 
 public record EpisodeInfo
 {

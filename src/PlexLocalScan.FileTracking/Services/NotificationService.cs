@@ -1,16 +1,16 @@
 using Microsoft.AspNetCore.SignalR;
-using PlexLocalScan.Data.Models;
+using PlexLocalScan.Core.Tables;
+using PlexLocalScan.FileTracking.Hubs;
+using PlexLocalScan.FileTracking.Interfaces;
 using PlexLocalScan.Shared.Models;
-using PlexLocalScan.Shared.Interfaces;
-using PlexLocalScan.Shared.Hubs;
 
-namespace PlexLocalScan.Shared.Services;
+namespace PlexLocalScan.FileTracking.Services;
 
 /// <summary>
 /// Service for sending file tracking notifications through SignalR
 /// </summary>
-public class FileTrackingNotificationService(IHubContext<FileTrackingHub, IFileTrackingHub> hubContext)
-    : IFileTrackingNotificationService
+public class NotificationService(IHubContext<FileTrackingHub, ISignalRHub> hubContext)
+    : INotificationService
 {
     /// <summary>
     /// Notifies clients that a file has been added to tracking

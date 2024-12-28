@@ -8,7 +8,7 @@ namespace PlexLocalScan.Api.Controllers;
 [Route("api/[controller]")]
 public class ConfigController(
     IOptions<PlexOptions> plexOptions,
-    IOptions<TMDbOptions> tmdbOptions,
+    IOptions<TmDbOptions> tmdbOptions,
     IOptions<MediaDetectionOptions> mediaDetectionOptions) : ControllerBase
 {
     [HttpGet]

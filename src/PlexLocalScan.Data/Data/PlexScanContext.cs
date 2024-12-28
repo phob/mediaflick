@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
-using PlexLocalScan.Data.Models;
+using PlexLocalScan.Core.Tables;
 
 namespace PlexLocalScan.Data.Data;
 
-public class PlexScanContext : DbContext
+public sealed class PlexScanContext : DbContext
 {
     public DbSet<ScannedFile> ScannedFiles { get; set; }
     

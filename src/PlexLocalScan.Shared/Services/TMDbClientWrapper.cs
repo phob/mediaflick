@@ -5,7 +5,7 @@ using TMDbLib.Objects.Movies;
 using TMDbLib.Client;
 using PlexLocalScan.Shared.Interfaces;
 
-public class TMDbClientWrapper(string apiKey) : ITMDbClientWrapper
+public class TMDbClientWrapper(string apiKey) : ITmDbClientWrapper
 {
     private readonly TMDbClient _client = new(apiKey);
     private const string BaseImageUrl = "https://image.tmdb.org/t/p/";
