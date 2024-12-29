@@ -1,6 +1,6 @@
 using PlexLocalScan.Core.Tables;
 
-namespace PlexLocalScan.SignalR.Services;
+namespace PlexLocalScan.Abstractions;
 
 /// <summary>
 /// Interface defining the contract for the FileTracking SignalR hub

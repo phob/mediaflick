@@ -1,8 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using PlexLocalScan.Abstractions;
 using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Data.Data;
-using PlexLocalScan.SignalR.Services;
 
 namespace PlexLocalScan.FileTracking.Services;
 

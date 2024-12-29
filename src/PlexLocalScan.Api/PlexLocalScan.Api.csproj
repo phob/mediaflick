@@ -25,11 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PlexLocalScan.Shared\PlexLocalScan.Shared.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Configuration\" />
-    <Folder Include="Hubs\" />
+    <ProjectReference Include="..\PlexLocalScan.SignalR\PlexLocalScan.SignalR.csproj" />
   </ItemGroup>
   
 

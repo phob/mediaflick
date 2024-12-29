@@ -8,13 +8,13 @@ namespace PlexLocalScan.SignalR.Hubs;
 /// <summary>
 /// SignalR hub for real-time file tracking notifications
 /// </summary>
-public class FileTrackingHub : Hub<ISignalRHub>
+public class ContextHub : Hub<ISignalRHub>
 {
     private const string HubRoute = "/hubs/filetracking";
     private readonly System.Timers.Timer _heartbeatTimer;
     private bool _disposed;
     
-    public FileTrackingHub()
+    public ContextHub()
     {
         _heartbeatTimer = new System.Timers.Timer(30000); // 30 second interval
         _heartbeatTimer.Elapsed += async (_, _) => await SendHeartbeat();

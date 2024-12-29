@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PlexLocalScan.Core", "PlexL
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PlexLocalScan.SignalR", "PlexLocalScan.SignalR\PlexLocalScan.SignalR.csproj", "{7E34AD7A-4ECB-49F5-BBFA-74D65F6325F7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PlexLocalScan.Abstractions", "PlexLocalScan.Abstractions\PlexLocalScan.Abstractions.csproj", "{6D5090D6-DC1F-4D39-910A-63A709ED110B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -49,6 +51,10 @@ Global
 		{7E34AD7A-4ECB-49F5-BBFA-74D65F6325F7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7E34AD7A-4ECB-49F5-BBFA-74D65F6325F7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7E34AD7A-4ECB-49F5-BBFA-74D65F6325F7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6D5090D6-DC1F-4D39-910A-63A709ED110B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6D5090D6-DC1F-4D39-910A-63A709ED110B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6D5090D6-DC1F-4D39-910A-63A709ED110B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6D5090D6-DC1F-4D39-910A-63A709ED110B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

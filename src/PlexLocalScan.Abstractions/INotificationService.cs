@@ -1,6 +1,6 @@
 ﻿using PlexLocalScan.Core.Tables;
 
-namespace PlexLocalScan.SignalR.Services;
+namespace PlexLocalScan.Abstractions;
 
 public interface INotificationService
 {

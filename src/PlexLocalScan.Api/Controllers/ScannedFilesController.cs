@@ -2,12 +2,12 @@ using System.ComponentModel;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using PlexLocalScan.Abstractions;
 using PlexLocalScan.Data.Data;
 using PlexLocalScan.Api.Models;
 using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Shared.Interfaces;
 using PlexLocalScan.Shared.Options;
-using PlexLocalScan.SignalR.Services;
 
 namespace PlexLocalScan.Api.Controllers;
 

@@ -15,7 +15,7 @@ public class TvShowDetectionService : ITvShowDetectionService
     private readonly ITmDbClientWrapper _tmdbClient;
     private readonly IMemoryCache _cache;
     private readonly IContextService _contextService;
-    private readonly MediaDetectionOptions? _options;
+    private readonly MediaDetectionOptions _options;
     private readonly Regex _tvShowPattern;
     private readonly Regex _titleCleanupPattern;
 
@@ -30,7 +30,7 @@ public class TvShowDetectionService : ITvShowDetectionService
         _tmdbClient = tmdbClient;
         _cache = cache;
         _contextService = contextService;
-        _options = options?.Value;
+        _options = options.Value;
 
         _tvShowPattern = new Regex(_options.TvShowPattern, RegexOptions.Compiled | RegexOptions.IgnoreCase);
         _titleCleanupPattern = new Regex(_options.TitleCleanupPattern, RegexOptions.Compiled | RegexOptions.IgnoreCase);

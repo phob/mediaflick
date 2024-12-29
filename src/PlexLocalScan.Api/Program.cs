@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using PlexLocalScan.Abstractions;
 using PlexLocalScan.Data.Data;
 using PlexLocalScan.FileTracking.Services;
 using PlexLocalScan.Shared.Options;
@@ -67,7 +68,7 @@ services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
     .Configure<DatabaseOptions>(builder.Configuration.GetSection("Database"))
     .Configure<FolderMappingOptions>(builder.Configuration.GetSection("FolderMapping"))
     .AddSingleton<IPlexHandler, PlexHandler>()
-    .AddScoped<INotificationService, NotificationService>()
+    .AddSingleton<INotificationService, NotificationService>()
     .AddScoped<ISymlinkHandler, SymlinkHandler>()
     .AddScoped<ITmDbClientWrapper>(sp =>
     {
@@ -139,7 +140,7 @@ app.UseCors();
 //app.UseAuthorization();
 
 // Map SignalR hub
-app.MapHub<FileTrackingHub>(FileTrackingHub.Route);
+app.MapHub<ContextHub>(ContextHub.Route);
 
 if (app.Environment.IsDevelopment())
 {

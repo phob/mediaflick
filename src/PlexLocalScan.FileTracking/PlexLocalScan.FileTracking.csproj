@@ -7,8 +7,8 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\PlexLocalScan.Abstractions\PlexLocalScan.Abstractions.csproj" />
       <ProjectReference Include="..\PlexLocalScan.Data\PlexLocalScan.Data.csproj" />
-      <ProjectReference Include="..\PlexLocalScan.SignalR\PlexLocalScan.SignalR.csproj" />
     </ItemGroup>
 
 </Project>
