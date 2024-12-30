@@ -124,6 +124,18 @@ public class ScannedFilesController(
             TotalPages = (int)Math.Ceiling(totalItems / (double)pageSize)
         });
     }
+    
+    /// <summary>
+    /// Retrieves a list of unique TMDb IDs and titles for scanned files
+    /// </summary>
+    /// <response code="200">Returns the list of unique TMDb IDs and titles</response>
+    [HttpGet("tmdb-ids-and-titles")]
+    [ProducesResponseType(typeof(IEnumerable<object>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<object>>> GetTmdbIdsAndTitles()
+    {
+        var tmdbIdsAndTitles = await context.ScannedFiles.Select(f => new { f.TmdbId, f.Title }).Distinct().OrderBy(f => f.Title).ToListAsync();
+        return Ok(tmdbIdsAndTitles);
+    }
 
     /// <summary>
     /// Retrieves a specific scanned file by its ID

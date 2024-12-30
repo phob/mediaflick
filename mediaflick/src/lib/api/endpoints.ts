@@ -41,6 +41,8 @@ export const mediaApi = {
 
   getImageUrl: (path: string, size: string = "w500") => fetchApi<string>(`/medialookup/images/${path}?size=${size}`),
 
+  getTmdbIdsAndTitles: () => fetchApi<{ tmdbId: number; title: string }[]>("/scannedfiles/tmdb-ids-and-titles"),
+  
   // Scanned Files
   getScannedFiles: (params: {
     searchTerm?: string
