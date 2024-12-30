@@ -11,17 +11,7 @@ namespace PlexLocalScan.SignalR.Hubs;
 public class ContextHub : Hub<ISignalRHub>
 {
     private const string HubRoute = "/hubs/filetracking";
-    private readonly System.Timers.Timer _heartbeatTimer;
-    private bool _disposed;
     
-    public ContextHub()
-    {
-        _heartbeatTimer = new System.Timers.Timer(30000); // 30 second interval
-        _heartbeatTimer.Elapsed += async (_, _) => await SendHeartbeat();
-        _heartbeatTimer.AutoReset = true;
-        _heartbeatTimer.Start();
-    }
-
     /// <summary>
     /// Gets the hub route for client connections
     /// </summary>
@@ -29,21 +19,7 @@ public class ContextHub : Hub<ISignalRHub>
 
     public override async Task OnConnectedAsync()
     {
-        await SendHeartbeat();
         await base.OnConnectedAsync();
-    }
-    
-    public async Task SendHeartbeat()
-    {
-        try 
-        {
-            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            await Clients.All.OnHeartbeat(timestamp);
-        }
-        catch
-        {
-            // Ignore any errors during heartbeat
-        }
     }
 
     /// <summary>
@@ -73,19 +49,5 @@ public class ContextHub : Hub<ISignalRHub>
     public async Task OnHeartbeat(long timestamp)
     {
         await Clients.All.OnHeartbeat(timestamp);
-    }
-
-
-    protected override void Dispose(bool disposing)
-    {
-        if (!_disposed)
-        {
-            if (disposing)
-            {
-                _heartbeatTimer.Dispose();
-            }
-            _disposed = true;
-        }
-        base.Dispose(disposing);
     }
 } 

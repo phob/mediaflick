@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using PlexLocalScan.Core.Media;
 using PlexLocalScan.Core.Tables;
+using PlexLocalScan.Core.Helper;
 using PlexLocalScan.FileTracking.Services;
 using PlexLocalScan.Shared.Interfaces;
 
@@ -11,23 +12,23 @@ public class SymlinkHandler(
     IContextService contextService)
     : ISymlinkHandler
 {
-    private static readonly string[] SourceArray = [".mkv", ".mp4", ".avi"];
+    private readonly SymlinkHelper _symlinkHelper = new();
 
-    public async Task CreateSymlinksAsync(string sourceFile, string destinationFolder, MediaInfo? mediaInfo, MediaType mediaType)
+    public async Task<bool> CreateSymlinksAsync(string sourceFile, string destinationFolder, MediaInfo? mediaInfo, MediaType mediaType)
     {
         try
         {
             var extension = Path.GetExtension(sourceFile);
-            if (!IsVideoFile(extension)) return;
+            if (!_symlinkHelper.IsVideoFile(extension)) return false;
 
             if (mediaInfo == null)
             {
                 await CreateFallbackSymlinkAsync(sourceFile, destinationFolder, mediaType);
-                return;
+                return false;
             }
 
             var (targetPath, targetFileName) = GetTargetPath(mediaInfo, destinationFolder, extension);
-            await CreateSymlinkWithStructureAsync(sourceFile, targetPath, targetFileName);
+            return await CreateSymlinkWithStructureAsync(sourceFile, targetPath, targetFileName);
         }
         catch (Exception ex)
         {
@@ -37,7 +38,7 @@ public class SymlinkHandler(
         }
     }
 
-    private async Task CreateFallbackSymlinkAsync(string sourceFile, string destinationFolder, MediaType mediaType)
+    private async Task<bool> CreateFallbackSymlinkAsync(string sourceFile, string destinationFolder, MediaType mediaType)
     {
         try
         {
@@ -52,9 +53,11 @@ public class SymlinkHandler(
 
             Directory.CreateDirectory(targetPath);
 
-            await CreateFileLinkAsync(sourceFile, fullTargetPath);
-            
-            await contextService.UpdateStatusAsync(sourceFile, fullTargetPath, mediaType, null, null, null, null, null, null, null, FileStatus.Failed);
+            if (await _symlinkHelper.CreateFileLinkAsync(sourceFile, fullTargetPath))
+            {
+                await contextService.UpdateStatusAsync(sourceFile, fullTargetPath, mediaType, null, null, null, null, null, null, null, FileStatus.Failed);
+                return true;
+            }
             
             logger.LogInformation("Created fallback symlink for undetected media: {SourceFile} -> {TargetPath}", 
                 sourceFile, fullTargetPath);
@@ -64,6 +67,7 @@ public class SymlinkHandler(
             logger.LogError(ex, "Failed to create fallback symlink for {SourceFile}", sourceFile);
             throw;
         }
+        return false;
     }
 
     private (string path, string fileName) GetTargetPath(MediaInfo? mediaInfo, string baseFolder, string extension)
@@ -90,7 +94,7 @@ public class SymlinkHandler(
         }
     }
 
-    private async Task CreateSymlinkWithStructureAsync(string sourcePath, string targetPath, string targetFileName)
+    private async Task<bool> CreateSymlinkWithStructureAsync(string sourcePath, string targetPath, string targetFileName)
     {
         try
         {
@@ -100,55 +104,25 @@ public class SymlinkHandler(
 
             if (File.Exists(fullTargetPath))
             {
-                if (IsSymlink(fullTargetPath))
+                if (_symlinkHelper.IsSymlink(fullTargetPath))
                 {
                     logger.LogDebug("Symlink already exists: {TargetPath}", fullTargetPath);
                     await contextService.UpdateStatusAsync(sourcePath, fullTargetPath, null, null, null, null, null, null, null, null, FileStatus.Duplicate);
-                    return;
+                    return false;
                 }
                 File.Delete(fullTargetPath);
             }
 
-            await CreateFileLinkAsync(sourcePath, fullTargetPath);
+            if(await _symlinkHelper.CreateFileLinkAsync(sourcePath, fullTargetPath))
+                await contextService.UpdateStatusAsync(sourcePath, fullTargetPath, null, null, null, null, null, null, null, null, null);
+            return true;
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to create symlink structure from {Source} to {Target}", 
                 sourcePath, Path.Combine(targetPath, targetFileName));
-            throw;
+            return false;
         }
     }
 
-    private static bool IsVideoFile(string extension)
-    {
-        return SourceArray.Contains(extension.ToLower());
-    }
-
-    private async Task CreateFileLinkAsync(string sourcePath, string destinationPath)
-    {
-        try
-        {
-            if (await Task.Run(() => File.Exists(destinationPath)))
-            {
-                await Task.Run(() => File.Delete(destinationPath));
-            }
-
-            await Task.Run(() => File.CreateSymbolicLink(destinationPath, sourcePath));
-            await contextService.UpdateStatusAsync(sourcePath, destinationPath, null, null, null, null, null, null, null, null, null);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to create symlink from {Source} to {Destination}", 
-                sourcePath, destinationPath);
-            throw;
-        }
-    }
-
-    public bool IsSymlink(string path)
-    {
-        if (!File.Exists(path)) return false;
-        
-        var fileInfo = new FileInfo(path);
-        return fileInfo.Attributes.HasFlag(FileAttributes.ReparsePoint);
-    }
 } 

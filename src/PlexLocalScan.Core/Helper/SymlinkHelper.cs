@@ -1,4 +1,5 @@
-﻿namespace PlexLocalScan.Shared.Services;
+﻿namespace PlexLocalScan.Core.Helper;
+
 public class SymlinkHelper
 {
     private static readonly string[] SourceArray = [".mkv", ".mp4", ".avi"];

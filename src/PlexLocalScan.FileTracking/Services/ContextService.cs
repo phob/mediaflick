@@ -9,8 +9,7 @@ namespace PlexLocalScan.FileTracking.Services;
 public class ContextService(
     PlexScanContext dbContext,
     ILogger<ContextService> logger,
-    INotificationService notificationService)
-    : IContextService
+    INotificationService notificationService) : IContextService
 {
     // Compiled queries for better performance
     private static readonly Func<PlexScanContext, string, Task<ScannedFile?>> GetBySourceFileQuery =
@@ -40,7 +39,7 @@ public class ContextService(
         return scannedFile;
     }
 
-    public async Task<ScannedFile?> AddStatusAsync(string sourceFile, string? destFile, MediaType mediaType, int? tmdbId, string? imdbId, IEnumerable<string>? genres = null)
+    public async Task<ScannedFile?> AddStatusAsync(string sourceFile, string? destFile, MediaType mediaType)
     {
         var scannedFile = await GetExistingScannedFileAsync(sourceFile, "add");
         if (scannedFile != null)
@@ -53,9 +52,6 @@ public class ContextService(
             SourceFile = sourceFile,
             DestFile = destFile,
             MediaType = mediaType,
-            TmdbId = tmdbId,
-            ImdbId = imdbId,
-            Genres = ScannedFileDto.ConvertGenresToString(genres),
             Status = FileStatus.Processing,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow

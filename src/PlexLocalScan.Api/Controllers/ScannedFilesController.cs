@@ -19,7 +19,6 @@ namespace PlexLocalScan.Api.Controllers;
 public class ScannedFilesController(
     ILogger<ScannedFilesController> logger,
     ISymlinkRecreationService symlinkRecreationService,
-    IImdbUpdateService imdbUpdateService,
     ICleanupHandler cleanupHandler,
     PlexScanContext context,
     IOptions<PlexOptions> plexOptions,
@@ -100,7 +99,10 @@ public class ScannedFilesController(
             "episodenumber" => filter.SortOrder?.ToLower() == "desc"
                 ? query.OrderByDescending(f => f.EpisodeNumber)
                 : query.OrderBy(f => f.EpisodeNumber),
-            _ => query.OrderByDescending(f => f.CreatedAt) // Default sorting
+            "title" => filter.SortOrder?.ToLower() == "desc"
+                ? query.OrderByDescending(f => f.Title)
+                : query.OrderBy(f => f.Title),
+            _ => query.OrderBy(f => f.SourceFile) // Default sorting
         };
 
         var totalItems = await query.CountAsync();
@@ -335,20 +337,5 @@ public class ScannedFilesController(
     {
         var successCount = await symlinkRecreationService.RecreateAllSymlinksAsync();
         return Ok(new { SuccessCount = successCount });
-    }
-
-    [HttpPost("update-imdb-ids")]
-    public async Task<IActionResult> UpdateImdbIds([FromQuery] int batchSize = 50)
-    {
-        try
-        {
-            var (updated, failed) = await imdbUpdateService.UpdateMissingImdbIdsAsync(batchSize);
-            return Ok(new { updated, failed });
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Error updating IMDb IDs");
-            return StatusCode(500, "An error occurred while updating IMDb IDs");
-        }
     }
 }

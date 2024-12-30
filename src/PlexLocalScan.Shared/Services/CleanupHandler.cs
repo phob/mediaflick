@@ -2,15 +2,16 @@ using Microsoft.Extensions.Logging;
 using PlexLocalScan.Shared.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using PlexLocalScan.Data.Data;
+using PlexLocalScan.Core.Helper;
 
 namespace PlexLocalScan.Shared.Services;
 
 public class CleanupHandler(
     ILogger<CleanupHandler> logger,
-    ISymlinkHandler symlinkHandler,
     PlexScanContext dbContext)
     : ICleanupHandler
 {
+    private readonly SymlinkHelper _symlinkHelper = new();
     public async Task CleanupDeadSymlinksAsync(string baseFolder)
     {
         try
@@ -37,7 +38,7 @@ public class CleanupHandler(
         {
             foreach (var file in Directory.GetFiles(folder, "*.*", SearchOption.AllDirectories))
             {
-                if (symlinkHandler.IsSymlink(file))
+                if (_symlinkHelper.IsSymlink(file))
                 {
                     if (IsSymbolicLinkDead(file))
                     {
@@ -106,7 +107,7 @@ public class CleanupHandler(
                 .Where(f => f.SourceFile.StartsWith(sourceFolder))
                 .ToListAsync();
 
-            if (!affectedFiles.Any())
+            if (affectedFiles.Count == 0)
             {
                 logger.LogInformation("No files found for deleted source folder: {SourceFolder}", sourceFolder);
                 return;
@@ -124,11 +125,9 @@ public class CleanupHandler(
             {
                 try
                 {
-                    if (File.Exists(file.DestFile))
-                    {
-                        File.Delete(file.DestFile);
-                        logger.LogInformation("Deleted destination file: {DestFile}", file.DestFile);
-                    }
+                    if (!File.Exists(file.DestFile)) continue;
+                    File.Delete(file.DestFile);
+                    logger.LogInformation("Deleted destination file: {DestFile}", file.DestFile);
                 }
                 catch (Exception ex)
                 {
@@ -137,12 +136,9 @@ public class CleanupHandler(
             }
 
             // Clean up empty directories
-            foreach (var folder in destFolders)
+            foreach (var folder in destFolders.OfType<string>().Where(Directory.Exists))
             {
-                if (folder != null && Directory.Exists(folder))
-                {
-                    RemoveEmptyDirectories(folder);
-                }
+                RemoveEmptyDirectories(folder);
             }
 
             // Remove database entries

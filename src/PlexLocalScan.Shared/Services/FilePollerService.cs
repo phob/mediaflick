@@ -19,18 +19,21 @@ public class FilePollerService : BackgroundService
     private readonly PlexOptions _options;
     private readonly ConcurrentDictionary<string, HashSet<string>> _knownFolders = new();
     private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly IContextService _contextService;
 
     public FilePollerService(
         ILogger<FilePollerService> logger,
         IPlexHandler plexHandler,
         IServiceScopeFactory serviceScopeFactory,
-        IOptions<PlexOptions> options)
+        IOptions<PlexOptions> options,
+        IContextService contextService)
     {
         _logger = logger;
         _plexHandler = plexHandler;
         _options = options.Value;
         _serviceScopeFactory = serviceScopeFactory;
-        
+        _contextService = contextService;
+
         // Initialize known folders dictionary
         foreach (var mapping in _options.FolderMappings)
         {
@@ -41,7 +44,10 @@ public class FilePollerService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("FilePollerService started");
-
+        foreach (var mapping in _options.FolderMappings)
+        {
+            _logger.LogInformation("Watching folder: {sourceFolder} with Type: {mediaType}", mapping.SourceFolder, mapping.MediaType);
+        }
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -174,7 +180,7 @@ public class FilePollerService : BackgroundService
         }
 
         // Batch delete files from database
-        if (filesToDelete.Any())
+        if (filesToDelete.Count != 0)
         {
             dbContext.ScannedFiles.RemoveRange(filesToDelete);
             await dbContext.SaveChangesAsync(stoppingToken);
@@ -186,6 +192,7 @@ public class FilePollerService : BackgroundService
         try
         {
             _logger.LogInformation("New folder detected: {FolderPath}", newFolder);
+            _knownFolders[mapping.SourceFolder].Add(newFolder);
             
             await Task.Delay(_options.ProcessNewFolderDelay, stoppingToken);
 
@@ -199,7 +206,6 @@ public class FilePollerService : BackgroundService
             await ProcessFilesInFolderAsync(newFolder, destinationFolder, mapping);
             
             await _plexHandler.AddFolderForScanningAsync(destinationFolder, mapping.DestinationFolder);
-            _knownFolders[mapping.SourceFolder].Add(newFolder);
         }
         catch (Exception ex)
         {
@@ -224,14 +230,17 @@ public class FilePollerService : BackgroundService
             var mediaDetectionService = scope.ServiceProvider.GetRequiredService<IMediaDetectionService>();
             var symlinkHandler = scope.ServiceProvider.GetRequiredService<ISymlinkHandler>();
             
-            var trackedFile = await fileTrackingService.AddStatusAsync(file, null, mapping.MediaType, null, null);
+            var trackedFile = await fileTrackingService.AddStatusAsync(file, null, mapping.MediaType);
             if (trackedFile == null)
             {
                 return;
             }
 
             var mediaInfo = await mediaDetectionService.DetectMediaAsync(file, mapping.MediaType);
-            await symlinkHandler.CreateSymlinksAsync(file, destinationFolder, mediaInfo, mapping.MediaType);
+            if (await symlinkHandler.CreateSymlinksAsync(file, destinationFolder, mediaInfo, mapping.MediaType))
+            {
+                await _contextService.UpdateStatusAsync(file, null, mapping.MediaType, null, null, null, null, null, null, null, FileStatus.Success);
+            }
         }
         catch (Exception ex)
         {

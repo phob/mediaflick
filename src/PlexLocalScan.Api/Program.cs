@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using PlexLocalScan.Abstractions;
+using PlexLocalScan.Core.Helper;
 using PlexLocalScan.Data.Data;
 using PlexLocalScan.FileTracking.Services;
 using PlexLocalScan.Shared.Options;
@@ -61,6 +62,9 @@ services.AddControllers()
 services.AddEndpointsApiExplorer();
 services.AddOpenApi();
 
+// Add HeartbeatService
+services.AddHostedService<HeartbeatService>();
+
 // Reuse the same services from Console project
 services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
     .Configure<TmDbOptions>(builder.Configuration.GetSection("TMDb"))
@@ -83,6 +87,7 @@ services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
     .AddScoped<ICleanupHandler, CleanupHandler>()
     .AddScoped<ISymlinkRecreationService, SymlinkRecreationService>()
     .AddScoped<IContextService, ContextService>()
+    
     .AddHostedService<FilePollerService>()
     .AddDbContext<PlexScanContext>((_, options) =>
     {
