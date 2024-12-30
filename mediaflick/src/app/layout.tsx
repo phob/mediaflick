@@ -1,10 +1,12 @@
+import type { Metadata } from "next"
+
+import { clsx } from "clsx"
+
 import "@/app/globals.css"
-import HeadBar from "@/components/head-bar/head-bar"
 import { Providers } from "@/app/providers"
-import { siteConfig } from "@/config/site";
-import { fontSans } from "@/config/fonts";
-import { clsx } from "clsx";
-import type { Metadata } from "next";
+import HeadBar from "@/components/head-bar/head-bar"
+import { fontSans } from "@/config/fonts"
+import { siteConfig } from "@/config/site"
 
 export const metadata: Metadata = {
   title: {
@@ -17,15 +19,12 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({children,}: Readonly<{children: React.ReactNode}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className="dark">
-      <body className={clsx(
-          "min-h-screen bg-background font-sans antialiased container mx-auto",
-          fontSans.variable,
-        )}>
+      <body className={clsx("container mx-auto min-h-screen bg-background font-sans antialiased", fontSans.variable)}>
         <Providers>
-          <div className="sticky top-0 z-50 motion-translate-y-in-[-100%] motion-opacity-in-0 motion-blur-in-md">
+          <div className="sticky top-0 z-50 motion-translate-y-in-[-100%] motion-blur-in-md motion-opacity-in-0">
             <div>
               <HeadBar />
             </div>
