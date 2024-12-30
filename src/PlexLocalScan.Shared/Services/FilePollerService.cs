@@ -19,20 +19,17 @@ public class FilePollerService : BackgroundService
     private readonly PlexOptions _options;
     private readonly ConcurrentDictionary<string, HashSet<string>> _knownFolders = new();
     private readonly IServiceScopeFactory _serviceScopeFactory;
-    private readonly IContextService _contextService;
 
     public FilePollerService(
         ILogger<FilePollerService> logger,
         IPlexHandler plexHandler,
         IServiceScopeFactory serviceScopeFactory,
-        IOptions<PlexOptions> options,
-        IContextService contextService)
+        IOptions<PlexOptions> options)
     {
         _logger = logger;
         _plexHandler = plexHandler;
         _options = options.Value;
         _serviceScopeFactory = serviceScopeFactory;
-        _contextService = contextService;
 
         // Initialize known folders dictionary
         foreach (var mapping in _options.FolderMappings)
@@ -87,23 +84,23 @@ public class FilePollerService : BackgroundService
         // Create a list to store all files that need to be deleted from the database
         var filesToDelete = new List<ScannedFile>();
         
-        foreach (var mapping in _options.FolderMappings)
+        foreach (var folderMapping in _options.FolderMappings)
         {
-            var fullSourcePath = Path.GetFullPath(mapping.SourceFolder);
+            var folderMappingSourcePath = Path.GetFullPath(folderMapping.SourceFolder);
 
-            if (!Directory.Exists(fullSourcePath))
+            if (!Directory.Exists(folderMappingSourcePath))
             {
-                _logger.LogWarning("Source folder no longer exists: {SourceFolder}", fullSourcePath);
-                await cleanupHandler.CleanupDeletedSourceFolderAsync(fullSourcePath);
+                _logger.LogWarning("Source folder no longer exists: {SourceFolder}", folderMappingSourcePath);
+                await cleanupHandler.CleanupDeletedSourceFolderAsync(folderMappingSourcePath);
                 continue;
             }
 
-            var currentFolders = new HashSet<string>(Directory.GetDirectories(fullSourcePath));
+            var currentSourceSubFolders = new HashSet<string>(Directory.GetDirectories(folderMappingSourcePath));
             
             // Check for deleted folders
-            if (_knownFolders.TryGetValue(mapping.SourceFolder, out var previousFolders))
+            if (_knownFolders.TryGetValue(folderMapping.SourceFolder, out var previousFolders))
             {
-                var deletedFolders = previousFolders.Except(currentFolders).ToList();
+                var deletedFolders = previousFolders.Except(currentSourceSubFolders).ToList();
                 foreach (var deletedFolder in deletedFolders)
                 {
                     _logger.LogInformation("Folder was deleted: {FolderPath}", deletedFolder);
@@ -112,15 +109,15 @@ public class FilePollerService : BackgroundService
             }
 
             // Get all tracked files for this source folder - optimize by selecting only necessary fields
-            var trackedFiles = await dbContext.ScannedFiles
-                .Where(f => f.SourceFile.StartsWith(fullSourcePath))
+            var filesAlreadyInDb = await dbContext.ScannedFiles
+                .Where(f => f.SourceFile.StartsWith(folderMappingSourcePath))
                 .Select(f => new { f.SourceFile, f.DestFile, f.Id })
                 .ToListAsync(stoppingToken);
 
-            var trackedFilePaths = new HashSet<string>(trackedFiles.Select(f => f.SourceFile));
+            var filePathsAlreadyInDb = new HashSet<string>(filesAlreadyInDb.Select(f => f.SourceFile));
 
             // Check for deleted files in batch
-            var deletedFiles = trackedFiles.Where(trackedFile => !File.Exists(trackedFile.SourceFile)).ToList();
+            var deletedFiles = filesAlreadyInDb.Where(trackedFile => !File.Exists(trackedFile.SourceFile)).ToList();
             foreach (var trackedFile in deletedFiles)
             {
                 _logger.LogInformation("Source file was deleted: {SourceFile}", trackedFile.SourceFile);
@@ -145,12 +142,12 @@ public class FilePollerService : BackgroundService
 
             // Process new folders
             var processedFolders = new HashSet<string>(
-                trackedFiles.Select(f => Path.GetDirectoryName(f.SourceFile)!)
+                filesAlreadyInDb.Select(f => Path.GetDirectoryName(f.SourceFile)!)
             );
 
-            var foldersToProcess = currentFolders
+            var foldersToProcess = currentSourceSubFolders
                 .Where(folder => !processedFolders.Contains(folder));
-
+/*
             // Process folders in parallel with a maximum degree of parallelism
             await Parallel.ForEachAsync(
                 foldersToProcess,
@@ -159,24 +156,24 @@ public class FilePollerService : BackgroundService
                     MaxDegreeOfParallelism = 3,
                     CancellationToken = stoppingToken 
                 },
-                async (folder, ct) => await ProcessNewFolderAsync(folder, mapping, ct)
+                async (folder, ct) => await ProcessNewFolderAsync(folder, folderMapping, ct)
             );
-
+*/
             // Scan for untracked files
             await ScanForUntrackedFilesAsync(
-                fullSourcePath, 
-                trackedFilePaths, 
-                mapping, 
+                folderMappingSourcePath, 
+                filePathsAlreadyInDb, 
+                folderMapping, 
                 stoppingToken);
 
             // Clean up empty directories in destination folder
-            if (Directory.Exists(mapping.DestinationFolder))
+            if (Directory.Exists(folderMapping.DestinationFolder))
             {
-                await cleanupHandler.CleanupDeadSymlinksAsync(mapping.DestinationFolder);
+                await cleanupHandler.CleanupDeadSymlinksAsync(folderMapping.DestinationFolder);
             }
 
             // Update known folders for future reference
-            _knownFolders[mapping.SourceFolder] = [..currentFolders];
+            _knownFolders[folderMapping.SourceFolder] = [..currentSourceSubFolders];
         }
 
         // Batch delete files from database
@@ -226,11 +223,11 @@ public class FilePollerService : BackgroundService
         try 
         {
             using var scope = _serviceScopeFactory.CreateScope();
-            var fileTrackingService = scope.ServiceProvider.GetRequiredService<IContextService>();
+            var contextService = scope.ServiceProvider.GetRequiredService<IContextService>();
             var mediaDetectionService = scope.ServiceProvider.GetRequiredService<IMediaDetectionService>();
             var symlinkHandler = scope.ServiceProvider.GetRequiredService<ISymlinkHandler>();
             
-            var trackedFile = await fileTrackingService.AddStatusAsync(file, null, mapping.MediaType);
+            var trackedFile = await contextService.AddStatusAsync(file, null, mapping.MediaType);
             if (trackedFile == null)
             {
                 return;
@@ -239,7 +236,7 @@ public class FilePollerService : BackgroundService
             var mediaInfo = await mediaDetectionService.DetectMediaAsync(file, mapping.MediaType);
             if (await symlinkHandler.CreateSymlinksAsync(file, destinationFolder, mediaInfo, mapping.MediaType))
             {
-                await _contextService.UpdateStatusAsync(file, null, mapping.MediaType, null, null, null, null, null, null, null, FileStatus.Success);
+                await contextService.UpdateStatusAsync(file, null, mapping.MediaType, null, null, null, null, null, null, null, FileStatus.Success);
             }
         }
         catch (Exception ex)
@@ -268,6 +265,7 @@ public class FilePollerService : BackgroundService
 
             foreach (var folderGroup in untrackedFiles)
             {
+                _logger.LogInformation("Processing untracked files in folder: {Folder}", folderGroup.Key);
                 var destinationFolder = Path.Combine(mapping.DestinationFolder);
                 var files = folderGroup.Select(x => x.File);
 

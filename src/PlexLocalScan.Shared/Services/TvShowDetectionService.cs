@@ -65,8 +65,9 @@ public class TvShowDetectionService : ITvShowDetectionService
                 : (int?)null;
 
             var cacheKey = $"tvshow_{title}_{season}_{episode}";
-            if (_cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo))
+            if (_cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo) && cachedInfo != null)
             {
+                await _contextService.UpdateStatusAsync(filePath, null, MediaType.TvShows, cachedInfo.TmdbId, cachedInfo.ImdbId, cachedInfo.SeasonNumber, cachedInfo.EpisodeNumber, cachedInfo.Genres, cachedInfo.Title, cachedInfo.Year, FileStatus.Processing);
                 return cachedInfo;
             }
 

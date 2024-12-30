@@ -72,7 +72,7 @@ services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
     .Configure<DatabaseOptions>(builder.Configuration.GetSection("Database"))
     .Configure<FolderMappingOptions>(builder.Configuration.GetSection("FolderMapping"))
     .AddSingleton<IPlexHandler, PlexHandler>()
-    .AddSingleton<INotificationService, NotificationService>()
+    .AddScoped<INotificationService, NotificationService>()
     .AddScoped<ISymlinkHandler, SymlinkHandler>()
     .AddScoped<ITmDbClientWrapper>(sp =>
     {
