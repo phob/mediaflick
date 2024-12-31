@@ -124,16 +124,32 @@ public class ScannedFilesController(
             TotalPages = (int)Math.Ceiling(totalItems / (double)pageSize)
         });
     }
-    
+
     /// <summary>
     /// Retrieves a list of unique TMDb IDs and titles for scanned files
     /// </summary>
     /// <response code="200">Returns the list of unique TMDb IDs and titles</response>
     [HttpGet("tmdb-ids-and-titles")]
     [ProducesResponseType(typeof(IEnumerable<object>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IEnumerable<object>>> GetTmdbIdsAndTitles()
+    public async Task<ActionResult<IEnumerable<object>>> GetTmdbIdsAndTitles([FromQuery] ScannedFileFilter filter)
     {
-        var tmdbIdsAndTitles = await context.ScannedFiles.Select(f => new { f.TmdbId, f.Title }).Distinct().OrderBy(f => f.Title).ToListAsync();
+        var query = context.ScannedFiles.AsQueryable();
+        
+        query = query.Where(f => f.Status == FileStatus.Success);
+        
+        if (filter.MediaType.HasValue)
+        {
+            query = query.Where(f => f.MediaType == filter.MediaType.Value);
+        }
+
+        if (!string.IsNullOrEmpty(filter.SearchTerm))
+        {
+            var searchTerm = filter.SearchTerm.ToLower();
+            query = query.Where(f => f.Title != null && EF.Functions.Like(f.Title.ToLower(), $"%{searchTerm}%"));
+        }
+
+
+        var tmdbIdsAndTitles = await query.Select(f => new { f.TmdbId, f.Title }).Distinct().OrderBy(f => f.Title).ToListAsync();
         return Ok(tmdbIdsAndTitles);
     }
 
