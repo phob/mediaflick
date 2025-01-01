@@ -115,7 +115,7 @@ public class MediaLookupController(
     public async Task<ActionResult<MediaInfo>> GetTvSeasonInfo(int tmdbId, int seasonNumber)
     {
         logger.LogInformation("Getting TV season info for TMDb ID: {TmdbId}, Season Number: {SeasonNumber}", tmdbId, seasonNumber);
-        var tvSeasonInfo = await mediaLookupService.GetTvShowSeasonMediaInfoAsync(tmdbId, seasonNumber);
+        var tvSeasonInfo = await mediaLookupService.GetTvShowSeasonMediaInfoAsync(tmdbId, seasonNumber, includeDetails: true);
 
         if (tvSeasonInfo == null)
         {
@@ -138,7 +138,7 @@ public class MediaLookupController(
     public async Task<ActionResult<EpisodeInfo>> GetTvEpisodeInfo(int tmdbId, int seasonNumber, int episodeNumber)
     {
         logger.LogInformation("Getting TV episode info for TMDb ID: {TmdbId}, Season Number: {SeasonNumber}, Episode Number: {EpisodeNumber}", tmdbId, seasonNumber, episodeNumber);
-        var tvEpisodeInfo = await mediaLookupService.GetTvShowEpisodeMediaInfoAsync(tmdbId, seasonNumber, episodeNumber);
+        var tvEpisodeInfo = await mediaLookupService.GetTvShowEpisodeMediaInfoAsync(tmdbId, seasonNumber, episodeNumber, includeDetails: true);
 
         if (tvEpisodeInfo == null)
         {

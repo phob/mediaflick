@@ -11,6 +11,7 @@ using PlexLocalScan.SignalR.Hubs;
 using PlexLocalScan.SignalR.Services;
 using Scalar.AspNetCore;
 using Serilog;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -57,6 +58,8 @@ services.AddSignalR();
 services.AddControllers()
     .AddJsonOptions(options =>
     {
+        options.JsonSerializerOptions.WriteIndented = false;
+        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
         options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
     });
 services.AddEndpointsApiExplorer();

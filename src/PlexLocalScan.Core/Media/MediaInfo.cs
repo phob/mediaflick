@@ -20,4 +20,5 @@ public record MediaInfo
     public string? Summary { get; set; }
     public string? Status { get; set; }
     public List<SeasonInfo> Seasons { get; init; } = [];
+    public List<SeasonInfo> SeasonsScanned { get; init; } = [];
 } 

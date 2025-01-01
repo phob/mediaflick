@@ -23,10 +23,11 @@ export interface MediaInfo {
   episodeNumber?: number
   episodeTitle?: string
   episodeTmdbId?: number
-  posterPath: string
-  summary: string
-  status: string
-  seasons: SeasonInfo[]
+  posterPath?: string
+  summary?: string
+  status?: string
+  seasons?: SeasonInfo[]
+  seasonsScanned?: SeasonInfo[]
 }
 
 export enum MediaType {

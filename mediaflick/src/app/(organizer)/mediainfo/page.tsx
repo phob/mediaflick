@@ -175,7 +175,7 @@ export default function MediaInfo() {
                       {media.mediaInfo?.year && `(${media.mediaInfo.year})`}
                     </p>
                   </CardHeader>
-                  <CardBody className="absolute bottom-0 z-20 border-t-1 border-default-600/50 bg-black/50 bg-gradient-to-t from-black/50 via-black/30 to-transparent backdrop-blur-sm dark:border-default-100/50">
+                  <CardBody className="[&::-webkit-scrollbar]:auto absolute bottom-0 z-20 max-h-[200px] overflow-y-auto border-t-1 border-default-600/50 bg-black/50 bg-gradient-to-t from-black/50 via-black/30 to-transparent backdrop-blur-sm dark:border-default-100/50">
                     {media.isLoading ? (
                       <div className="flex justify-center">
                         <Spinner size="sm" />
@@ -193,9 +193,49 @@ export default function MediaInfo() {
                           </p>
                         )}
                         {mediaType === MediaTypeEnum.TvShows && media.mediaInfo.seasons && (
-                          <p className="text-tiny text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
-                            Seasons: {media.mediaInfo.seasons.length}
-                          </p>
+                          <div className="space-y-1">
+                            {(() => {
+                              const totalMissingEpisodes = media.mediaInfo.seasons.reduce((total, season) => {
+                                const scannedSeason = media.mediaInfo?.seasonsScanned?.find(
+                                  (s) => s.seasonNumber === season.seasonNumber
+                                )
+                                const scannedEpisodeCount = scannedSeason?.episodes.length ?? 0
+                                const missingCount = season.episodes.length - scannedEpisodeCount
+                                return total + missingCount
+                              }, 0)
+
+                              return (
+                                <>
+                                  <p className="text-tiny text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
+                                    Seasons: {media.mediaInfo.seasons.length}
+                                    {totalMissingEpisodes > 0 && (
+                                      <span className="ml-2 text-danger">(Total missing: {totalMissingEpisodes})</span>
+                                    )}
+                                  </p>
+                                </>
+                              )
+                            })()}
+                            {media.mediaInfo.seasons
+                              .map((season) => {
+                                const scannedSeason = media.mediaInfo?.seasonsScanned?.find(
+                                  (s) => s.seasonNumber === season.seasonNumber
+                                )
+                                const scannedEpisodeCount = scannedSeason?.episodes.length ?? 0
+                                const totalEpisodeCount = season.episodes.length
+                                const missingCount = totalEpisodeCount - scannedEpisodeCount
+                                return { season, missingCount, scannedEpisodeCount, totalEpisodeCount }
+                              })
+                              .filter(({ missingCount }) => missingCount > 0)
+                              .map(({ season, missingCount, scannedEpisodeCount, totalEpisodeCount }) => (
+                                <p
+                                  key={season.seasonNumber}
+                                  className="text-tiny text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]"
+                                >
+                                  Season {season.seasonNumber}: {scannedEpisodeCount}/{totalEpisodeCount} episodes
+                                  <span className="ml-1 text-danger">({missingCount} missing)</span>
+                                </p>
+                              ))}
+                          </div>
                         )}
                       </div>
                     ) : (

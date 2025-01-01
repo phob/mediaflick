@@ -22,8 +22,4 @@
     <ProjectReference Include="..\PlexLocalScan.Core\PlexLocalScan.Core.csproj" />
     <ProjectReference Include="..\PlexLocalScan.FileTracking\PlexLocalScan.FileTracking.csproj" />
   </ItemGroup>
-  
-  <ItemGroup>
-    <Folder Include="Models\Media\" />
-  </ItemGroup>
 </Project> 
