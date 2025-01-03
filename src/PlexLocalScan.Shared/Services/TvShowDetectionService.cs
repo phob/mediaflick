@@ -27,10 +27,14 @@ public class TvShowDetectionService(
         try
         {
             logger.LogDebug("Attempting to detect TV show pattern for: {FileName}", fileName);
+            var emptyMediaInfo = new MediaInfo
+            {
+                MediaType = MediaType.TvShows
+            };
             var match = _tvShowPattern.Match(fileName);
             if (!match.Success)
             {
-                await contextService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, null, null, null, null, null, null, FileStatus.Failed);
+                await contextService.UpdateStatusAsync(filePath, null, emptyMediaInfo, FileStatus.Failed);
                 logger.LogDebug("Filename does not match TV show pattern: {FileName}", fileName);
                 return null;
             }
@@ -38,7 +42,7 @@ public class TvShowDetectionService(
             var titleMatch = _titleCleanupPattern.Match(match.Groups["title"].Value.Replace(".", " ").Trim());
             if (!titleMatch.Success)
             {
-                await contextService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, null, null, null, null, null, null, FileStatus.Failed);
+                await contextService.UpdateStatusAsync(filePath, null, emptyMediaInfo, FileStatus.Failed);
                 logger.LogWarning("Failed to clean title for TV show: {FileName}", fileName);
                 return null;
             }
@@ -53,7 +57,18 @@ public class TvShowDetectionService(
             var cacheKey = $"tvshow_{title}_{season}_{episode}";
             if (cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo) && cachedInfo != null)
             {
-                await contextService.UpdateStatusAsync(filePath, null, MediaType.TvShows, cachedInfo.TmdbId, cachedInfo.ImdbId, cachedInfo.SeasonNumber, cachedInfo.EpisodeNumber, cachedInfo.Genres, cachedInfo.Title, cachedInfo.Year, FileStatus.Processing);
+                var cachedMediaInfo = new MediaInfo 
+                {
+                    MediaType = MediaType.TvShows,
+                    TmdbId = cachedInfo.TmdbId,
+                    ImdbId = cachedInfo.ImdbId,
+                    SeasonNumber = cachedInfo.SeasonNumber,
+                    EpisodeNumber = cachedInfo.EpisodeNumber,
+                    Genres = cachedInfo.Genres,
+                    Title = cachedInfo.Title,
+                    Year = cachedInfo.Year
+                };
+                await contextService.UpdateStatusAsync(filePath, null, cachedMediaInfo, FileStatus.Processing);
                 return cachedInfo;
             }
 
@@ -65,7 +80,7 @@ public class TvShowDetectionService(
 
             if (bestMatch == null)
             {
-                await contextService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, null, null, null, null, null, null, FileStatus.Failed);
+                await contextService.UpdateStatusAsync(filePath, null, emptyMediaInfo, FileStatus.Failed);
                 logger.LogWarning("No TMDb match found for TV show: {Title}", title);
                 return null;
             }
@@ -87,7 +102,7 @@ public class TvShowDetectionService(
                 EpisodeTmdbId = episodeInfo?.Id,
                 Genres = tvShowDetails.Genres?.Select(g => g.Name).ToList()
             };
-            await contextService.UpdateStatusAsync(filePath, null, MediaType.TvShows, mediaInfo.TmdbId, mediaInfo.ImdbId, mediaInfo.SeasonNumber, mediaInfo.EpisodeNumber, mediaInfo.Genres, mediaInfo.Title, mediaInfo.Year, FileStatus.Processing);
+            await contextService.UpdateStatusAsync(filePath, null, mediaInfo, FileStatus.Processing);
             cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
             return mediaInfo;
         }

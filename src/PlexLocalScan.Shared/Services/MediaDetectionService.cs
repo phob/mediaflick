@@ -16,6 +16,9 @@ public class MediaDetectionService(
 {
     public async Task<MediaInfo?> DetectMediaAsync(string filePath, MediaType mediaType)
     {
+        var emptyMediaInfo = new MediaInfo{
+            MediaType = mediaType
+        };
         var fileName = fileSystemService.GetFileName(filePath);
         logger.LogDebug("Attempting to detect media info for: {FileName}", fileName);
 
@@ -33,8 +36,8 @@ public class MediaDetectionService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error detecting media info for {FileName}", fileName);
-            await contextService.UpdateStatusAsync(filePath, null, MediaType.TvShows, null, null, null, null, null, null, null, FileStatus.Failed);
-            throw;
+            await contextService.UpdateStatusAsync(filePath, null, emptyMediaInfo, FileStatus.Failed);
+            return emptyMediaInfo;
         }
     }
 } 

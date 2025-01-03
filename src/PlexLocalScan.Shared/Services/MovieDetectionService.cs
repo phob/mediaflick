@@ -17,6 +17,10 @@ public class MovieDetectionService : IMovieDetectionService
     private readonly IContextService _fileTrackingService;
     private readonly MediaDetectionOptions _options;
     private readonly Regex _moviePattern;
+    private readonly MediaInfo _emptyMediaInfo = new()
+    {
+        MediaType = MediaType.Movies
+    };
 
     public MovieDetectionService(
         ILogger<MovieDetectionService> logger,
@@ -42,7 +46,7 @@ public class MovieDetectionService : IMovieDetectionService
             var match = _moviePattern.Match(fileName);
             if (!match.Success)
             {
-                await _fileTrackingService.UpdateStatusAsync(fileName, null, MediaType.Movies, null, null, null, null, null, null, null, FileStatus.Failed);
+                await _fileTrackingService.UpdateStatusAsync(fileName, null, _emptyMediaInfo, FileStatus.Failed);
                 _logger.LogDebug("Filename does not match movie pattern: {FileName}", fileName);
                 return null;
             }
@@ -60,13 +64,14 @@ public class MovieDetectionService : IMovieDetectionService
             }
 
             var mediaInfo = await SearchTmDbForMovie(title, year, filePath);
+            mediaInfo.MediaType = MediaType.Movies;
             if (mediaInfo == null)
             {
                 return null;
             }
 
             _cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
-            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.Movies, mediaInfo.TmdbId, mediaInfo.ImdbId, null, null, mediaInfo.Genres, mediaInfo.Title, mediaInfo.Year, FileStatus.Processing);
+            await _fileTrackingService.UpdateStatusAsync(filePath, null, mediaInfo, FileStatus.Processing);
             return mediaInfo;
         }
         catch (Exception ex)
@@ -76,7 +81,7 @@ public class MovieDetectionService : IMovieDetectionService
         }
     }
 
-    private async Task<MediaInfo?> SearchTmDbForMovie(string title, int year, string filePath)
+    private async Task<MediaInfo> SearchTmDbForMovie(string title, int year, string filePath)
     {
         if (string.IsNullOrWhiteSpace(title))
             throw new ArgumentException("Title cannot be empty or whitespace", nameof(title));
@@ -89,8 +94,8 @@ public class MovieDetectionService : IMovieDetectionService
         if (searchResults?.Results == null)
         {
             _logger.LogError("TMDb API returned null or invalid response for title: {Title}", title);
-            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.Movies, null, null, null, null, null, null, null, FileStatus.Failed);
-            return null;
+            await _fileTrackingService.UpdateStatusAsync(filePath, null, _emptyMediaInfo, FileStatus.Failed);
+            return _emptyMediaInfo;
         }
 
         var bestMatch = searchResults.Results
@@ -100,8 +105,8 @@ public class MovieDetectionService : IMovieDetectionService
         if (bestMatch == null)
         {
             _logger.LogWarning("No TMDb match found for movie: {Title} ({Year})", title, year);
-            await _fileTrackingService.UpdateStatusAsync(filePath, null, MediaType.Movies, null, null, null, null, null, null, null, FileStatus.Failed);
-            return null;
+            await _fileTrackingService.UpdateStatusAsync(filePath, null, _emptyMediaInfo, FileStatus.Failed);
+            return _emptyMediaInfo;
         }
         var externalIds = await _tmdbClient.GetMovieExternalIdsAsync(bestMatch.Id);
 

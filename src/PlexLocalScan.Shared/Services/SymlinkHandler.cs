@@ -42,6 +42,10 @@ public class SymlinkHandler(
     {
         try
         {
+            var emptyMediaInfo = new MediaInfo
+            {
+                MediaType = mediaType
+            };
             var sourceDirectory = Path.GetDirectoryName(sourceFile) 
                 ?? throw new InvalidOperationException("Unable to get source directory");
             var fileName = Path.GetFileName(sourceFile);
@@ -55,7 +59,7 @@ public class SymlinkHandler(
 
             if (await _symlinkHelper.CreateFileLinkAsync(sourceFile, fullTargetPath))
             {
-                await contextService.UpdateStatusAsync(sourceFile, fullTargetPath, mediaType, null, null, null, null, null, null, null, FileStatus.Failed);
+                await contextService.UpdateStatusAsync(sourceFile, fullTargetPath, emptyMediaInfo, FileStatus.Failed);
                 return true;
             }
             
@@ -98,6 +102,7 @@ public class SymlinkHandler(
     {
         try
         {
+            var emptyMediaInfo = new MediaInfo();
             Directory.CreateDirectory(targetPath);
 
             var fullTargetPath = Path.Combine(targetPath, targetFileName);
@@ -107,14 +112,14 @@ public class SymlinkHandler(
                 if (_symlinkHelper.IsSymlink(fullTargetPath))
                 {
                     logger.LogDebug("Symlink already exists: {TargetPath}", fullTargetPath);
-                    await contextService.UpdateStatusAsync(sourcePath, fullTargetPath, null, null, null, null, null, null, null, null, FileStatus.Duplicate);
+                    await contextService.UpdateStatusAsync(sourcePath, fullTargetPath, emptyMediaInfo, FileStatus.Duplicate);
                     return false;
                 }
                 File.Delete(fullTargetPath);
             }
 
             if(await _symlinkHelper.CreateFileLinkAsync(sourcePath, fullTargetPath))
-                await contextService.UpdateStatusAsync(sourcePath, fullTargetPath, null, null, null, null, null, null, null, null, null);
+                await contextService.UpdateStatusAsync(sourcePath, fullTargetPath, emptyMediaInfo, FileStatus.Duplicate);
             return true;
         }
         catch (Exception ex)

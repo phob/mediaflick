@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using PlexLocalScan.Abstractions;
+using PlexLocalScan.Core.Media;
 using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Data.Data;
 
@@ -104,8 +105,7 @@ public class ContextService(
         }
     }
 
-    public async Task<bool> UpdateStatusAsync(string sourceFile, string? destFile, MediaType? mediaType, int? tmdbId, string? imdbId, int? seasonNumber, int? episodeNumber, 
-        IEnumerable<string>? genres = null, string? title = null, int? year = null, FileStatus? status = null)
+    public async Task<bool> UpdateStatusAsync(string sourceFile, string? destFile, MediaInfo? mediaInfo, FileStatus? status = null)
     {
         var scannedFile = await GetExistingScannedFileAsync(sourceFile, "update");
         if (scannedFile == null)
@@ -126,29 +126,29 @@ public class ContextService(
                 scannedFile.DestFile = destFile;
                 hasChanges = true;
             }
-            if (mediaType.HasValue && mediaType.Value != scannedFile.MediaType)
+            if (mediaInfo.MediaType != scannedFile.MediaType)
             {
-                scannedFile.MediaType = mediaType.Value;
+                scannedFile.MediaType = mediaInfo.MediaType;
                 hasChanges = true;
             }
-            if (tmdbId.HasValue && tmdbId.Value != scannedFile.TmdbId)
+            if (mediaInfo.TmdbId != null && mediaInfo.TmdbId != scannedFile.TmdbId)
             {
-                scannedFile.TmdbId = tmdbId.Value;
+                scannedFile.TmdbId = mediaInfo.TmdbId;
                 hasChanges = true;
             }
-            if (imdbId != null && imdbId != scannedFile.ImdbId)
+            if (mediaInfo.ImdbId != null && mediaInfo.ImdbId != scannedFile.ImdbId)
             {
-                scannedFile.ImdbId = imdbId;
+                scannedFile.ImdbId = mediaInfo.ImdbId;
                 hasChanges = true;
             }
-            if (seasonNumber.HasValue && seasonNumber.Value != scannedFile.SeasonNumber)
+            if (mediaInfo.SeasonNumber != null && mediaInfo.SeasonNumber != scannedFile.SeasonNumber)
             {
-                scannedFile.SeasonNumber = seasonNumber.Value;
+                scannedFile.SeasonNumber = mediaInfo.SeasonNumber;
                 hasChanges = true;
             }
-            if (episodeNumber.HasValue && episodeNumber.Value != scannedFile.EpisodeNumber)
+            if (mediaInfo.EpisodeNumber != null && mediaInfo.EpisodeNumber != scannedFile.EpisodeNumber)
             {
-                scannedFile.EpisodeNumber = episodeNumber.Value;
+                scannedFile.EpisodeNumber = mediaInfo.EpisodeNumber;
                 hasChanges = true;
             }
             if (status.HasValue && status.Value != scannedFile.Status)
@@ -157,24 +157,24 @@ public class ContextService(
                 hasChanges = true;
             }
 
-            if (genres != null)
+            if (mediaInfo.Genres != null)
             {
-                var newGenresString = ScannedFileDto.ConvertGenresToString(genres);
+                var newGenresString = ScannedFileDto.ConvertGenresToString(mediaInfo.Genres);
                 if (newGenresString != scannedFile.Genres)
                 {
                     scannedFile.Genres = newGenresString;
                     hasChanges = true;
                 }
             }
-            if (title != null && title != scannedFile.Title)
+            if (mediaInfo.Title != null && mediaInfo.Title != scannedFile.Title)
             {
-                scannedFile.Title = title;
+                scannedFile.Title = mediaInfo.Title;
                 hasChanges = true;
             }
             
-            if (year.HasValue && year.Value != scannedFile.Year)
+            if (mediaInfo.Year != null && mediaInfo.Year != scannedFile.Year)
             {
-                scannedFile.Year = year.Value;
+                scannedFile.Year = mediaInfo.Year;
                 hasChanges = true;
             }
 

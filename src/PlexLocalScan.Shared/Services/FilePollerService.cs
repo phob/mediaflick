@@ -236,7 +236,7 @@ public class FilePollerService : BackgroundService
             var mediaInfo = await mediaDetectionService.DetectMediaAsync(file, mapping.MediaType);
             if (await symlinkHandler.CreateSymlinksAsync(file, destinationFolder, mediaInfo, mapping.MediaType))
             {
-                await contextService.UpdateStatusAsync(file, null, mapping.MediaType, null, null, null, null, null, null, null, FileStatus.Success);
+                _ = await contextService.UpdateStatusAsync(file, null, mediaInfo, FileStatus.Success);
             }
         }
         catch (Exception ex)
