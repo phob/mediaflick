@@ -5,7 +5,7 @@ namespace PlexLocalScan.Shared.Services;
 
 internal static partial class RegexTv
 {
-    private const string BasicSeasonEpisodeRegexPattern = @"^(?<title>.+?)[\. \[]?[Ss](?<season>\d{1,2})[\. \[]?[eE](?<episode>\d{1,2})?[-]?(?:[-eE](?<episode2>\d{1,2}))?.*\.(mkv|mp4|avi)$";
+    private const string BasicSeasonEpisodeRegexPattern = @"^(?<title>.*?)[\. ]?[s](?<season>\d{1,2})[\. ]?(e|ep)(?<episode>\d{1,2})[-]?(?<episode2>(e|ep)?\d{1,2})?.*$";
     private const string FinerTitleRegexPattern = @"^(?<title>.+?)(?:\s\(?(?<year>\d{4})\)?)?\s?[-\s]*$";
     
     [GeneratedRegex(BasicSeasonEpisodeRegexPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled, "en-EN")]

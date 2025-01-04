@@ -7,6 +7,7 @@ using PlexLocalScan.Core.Tables;
 using PlexLocalScan.FileTracking.Services;
 using PlexLocalScan.Shared.Interfaces;
 using static PlexLocalScan.Shared.Services.RegexTv;
+using TMDbLib.Objects.Search;
 
 namespace PlexLocalScan.Shared.Services;
 
@@ -50,14 +51,14 @@ public class TvShowDetectionService(
             var title = titleMatch.Groups["title"].Value;
             var season = int.Parse(match.Groups["season"].Value);
             var episode = int.Parse(match.Groups["episode"].Value);
-            var episode2 = match.Groups["episode2"].Success 
-                ? int.Parse(match.Groups["episode2"].Value) 
+            var episode2 = match.Groups["episode2"].Success
+                ? int.Parse(match.Groups["episode2"].Value)
                 : (int?)null;
 
             var cacheKey = $"tvshow_{title}_{season}_{episode}";
             if (cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo) && cachedInfo != null)
             {
-                var cachedMediaInfo = new MediaInfo 
+                var cachedMediaInfo = new MediaInfo
                 {
                     MediaType = MediaType.TvShows,
                     TmdbId = cachedInfo.TmdbId,
@@ -72,19 +73,11 @@ public class TvShowDetectionService(
                 return cachedInfo;
             }
 
-            var searchResults = await tmdbClient.SearchTvShowAsync(title);
-            var bestMatch = searchResults.Results
-                .OrderByDescending(s => GetTitleSimilarity(title, s.Name))
-                .ThenByDescending(s => s.Popularity)
-                .FirstOrDefault();
-
+            var bestMatch =  await TmdbSearchShowAsync(filePath, emptyMediaInfo, title);
             if (bestMatch == null)
             {
-                await contextService.UpdateStatusAsync(filePath, null, emptyMediaInfo, FileStatus.Failed);
-                logger.LogWarning("No TMDb match found for TV show: {Title}", title);
                 return null;
             }
-
             var tvShowDetails = await tmdbClient.GetTvShowAsync(bestMatch.Id);
             var episodeInfo = await tmdbClient.GetTvEpisodeAsync(bestMatch.Id, season, episode);
             var externalIds = await tmdbClient.GetTvShowExternalIdsAsync(bestMatch.Id);
@@ -111,6 +104,26 @@ public class TvShowDetectionService(
             logger.LogError(ex, "Error detecting TV show: {FileName}", fileName);
             return null;
         }
+    }
+
+    private async Task<SearchTv?> TmdbSearchShowAsync(string filePath, MediaInfo emptyMediaInfo, string title)
+    {
+        var searchResults = await tmdbClient.SearchTvShowAsync(title);
+        if (searchResults.Results.Count == 0)
+        {
+            searchResults = await tmdbClient.SearchTvShowAsync(title.Replace("complete", "", StringComparison.OrdinalIgnoreCase));
+        }
+        var bestMatch = searchResults.Results
+            .OrderByDescending(s => GetTitleSimilarity(title, s.Name))
+            .ThenByDescending(s => s.Popularity)
+            .FirstOrDefault();
+        if (bestMatch == null)
+        {
+            await contextService.UpdateStatusAsync(filePath, null, emptyMediaInfo, FileStatus.Failed);
+            logger.LogWarning("No TMDb match found for TV show: {Title}", title);
+            return null;
+        }
+        return bestMatch;
     }
 
     public async Task<MediaInfo?> DetectTvShowByTmdbIdAsync(int tmdbId, int season, int episode)

@@ -78,7 +78,7 @@ public class SymlinkRecreationService(
             await cleanupHandler.CleanupDeadSymlinksAsync(destFolder);
 
             // Create the new symlink
-            await symlinkHandler.CreateSymlinksAsync(scannedFile.SourceFile, destFolder, mediaInfo, mediaInfo.MediaType);
+            await symlinkHandler.CreateSymlinksAsync(scannedFile.SourceFile, destFolder, mediaInfo, mediaInfo.MediaType ?? MediaType.Unknown);
 
             // Update the version number to match
             scannedFile.VersionUpdated = scannedFile.UpdateToVersion;
@@ -89,17 +89,21 @@ public class SymlinkRecreationService(
                 fileStatus = FileStatus.Duplicate;
             }
 
+            var mediaInfoTemp = new MediaInfo
+            {
+                MediaType = scannedFile.MediaType,
+                TmdbId = mediaInfo.TmdbId,
+                ImdbId = mediaInfo.ImdbId,
+                SeasonNumber = scannedFile.SeasonNumber,
+                EpisodeNumber = scannedFile.EpisodeNumber,
+                Genres = mediaInfo.Genres,
+                Title = mediaInfo.Title,
+                Year = mediaInfo.Year,
+            };
             await contextService.UpdateStatusAsync(
                 scannedFile.SourceFile,
                 scannedFile.DestFile,
-                scannedFile.MediaType,
-                mediaInfo.TmdbId,
-                mediaInfo.ImdbId,
-                scannedFile.SeasonNumber,
-                scannedFile.EpisodeNumber,
-                mediaInfo.Genres,
-                mediaInfo.Title,
-                mediaInfo.Year,
+                mediaInfoTemp,
                 fileStatus
             );
 
@@ -154,18 +158,18 @@ public class SymlinkRecreationService(
                 // Mark duplicates as failed
                 foreach (var duplicate in duplicates)
                 {
-                    await contextService.UpdateStatusAsync(
-                        duplicate.SourceFile,
-                        duplicate.DestFile,
-                        duplicate.MediaType,
-                        duplicate.TmdbId,
-                        duplicate.ImdbId,
-                        duplicate.SeasonNumber,
-                        duplicate.EpisodeNumber,
-                        ScannedFileDto.ConvertStringToGenres(duplicate.Genres),
-                        duplicate.Title,
-                        duplicate.Year,
-                        FileStatus.Duplicate);
+                    var mediaInfo = new MediaInfo
+                    {
+                        MediaType = duplicate.MediaType,
+                        TmdbId = duplicate.TmdbId,
+                        ImdbId = duplicate.ImdbId,
+                        SeasonNumber = duplicate.SeasonNumber,
+                        EpisodeNumber = duplicate.EpisodeNumber,
+                        Genres = ScannedFileDto.ConvertStringToGenres(duplicate.Genres)?.ToList(),
+                        Title = duplicate.Title,
+                        Year = duplicate.Year,
+                    };
+                    await contextService.UpdateStatusAsync(duplicate.SourceFile, duplicate.DestFile, mediaInfo, FileStatus.Duplicate);
                     failedCount++;
                 }
             }
@@ -189,18 +193,18 @@ public class SymlinkRecreationService(
                 // Mark duplicates as failed
                 foreach (var duplicate in duplicates)
                 {
-                    await contextService.UpdateStatusAsync(
-                        duplicate.SourceFile,
-                        duplicate.DestFile,
-                        duplicate.MediaType,
-                        duplicate.TmdbId,
-                        duplicate.ImdbId,
-                        duplicate.SeasonNumber,
-                        duplicate.EpisodeNumber,
-                        ScannedFileDto.ConvertStringToGenres(duplicate.Genres),
-                        duplicate.Title,
-                        duplicate.Year,
-                        FileStatus.Duplicate);
+                    var mediaInfo = new MediaInfo
+                    {
+                        MediaType = duplicate.MediaType,
+                        TmdbId = duplicate.TmdbId,
+                        ImdbId = duplicate.ImdbId,
+                        SeasonNumber = duplicate.SeasonNumber,
+                        EpisodeNumber = duplicate.EpisodeNumber,
+                        Genres = ScannedFileDto.ConvertStringToGenres(duplicate.Genres)?.ToList(),
+                        Title = duplicate.Title,
+                        Year = duplicate.Year,
+                    };
+                    await contextService.UpdateStatusAsync(duplicate.SourceFile, duplicate.DestFile, mediaInfo, FileStatus.Duplicate);
                     failedCount++;
                 }
             }
