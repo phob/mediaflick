@@ -20,6 +20,6 @@ public record MediaInfo
     public string? PosterPath { get; set; }
     public string? Summary { get; set; }
     public string? Status { get; set; }
-    public ReadOnlyCollection<SeasonInfo>? Seasons { get; init; }
-    public ReadOnlyCollection<SeasonInfo>? SeasonsScanned { get; init; }
+    public int? EpisodeCount { get; set; }
+    public int? EpisodeCountScanned { get; set; }
 }

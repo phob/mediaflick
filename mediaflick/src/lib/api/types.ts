@@ -26,8 +26,8 @@ export interface MediaInfo {
   posterPath?: string
   summary?: string
   status?: string
-  seasons?: SeasonInfo[]
-  seasonsScanned?: SeasonInfo[]
+  episodeCount?: number
+  episodeCountScanned?: number
 }
 
 export enum MediaType {

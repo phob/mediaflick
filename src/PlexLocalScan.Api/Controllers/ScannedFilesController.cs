@@ -126,7 +126,7 @@ internal static class ScannedFilesController
         if (!string.IsNullOrEmpty(filter.SearchTerm))
         {
             string searchTerm = filter.SearchTerm.ToUpperInvariant();
-            query = query.Where(f => f.Title != null && EF.Functions.Like(f.Title.ToUpperInvariant(), $"%{searchTerm}%"));
+            query = query.Where(f => f.Title != null && EF.Functions.Like(f.Title.ToUpper(), $"%{searchTerm}%"));
         }
 
         var tmdbIdsAndTitles = await query.Select(f => new { f.TmdbId, f.Title }).Distinct().OrderBy(f => f.Title).ToListAsync();

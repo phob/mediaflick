@@ -1,39 +1,13 @@
 "use client"
 
-import Image from "next/image"
 import { useCallback, useEffect, useState } from "react"
 
-import { Card, CardBody, CardHeader, Chip, Input, Pagination, Select, SelectItem, Spinner } from "@nextui-org/react"
+import { Input, Pagination, Select, SelectItem, Spinner } from "@nextui-org/react"
 
+import { MediaCard, type UniqueMediaEntry } from "@/components/media-info/media-card"
 import { mediaApi } from "@/lib/api/endpoints"
-import type { MediaInfo, MediaType } from "@/lib/api/types"
+import type { MediaType } from "@/lib/api/types"
 import { MediaType as MediaTypeEnum } from "@/lib/api/types"
-
-interface UniqueMediaEntry {
-  tmdbId: number
-  title: string
-  mediaInfo?: MediaInfo
-  isLoading: boolean
-}
-
-const getStatusColor = (status: string) => {
-  switch (status.toLowerCase()) {
-    case "ended":
-      return "default"
-    case "returning series":
-      return "success"
-    case "in production":
-      return "warning"
-    case "planned":
-      return "primary"
-    case "canceled":
-      return "danger"
-    case "pilot":
-      return "warning"
-    default:
-      return "default"
-  }
-}
 
 export default function MediaInfo() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -47,8 +21,6 @@ export default function MediaInfo() {
     try {
       setLoading(true)
       const entries = await mediaApi.getTmdbIdsAndTitles({ searchTerm, mediaType })
-      console.log("Initial entries:", entries)
-
       setUniqueMedia(
         entries.map((entry) => ({
           tmdbId: entry.tmdbId,
@@ -65,16 +37,13 @@ export default function MediaInfo() {
                 ? await mediaApi.getMovie(entry.tmdbId)
                 : await mediaApi.getTvShow(entry.tmdbId)
 
-            console.log(`Detailed info for ${entry.title}:`, info)
-
             return {
               tmdbId: entry.tmdbId,
               title: entry.title,
               mediaInfo: info,
               isLoading: false,
             }
-          } catch (error) {
-            console.error(`Failed to load details for ${entry.title}:`, error)
+          } catch {
             return {
               tmdbId: entry.tmdbId,
               title: entry.title,
@@ -84,8 +53,7 @@ export default function MediaInfo() {
         })
       )
       setUniqueMedia(detailedEntries)
-    } catch (error) {
-      console.error("Failed to load media:", error)
+    } catch {
       setUniqueMedia([])
     } finally {
       setLoading(false)
@@ -100,11 +68,6 @@ export default function MediaInfo() {
   const endIndex = startIndex + pageSize
   const currentPageItems = uniqueMedia.slice(startIndex, endIndex)
   const totalPages = Math.ceil(uniqueMedia.length / pageSize)
-
-  const getImageUrlSync = (path: string) => {
-    if (!path) return "/placeholder-image.jpg"
-    return `https://image.tmdb.org/t/p/w500${path}`
-  }
 
   return (
     <div className="container mx-auto space-y-4 p-4">
@@ -138,115 +101,9 @@ export default function MediaInfo() {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {currentPageItems.map((media) => {
-              return (
-                <Card
-                  key={media.tmdbId}
-                  className="group relative h-[400px] overflow-hidden border-[1px] border-transparent ring-1 ring-white/10 transition-transform duration-200 [background:linear-gradient(theme(colors.background),theme(colors.background))_padding-box,linear-gradient(to_bottom_right,rgba(255,255,255,0.2),transparent_50%)_border-box] [box-shadow:inset_-1px_-1px_1px_rgba(0,0,0,0.1),inset_1px_1px_1px_rgba(255,255,255,0.1)] before:absolute before:inset-0 before:z-10 before:bg-gradient-to-br before:from-black/10 before:via-transparent before:to-black/30 after:absolute after:inset-0 after:bg-gradient-to-tr after:from-white/5 after:via-transparent after:to-white/10 hover:scale-[1.02] hover:shadow-xl"
-                  isBlurred
-                >
-                  {media.mediaInfo?.posterPath && (
-                    <div className="absolute inset-0">
-                      <Image
-                        src={getImageUrlSync(media.mediaInfo.posterPath)}
-                        alt={media.title}
-                        fill
-                        className="object-cover transition-all duration-200 group-hover:scale-105 group-hover:brightness-[0.80]"
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        priority={page === 1}
-                      />
-                    </div>
-                  )}
-                  <CardHeader className="absolute z-20 flex-col items-start">
-                    {mediaType === MediaTypeEnum.TvShows && media.mediaInfo?.status && (
-                      <Chip
-                        size="sm"
-                        color={getStatusColor(media.mediaInfo.status)}
-                        variant="shadow"
-                        className="mb-2 shadow-lg"
-                      >
-                        {media.mediaInfo.status}
-                      </Chip>
-                    )}
-                    <h4 className="text-xl font-medium text-white [text-shadow:0_2px_4px_rgba(0,0,0,0.8)] hover:text-white">
-                      {media.mediaInfo?.title || media.title}
-                    </h4>
-                    <p className="text-tiny text-white/80 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
-                      {media.mediaInfo?.year && `(${media.mediaInfo.year})`}
-                    </p>
-                  </CardHeader>
-                  <CardBody className="[&::-webkit-scrollbar]:auto absolute bottom-0 z-20 max-h-[200px] overflow-y-auto border-t-1 border-default-600/50 bg-black/50 bg-gradient-to-t from-black/50 via-black/30 to-transparent backdrop-blur-sm dark:border-default-100/50">
-                    {media.isLoading ? (
-                      <div className="flex justify-center">
-                        <Spinner size="sm" />
-                      </div>
-                    ) : media.mediaInfo ? (
-                      <div className="flex flex-col gap-2">
-                        {media.mediaInfo.genres && media.mediaInfo.genres.length > 0 && (
-                          <p className="text-tiny text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
-                            {media.mediaInfo.genres.join(", ")}
-                          </p>
-                        )}
-                        {media.mediaInfo.summary && (
-                          <p className="line-clamp-3 text-tiny text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
-                            {media.mediaInfo.summary}
-                          </p>
-                        )}
-                        {mediaType === MediaTypeEnum.TvShows && media.mediaInfo.seasons && (
-                          <div className="space-y-1">
-                            {(() => {
-                              const totalMissingEpisodes = media.mediaInfo.seasons.reduce((total, season) => {
-                                const scannedSeason = media.mediaInfo?.seasonsScanned?.find(
-                                  (s) => s.seasonNumber === season.seasonNumber
-                                )
-                                const scannedEpisodeCount = scannedSeason?.episodes.length ?? 0
-                                const missingCount = season.episodes.length - scannedEpisodeCount
-                                return total + missingCount
-                              }, 0)
-
-                              return (
-                                <>
-                                  <p className="text-tiny text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
-                                    Seasons: {media.mediaInfo.seasons.length}
-                                    {totalMissingEpisodes > 0 && (
-                                      <span className="ml-2 text-danger">(Total missing: {totalMissingEpisodes})</span>
-                                    )}
-                                  </p>
-                                </>
-                              )
-                            })()}
-                            {media.mediaInfo.seasons
-                              .map((season) => {
-                                const scannedSeason = media.mediaInfo?.seasonsScanned?.find(
-                                  (s) => s.seasonNumber === season.seasonNumber
-                                )
-                                const scannedEpisodeCount = scannedSeason?.episodes.length ?? 0
-                                const totalEpisodeCount = season.episodes.length
-                                const missingCount = totalEpisodeCount - scannedEpisodeCount
-                                return { season, missingCount, scannedEpisodeCount, totalEpisodeCount }
-                              })
-                              .filter(({ missingCount }) => missingCount > 0)
-                              .map(({ season, missingCount, scannedEpisodeCount, totalEpisodeCount }) => (
-                                <p
-                                  key={season.seasonNumber}
-                                  className="text-tiny text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]"
-                                >
-                                  Season {season.seasonNumber}: {scannedEpisodeCount}/{totalEpisodeCount} episodes
-                                  <span className="ml-1 text-danger">({missingCount} missing)</span>
-                                </p>
-                              ))}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-tiny text-white/80 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
-                        No additional information available
-                      </p>
-                    )}
-                  </CardBody>
-                </Card>
-              )
-            })}
+            {currentPageItems.map((media) => (
+              <MediaCard key={media.tmdbId} media={media} mediaType={mediaType} />
+            ))}
           </div>
           {totalPages > 1 && (
             <div className="mt-4 flex justify-center">

@@ -25,13 +25,13 @@ public class MediaSearchService(ITmDbClientWrapper tmdbClient, ILogger<MediaSear
         if (searchResults == null)
         {
             logger.LogWarning("SearchTvShowAsync returned null");
-            return Enumerable.Empty<MediaSearchResult>();
+            return [];
         }
 
         if (searchResults.Results == null)
         {
             logger.LogWarning("SearchTvShowAsync results collection is null");
-            return Enumerable.Empty<MediaSearchResult>();
+            return [];
         }
 
         var results = searchResults.Results.Select(r => new MediaSearchResult(r.Id, r.Name, r.FirstAirDate?.Year, r.PosterPath)).ToList();
@@ -74,58 +74,8 @@ public class MediaSearchService(ITmDbClientWrapper tmdbClient, ILogger<MediaSear
             .OrderBy(e => e.SeasonNumber)
             .ToList();
 
-        System.Collections.ObjectModel.ReadOnlyCollection<SeasonInfo> seasonsScanned = episodesScannedFiles
-            .GroupBy(e => e.SeasonNumber)
-            .Where(s => s.Key.HasValue)
-            .Select(s => new SeasonInfo
-            {
-                SeasonNumber = s.Key ?? 0,
-                Episodes = s.Where(e => e.EpisodeNumber.HasValue)
-                    .OrderBy(e => e.EpisodeNumber)
-                    .Select(e => new EpisodeInfo
-                    {
-                        EpisodeNumber = e.EpisodeNumber ?? 0,
-                    }).ToList().AsReadOnly()
-            }).ToList().AsReadOnly();
-
-        // Fetch all seasons in parallel
-        var seasonTasks = tvShow.Seasons
-            .Select(season => tmdbClient.GetTvSeasonAsync(tmdbId, season.SeasonNumber))
-            .ToList();
-
-        TMDbLib.Objects.TvShows.TvSeason[] seasons = await Task.WhenAll(seasonTasks);
-        List<SeasonInfo> seasonsList = includeDetails
-            ? seasons
-                .Where(season => season != null)
-                .Where(season => season.SeasonNumber > 0)
-                .Select(season => new SeasonInfo
-                {
-                SeasonNumber = season!.SeasonNumber,
-                Name = season.Name,
-                Overview = season.Overview,
-                PosterPath = season.PosterPath,
-                AirDate = season.AirDate,
-                Episodes = season.Episodes.Select(episode => new EpisodeInfo
-                {
-                    EpisodeNumber = episode.EpisodeNumber,
-                    Name = episode.Name,
-                    Overview = episode.Overview,
-                    StillPath = episode.StillPath,
-                    AirDate = episode.AirDate,
-                    }).ToList().AsReadOnly()
-                })
-                .ToList()
-            : seasons
-                .Where(season => season != null)
-                .Where(season => season.SeasonNumber > 0)
-                .Select(season => new SeasonInfo
-                {
-                    SeasonNumber = season!.SeasonNumber,
-                    Episodes = season.Episodes.Select(episode => new EpisodeInfo
-                    {
-                        EpisodeNumber = episode.EpisodeNumber
-                    }).ToList().AsReadOnly()
-                }).ToList();
+        int episodeCount = tvShow.NumberOfEpisodes;
+        int episodeCountScanned = episodesScannedFiles.Count(e => e.Status == FileStatus.Success);
 
         return new MediaInfo
         {
@@ -137,8 +87,8 @@ public class MediaSearchService(ITmDbClientWrapper tmdbClient, ILogger<MediaSear
             Summary = tvShow.Overview,
             Status = tvShow.Status,
             Genres = tvShow.Genres.Select(g => g.Name).ToList().AsReadOnly(),
-            Seasons = seasonsList.AsReadOnly(),
-            SeasonsScanned = seasonsScanned.AsReadOnly()
+            EpisodeCount = episodeCount,
+            EpisodeCountScanned = episodeCountScanned
         };
     }
 
@@ -176,22 +126,26 @@ public class MediaSearchService(ITmDbClientWrapper tmdbClient, ILogger<MediaSear
     public async Task<EpisodeInfo?> GetTvShowEpisodeMediaInfoAsync(int tmdbId, int seasonNumber, int episodeNumber, bool includeDetails = false)
     {
         TMDbLib.Objects.TvShows.TvEpisode episode = await tmdbClient.GetTvEpisodeAsync(tmdbId, seasonNumber, episodeNumber);
-        if (episode != null)
+        if (episode == null)
         {
-            var episodeInfo = new EpisodeInfo
-            {
-                EpisodeNumber = episode.EpisodeNumber
-            };
-            if (includeDetails)
-            {
-                episodeInfo.Name = episode.Name;
-                episodeInfo.Overview = episode.Overview;
-                episodeInfo.StillPath = episode.StillPath;
-                episodeInfo.AirDate = episode.AirDate;
-            }
+            return null;
+        }
+
+        var episodeInfo = new EpisodeInfo
+        {
+            EpisodeNumber = episode.EpisodeNumber
+        };
+        
+        if (!includeDetails)
+        {
             return episodeInfo;
         }
-        return null;
+
+        episodeInfo.Name = episode.Name;
+        episodeInfo.Overview = episode.Overview;
+        episodeInfo.StillPath = episode.StillPath;
+        episodeInfo.AirDate = episode.AirDate;
+        return episodeInfo;
     }
 
     public async Task<string?> GetImageUrlAsync(string path, string size) => await tmdbClient.GetImageUrl(path, size);
