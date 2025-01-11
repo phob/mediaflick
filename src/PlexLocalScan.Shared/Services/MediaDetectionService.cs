@@ -19,7 +19,7 @@ public class MediaDetectionService(
         var emptyMediaInfo = new MediaInfo{
             MediaType = mediaType
         };
-        var fileName = fileSystemService.GetFileName(filePath);
+        string fileName = fileSystemService.GetFileName(filePath);
         logger.LogDebug("Attempting to detect media info for: {FileName}", fileName);
 
         try

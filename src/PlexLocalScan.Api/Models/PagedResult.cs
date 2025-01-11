@@ -1,6 +1,8 @@
 namespace PlexLocalScan.Api.Models;
 
-public class PagedResult<T>
+#pragma warning disable CA1515 // Consider making public types internal
+public sealed class PagedResult<T>
+#pragma warning restore CA1515 // Consider making public types internal
 {
     public required IEnumerable<T> Items { get; init; }
     public required int TotalItems { get; init; }

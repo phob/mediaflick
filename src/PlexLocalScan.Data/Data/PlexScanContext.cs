@@ -6,13 +6,10 @@ namespace PlexLocalScan.Data.Data;
 public sealed class PlexScanContext : DbContext
 {
     public DbSet<ScannedFile> ScannedFiles { get; set; }
-    
+
     public PlexScanContext(DbContextOptions<PlexScanContext> options)
-        : base(options)
-    {
-        ScannedFiles = Set<ScannedFile>();
-    }
-    
+        : base(options) => ScannedFiles = Set<ScannedFile>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<ScannedFile>()

@@ -9,10 +9,12 @@ public static class PathFormatHelper
         ArgumentNullException.ThrowIfNull(mediaInfo);
 
         if (string.IsNullOrEmpty(mediaInfo.Title) || !mediaInfo.Year.HasValue)
+        {
             throw new ArgumentException("Movie title and year are required");
+        }
 
-        var movieFolder = $"{CleanFileName(mediaInfo.Title)} ({mediaInfo.Year})";
-        var movieFileName = $"{CleanFileName(mediaInfo.Title)} ({mediaInfo.Year}) {{imdb-{mediaInfo.ImdbId}}}";
+        string movieFolder = $"{CleanFileName(mediaInfo.Title)} ({mediaInfo.Year})";
+        string movieFileName = $"{CleanFileName(mediaInfo.Title)} ({mediaInfo.Year}) {{imdb-{mediaInfo.ImdbId}}}";
         return (movieFolder, movieFileName);
     }
 
@@ -21,11 +23,13 @@ public static class PathFormatHelper
         ArgumentNullException.ThrowIfNull(mediaInfo);
 
         if (string.IsNullOrEmpty(mediaInfo.Title) || !mediaInfo.SeasonNumber.HasValue || !mediaInfo.EpisodeNumber.HasValue || !mediaInfo.Year.HasValue)
+        {
             throw new ArgumentException("TV show title, season, episode, and year are required");
+        }
 
-        var showFolder = $"{CleanFileName(mediaInfo.Title)} ({mediaInfo.Year})";
-        var seasonFolder = $"Season {mediaInfo.SeasonNumber:D2}";
-        var fileName = $"{CleanFileName(mediaInfo.Title)} - S{mediaInfo.SeasonNumber:D2}E{mediaInfo.EpisodeNumber:D2}";
+        string showFolder = $"{CleanFileName(mediaInfo.Title)} ({mediaInfo.Year})";
+        string seasonFolder = $"Season {mediaInfo.SeasonNumber:D2}";
+        string fileName = $"{CleanFileName(mediaInfo.Title)} - S{mediaInfo.SeasonNumber:D2}E{mediaInfo.EpisodeNumber:D2}";
         
         if (mediaInfo.EpisodeNumber2.HasValue)
         {
@@ -42,9 +46,9 @@ public static class PathFormatHelper
 
     private static string CleanFileName(string fileName)
     {
-        var invalid = Path.GetInvalidFileNameChars();
+        char[] invalid = Path.GetInvalidFileNameChars();
         return string.Join("", fileName.Select(c => invalid.Contains(c) ? " -" : c.ToString()))
-            .Replace("  ", " ")  // Remove any double spaces that might occur
+            .Replace("  ", " ", StringComparison.Ordinal)  // Remove any double spaces that might occur
             .Trim();
     }
 } 

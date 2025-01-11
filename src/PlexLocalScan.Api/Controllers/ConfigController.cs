@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using PlexLocalScan.Shared.Options;
@@ -6,7 +7,12 @@ namespace PlexLocalScan.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class ConfigController(
+[Produces("application/json")]
+[ApiExplorerSettings(GroupName = "v1")]
+[Description("Manages configuration settings for the application")]
+#pragma warning disable CA1515 // Consider making public types internal
+public sealed class ConfigController(
+#pragma warning restore CA1515 // Consider making public types internal
     IOptions<PlexOptions> plexOptions,
     IOptions<TmDbOptions> tmdbOptions,
     IOptions<MediaDetectionOptions> mediaDetectionOptions) : ControllerBase
@@ -25,20 +31,11 @@ public class ConfigController(
     }
 
     [HttpGet("plex")]
-    public IActionResult GetPlexConfig()
-    {
-        return Ok(plexOptions.Value);
-    }
+    public IActionResult GetPlexConfig() => Ok(plexOptions.Value);
 
     [HttpGet("tmdb")]
-    public IActionResult GetTMDbConfig()
-    {
-        return Ok(tmdbOptions.Value);
-    }
+    public IActionResult GetTMDbConfig() => Ok(tmdbOptions.Value);
 
     [HttpGet("media-detection")]
-    public IActionResult GetMediaDetectionConfig()
-    {
-        return Ok(mediaDetectionOptions.Value);
-    }
+    public IActionResult GetMediaDetectionConfig() => Ok(mediaDetectionOptions.Value);
 } 

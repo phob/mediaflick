@@ -6,6 +6,8 @@ using PlexLocalScan.Core.Media;
 using PlexLocalScan.Core.Tables;
 using PlexLocalScan.FileTracking.Services;
 using PlexLocalScan.Shared.Interfaces;
+using PlexLocalScan.Shared.Options;
+using System.Globalization;
 
 namespace PlexLocalScan.Shared.Services;
 
@@ -43,7 +45,7 @@ public class MovieDetectionService : IMovieDetectionService
         try
         {
             _logger.LogDebug("Attempting to detect movie pattern for: {FileName}", fileName);
-            var match = _moviePattern.Match(fileName);
+            Match match = _moviePattern.Match(fileName);
             if (!match.Success)
             {
                 await _fileTrackingService.UpdateStatusAsync(fileName, null, _emptyMediaInfo, FileStatus.Failed);
@@ -51,19 +53,19 @@ public class MovieDetectionService : IMovieDetectionService
                 return null;
             }
 
-            var title = match.Groups["title"].Value.Replace(".", " ").Trim();
-            var yearStr = match.Groups["year"].Value;
-            var year = int.Parse(yearStr);
+            string title = match.Groups["title"].Value.Replace(".", " ", StringComparison.OrdinalIgnoreCase).Trim();
+            string yearStr = match.Groups["year"].Value;
+            int year = int.Parse(yearStr, CultureInfo.CurrentCulture);
 
             _logger.LogDebug("Detected movie pattern - Title: {Title}, Year: {Year}", title, year);
 
-            var cacheKey = $"movie_{title}_{year}";
-            if (_cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo))
+            string cacheKey = $"movie_{title}_{year}";
+            if (_cache.TryGetValue<MediaInfo>(cacheKey, out MediaInfo? cachedInfo))
             {
                 return cachedInfo;
             }
 
-            var mediaInfo = await SearchTmDbForMovie(title, year, filePath);
+            MediaInfo mediaInfo = await SearchTmDbForMovie(title, year, filePath);
             mediaInfo.MediaType = MediaType.Movies;
             if (mediaInfo == null)
             {
@@ -84,12 +86,16 @@ public class MovieDetectionService : IMovieDetectionService
     private async Task<MediaInfo> SearchTmDbForMovie(string title, int year, string filePath)
     {
         if (string.IsNullOrWhiteSpace(title))
+        {
             throw new ArgumentException("Title cannot be empty or whitespace", nameof(title));
+        }
 
         if (year <= 1800 || year > DateTime.Now.Year + 5)
+        {
             throw new ArgumentOutOfRangeException(nameof(year), "Year must be between 1800 and 5 years in the future");
+        }
 
-        var searchResults = await _tmdbClient.SearchMovieAsync(title);
+        TMDbLib.Objects.General.SearchContainer<TMDbLib.Objects.Search.SearchMovie> searchResults = await _tmdbClient.SearchMovieAsync(title);
 
         if (searchResults?.Results == null)
         {
@@ -98,7 +104,7 @@ public class MovieDetectionService : IMovieDetectionService
             return _emptyMediaInfo;
         }
 
-        var bestMatch = searchResults.Results
+        TMDbLib.Objects.Search.SearchMovie? bestMatch = searchResults.Results
             .Where(m => m.ReleaseDate?.Year == year)
             .MaxBy(m => m.Popularity);
 
@@ -108,7 +114,7 @@ public class MovieDetectionService : IMovieDetectionService
             await _fileTrackingService.UpdateStatusAsync(filePath, null, _emptyMediaInfo, FileStatus.Failed);
             return _emptyMediaInfo;
         }
-        var externalIds = await _tmdbClient.GetMovieExternalIdsAsync(bestMatch.Id);
+        TMDbLib.Objects.General.ExternalIdsMovie externalIds = await _tmdbClient.GetMovieExternalIdsAsync(bestMatch.Id);
 
         return new MediaInfo
         {
@@ -124,20 +130,20 @@ public class MovieDetectionService : IMovieDetectionService
     {
         try
         {
-            var cacheKey = $"movie_tmdb_{tmdbId}";
-            if (_cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo))
+            string cacheKey = $"movie_tmdb_{tmdbId}";
+            if (_cache.TryGetValue<MediaInfo>(cacheKey, out MediaInfo? cachedInfo))
             {
                 return cachedInfo;
             }
 
-            var movieDetails = await _tmdbClient.GetMovieAsync(tmdbId);
+            TMDbLib.Objects.Movies.Movie movieDetails = await _tmdbClient.GetMovieAsync(tmdbId);
             if (movieDetails == null)
             {
                 _logger.LogWarning("No TMDb movie found for ID: {TmdbId}", tmdbId);
                 return null;
             }
 
-            var externalIds = await _tmdbClient.GetMovieExternalIdsAsync(movieDetails.Id);
+            TMDbLib.Objects.General.ExternalIdsMovie externalIds = await _tmdbClient.GetMovieExternalIdsAsync(movieDetails.Id);
 
             var mediaInfo = new MediaInfo
             {

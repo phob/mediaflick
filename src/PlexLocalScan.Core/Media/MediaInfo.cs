@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using PlexLocalScan.Core.Series;
 using PlexLocalScan.Core.Tables;
 
@@ -9,7 +10,7 @@ public record MediaInfo
     public int? Year { get; init; }
     public int? TmdbId { get; init; }
     public string? ImdbId { get; init; }
-    public List<string>? Genres { get; init; }
+    public ReadOnlyCollection<string>? Genres { get; init; }
     public MediaType? MediaType { get; set; }
     public int? SeasonNumber { get; init; }
     public int? EpisodeNumber { get; init; }
@@ -19,6 +20,6 @@ public record MediaInfo
     public string? PosterPath { get; set; }
     public string? Summary { get; set; }
     public string? Status { get; set; }
-    public List<SeasonInfo>? Seasons { get; init; }
-    public List<SeasonInfo>? SeasonsScanned { get; init; }
-} 
+    public ReadOnlyCollection<SeasonInfo>? Seasons { get; init; }
+    public ReadOnlyCollection<SeasonInfo>? SeasonsScanned { get; init; }
+}

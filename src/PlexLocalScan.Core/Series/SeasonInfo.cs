@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+
 namespace PlexLocalScan.Core.Series;
 
 public record SeasonInfo
@@ -7,5 +9,5 @@ public record SeasonInfo
     public string? Overview { get; set; }
     public string? PosterPath { get; set; }
     public DateTime? AirDate { get; set; }
-    public List<EpisodeInfo> Episodes { get; init; } = [];
-} 
+    public ReadOnlyCollection<EpisodeInfo> Episodes { get; init; } = new ReadOnlyCollection<EpisodeInfo>([]);
+}

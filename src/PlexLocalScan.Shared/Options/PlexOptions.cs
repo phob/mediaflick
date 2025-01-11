@@ -1,12 +1,14 @@
+using System.Collections.ObjectModel;
+
 namespace PlexLocalScan.Shared.Options;
 
 public class PlexOptions
 {
-    public string Host { get; set; } = string.Empty;
-    public int Port { get; set; }
-    public string PlexToken { get; set; } = string.Empty;
-    public List<FolderMappingOptions> FolderMappings { get; set; } = [];
-    public int PollingInterval { get; set; } = 30;
-    public int ProcessNewFolderDelay { get; set; }
+    public string Host { get; init; } = string.Empty;
+    public int Port { get; init; }
+    public string PlexToken { get; init; } = string.Empty;
+    public Collection<FolderMappingOptions> FolderMappings { get; } = [];
+    public int PollingInterval { get; init; } = 30;
+    public int ProcessNewFolderDelay { get; init; }
     public string ApiEndpoint => $"http://{Host}:{Port}";
 }

@@ -12,8 +12,10 @@ namespace PlexLocalScan.Api.Controllers;
 [Produces("application/json")]
 [ApiExplorerSettings(GroupName = "v1")]
 [Description("Provides media lookup functionality using TMDb")]
-public class MediaLookupController(
-    IMediaLookupService mediaLookupService,
+#pragma warning disable CA1515 // Consider making public types internal
+public sealed class MediaLookupController(
+#pragma warning restore CA1515 // Consider making public types internal
+    IMediaSearchService mediaLookupService,
     ILogger<MediaLookupController> logger) : ControllerBase
 {
     /// <summary>
@@ -33,7 +35,7 @@ public class MediaLookupController(
         }
 
         logger.LogInformation("Searching for movies with title: {Title}", title);
-        var results = await mediaLookupService.SearchMovieTmdbIdsAsync(title);
+        IEnumerable<MediaSearchResult> results = await mediaLookupService.SearchMovieTmdbIdsAsync(title);
         return Ok(results);
     }
 
@@ -54,7 +56,7 @@ public class MediaLookupController(
         }
 
         logger.LogInformation("Searching for TV shows with title: {Title}", title);
-        var results = await mediaLookupService.SearchTvShowTmdbIdsAsync(title);
+        IEnumerable<MediaSearchResult> results = await mediaLookupService.SearchTvShowTmdbIdsAsync(title);
         return Ok(results);
     }
 
@@ -70,7 +72,7 @@ public class MediaLookupController(
     public async Task<ActionResult<MediaInfo>> GetMovieInfo(int tmdbId)
     {
         logger.LogInformation("Getting movie info for TMDb ID: {TmdbId}", tmdbId);
-        var movieInfo = await mediaLookupService.GetMovieMediaInfoAsync(tmdbId);
+        MediaInfo? movieInfo = await mediaLookupService.GetMovieMediaInfoAsync(tmdbId);
         
         if (movieInfo == null)
         {
@@ -92,7 +94,7 @@ public class MediaLookupController(
     public async Task<ActionResult<MediaInfo>> GetTvShowInfo(int tmdbId)
     {
         logger.LogInformation("Getting TV show info for TMDb ID: {TmdbId}", tmdbId);
-        var tvShowInfo = await mediaLookupService.GetTvShowMediaInfoAsync(tmdbId);
+        MediaInfo? tvShowInfo = await mediaLookupService.GetTvShowMediaInfoAsync(tmdbId);
         
         if (tvShowInfo == null)
         {
@@ -115,7 +117,7 @@ public class MediaLookupController(
     public async Task<ActionResult<MediaInfo>> GetTvSeasonInfo(int tmdbId, int seasonNumber)
     {
         logger.LogInformation("Getting TV season info for TMDb ID: {TmdbId}, Season Number: {SeasonNumber}", tmdbId, seasonNumber);
-        var tvSeasonInfo = await mediaLookupService.GetTvShowSeasonMediaInfoAsync(tmdbId, seasonNumber, includeDetails: true);
+        SeasonInfo? tvSeasonInfo = await mediaLookupService.GetTvShowSeasonMediaInfoAsync(tmdbId, seasonNumber, includeDetails: true);
 
         if (tvSeasonInfo == null)
         {
@@ -138,7 +140,7 @@ public class MediaLookupController(
     public async Task<ActionResult<EpisodeInfo>> GetTvEpisodeInfo(int tmdbId, int seasonNumber, int episodeNumber)
     {
         logger.LogInformation("Getting TV episode info for TMDb ID: {TmdbId}, Season Number: {SeasonNumber}, Episode Number: {EpisodeNumber}", tmdbId, seasonNumber, episodeNumber);
-        var tvEpisodeInfo = await mediaLookupService.GetTvShowEpisodeMediaInfoAsync(tmdbId, seasonNumber, episodeNumber, includeDetails: true);
+        EpisodeInfo? tvEpisodeInfo = await mediaLookupService.GetTvShowEpisodeMediaInfoAsync(tmdbId, seasonNumber, episodeNumber, includeDetails: true);
 
         if (tvEpisodeInfo == null)
         {
@@ -165,7 +167,7 @@ public class MediaLookupController(
             return BadRequest("Path is required");
         }
 
-        var imageUrl = await mediaLookupService.GetImageUrlAsync(path, size);
+        string? imageUrl = await mediaLookupService.GetImageUrlAsync(path, size);
         if (imageUrl == null)
         {
             return NotFound();

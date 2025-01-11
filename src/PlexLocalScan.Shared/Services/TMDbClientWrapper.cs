@@ -4,24 +4,53 @@ using TMDbLib.Objects.TvShows;
 using TMDbLib.Objects.Movies;
 using TMDbLib.Client;
 using PlexLocalScan.Shared.Interfaces;
+using System;
 
-public class TMDbClientWrapper(string apiKey) : ITmDbClientWrapper
+namespace PlexLocalScan.Shared.Services;
+
+public sealed class TMDbClientWrapper(string apiKey) : ITmDbClientWrapper, IDisposable
 {
     private readonly TMDbClient _client = new(apiKey);
+#pragma warning disable S1075 // URIs should not be hardcoded
     private const string BaseImageUrl = "https://image.tmdb.org/t/p/";
+#pragma warning restore S1075 // URIs should not be hardcoded
+    private bool _disposed;
+    private static readonly string[] ValidImageSizes = ["w92", "w154", "w185", "w342", "w500", "w780", "original"];
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    private void Dispose(bool disposing)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (disposing)
+        {
+            _client.Dispose();
+        }
+
+        _disposed = true;
+    }
+
+    ~TMDbClientWrapper() => Dispose(false);
 
     public Task<string?> GetImageUrl(string path, string size)
     {
-        if (string.IsNullOrEmpty(path)) return Task.FromResult<string?>(null);
-        
-        // Ensure path starts with /
-        path = path.StartsWith("/") ? path : "/" + path;
-        
-        // Validate size parameter
-        var validSizes = new[] { "w92", "w154", "w185", "w342", "w500", "w780", "original" };
-        size = validSizes.Contains(size) ? size : "w500";
+        if (string.IsNullOrEmpty(path))
+        {
+            return Task.FromResult<string?>(null);
+        }
 
-        return Task.FromResult<string?>($"{BaseImageUrl}{size}{path}");
+        static string FormatPath(string p) => p.StartsWith('/') ? p : '/' + p;
+        static string ValidateSize(string s) => ValidImageSizes.Contains(s) ? s : "w500";
+
+        return Task.FromResult<string?>($"{BaseImageUrl}{ValidateSize(size)}{FormatPath(path)}");
     }
 
     public Task<SearchContainer<SearchMovie>> SearchMovieAsync(string query)

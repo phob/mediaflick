@@ -1,23 +1,23 @@
 ﻿namespace PlexLocalScan.Core.Helper;
 
-public class SymlinkHelper
+public static class SymlinkHelper
 {
     private static readonly string[] SourceArray = [".mkv", ".mp4", ".avi"];
 
-    public bool IsSymlink(string path)
+    public static bool IsSymlink(string path)
     {
-        if (!File.Exists(path)) return false;
-        
+        if (!File.Exists(path))
+        {
+            return false;
+        }
+
         var fileInfo = new FileInfo(path);
         return fileInfo.Attributes.HasFlag(FileAttributes.ReparsePoint);
     }
 
-    public bool IsVideoFile(string extension)
-    {
-        return SourceArray.Contains(extension.ToLower());
-    }
+    public static bool IsVideoFile(string extension) => SourceArray.Contains(extension.ToLower(System.Globalization.CultureInfo.CurrentCulture));
 
-    public async Task<bool> CreateFileLinkAsync(string sourcePath, string destinationPath)
+    public static async Task<bool> CreateFileLinkAsync(string sourcePath, string destinationPath)
     {
         try
         {

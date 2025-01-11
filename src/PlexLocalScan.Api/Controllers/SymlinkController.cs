@@ -2,12 +2,18 @@ using Microsoft.AspNetCore.Mvc;
 using PlexLocalScan.Shared.Interfaces;
 using PlexLocalScan.Shared.Options;
 using Microsoft.Extensions.Options;
+using System.ComponentModel;
 
 namespace PlexLocalScan.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class SymlinkController(
+[Produces("application/json")]
+[ApiExplorerSettings(GroupName = "v1")]
+[Description("Manages symlink cleanup")]
+#pragma warning disable CA1515 // Consider making public types internal
+public sealed class SymlinkController(
+#pragma warning restore CA1515 // Consider making public types internal
     ICleanupHandler cleanupHandler,
     IOptions<PlexOptions> plexOptions,
     ILogger<SymlinkController> logger) : ControllerBase
@@ -27,12 +33,12 @@ public class SymlinkController(
     {
         try
         {
-            foreach (var mapping in _plexOptions.FolderMappings)
-            {
-                var destinationFolder = mapping.DestinationFolder;
-                logger.LogInformation("Starting cleanup of dead symlinks in {DestinationFolder}", destinationFolder);
-                await cleanupHandler.CleanupDeadSymlinksAsync(destinationFolder);
-            }
+            await Task.WhenAll(_plexOptions.FolderMappings
+                .Select(async mapping =>
+                {
+                    logger.LogInformation("Starting cleanup of dead symlinks in {DestinationFolder}", mapping.DestinationFolder);
+                    await cleanupHandler.CleanupDeadSymlinksAsync(mapping.DestinationFolder);
+                }));
             return Ok(new { message = "Cleanup completed successfully" });
         }
         catch (Exception ex)

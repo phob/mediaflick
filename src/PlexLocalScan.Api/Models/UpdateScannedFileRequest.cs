@@ -1,8 +1,8 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace PlexLocalScan.Api.Models;
 
-public class UpdateScannedFileRequest
+#pragma warning disable CA1515 // Consider making public types internal
+public sealed class UpdateScannedFileRequest
+#pragma warning restore CA1515 // Consider making public types internal
 {
     public int? TmdbId { get; init; }
     public int? SeasonNumber { get; init; }

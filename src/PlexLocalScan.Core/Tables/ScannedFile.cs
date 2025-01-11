@@ -11,15 +11,15 @@ public class ScannedFile
     public string SourceFile { get; init; } = string.Empty;
     
     public string? DestFile { get; set; } = string.Empty;
-    
-    public MediaType? MediaType { get; set; } = null;
-    public int? TmdbId { get; set; } = null;
-    public string? ImdbId { get; set; } = null;
-    public string? Title { get; set; } = null;
-    public int? Year { get; set; } = null;
-    public string? Genres { get; set; } = null;
-    public int? SeasonNumber { get; set; } = null;
-    public int? EpisodeNumber { get; set; } = null;
+
+    public MediaType? MediaType { get; set; }
+    public int? TmdbId { get; set; }
+    public string? ImdbId { get; set; }
+    public string? Title { get; set; }
+    public int? Year { get; set; }
+    public string? Genres { get; set; }
+    public int? SeasonNumber { get; set; }
+    public int? EpisodeNumber { get; set; }
     
     [Required]
     public FileStatus Status { get; set; }

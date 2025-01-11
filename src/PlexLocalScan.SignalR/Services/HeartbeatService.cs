@@ -17,10 +17,7 @@ public class HeartbeatService : IHostedService, IDisposable
         _timer = new Timer(SendHeartbeat, null, TimeSpan.Zero, TimeSpan.FromSeconds(30));
     }
 
-    public Task StartAsync(CancellationToken cancellationToken)
-    {
-        return Task.CompletedTask;
-    }
+    public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
@@ -32,7 +29,7 @@ public class HeartbeatService : IHostedService, IDisposable
     {
         try
         {
-            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            long timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             await _hubContext.Clients.All.OnHeartbeat(timestamp);
         }
         catch
@@ -41,12 +38,21 @@ public class HeartbeatService : IHostedService, IDisposable
         }
     }
 
-    public void Dispose()
+    protected virtual void Dispose(bool disposing)
     {
         if (!_disposed)
         {
-            _timer?.Dispose();
+            if (disposing)
+            {
+                _timer?.Dispose();
+            }
             _disposed = true;
         }
     }
-} 
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+}

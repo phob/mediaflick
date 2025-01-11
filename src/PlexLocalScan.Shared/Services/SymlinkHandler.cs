@@ -12,14 +12,14 @@ public class SymlinkHandler(
     IContextService contextService)
     : ISymlinkHandler
 {
-    private readonly SymlinkHelper _symlinkHelper = new();
-
     public async Task<bool> CreateSymlinksAsync(string sourceFile, string destinationFolder, MediaInfo? mediaInfo, MediaType mediaType)
     {
         try
         {
-            var extension = Path.GetExtension(sourceFile);
-            if (!_symlinkHelper.IsVideoFile(extension)) return false;
+            string extension = Path.GetExtension(sourceFile);
+            if (!SymlinkHelper.IsVideoFile(extension)) {
+                return false;
+            }
 
             if (mediaInfo == null)
             {
@@ -27,14 +27,14 @@ public class SymlinkHandler(
                 return false;
             }
 
-            var (targetPath, targetFileName) = GetTargetPath(mediaInfo, destinationFolder, extension);
+            (string targetPath, string targetFileName) = GetTargetPath(mediaInfo, destinationFolder, extension);
             return await CreateSymlinkWithStructureAsync(sourceFile, targetPath, targetFileName);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error creating symlinks from {Source} to {Destination}", 
                 sourceFile, destinationFolder);
-            throw;
+            return false;
         }
     }
 
@@ -46,18 +46,18 @@ public class SymlinkHandler(
             {
                 MediaType = mediaType
             };
-            var sourceDirectory = Path.GetDirectoryName(sourceFile) 
+            string sourceDirectory = Path.GetDirectoryName(sourceFile) 
                 ?? throw new InvalidOperationException("Unable to get source directory");
-            var fileName = Path.GetFileName(sourceFile);
+            string fileName = Path.GetFileName(sourceFile);
 
-            var lastDirName = new DirectoryInfo(sourceDirectory).Name;
+            string lastDirName = new DirectoryInfo(sourceDirectory).Name;
 
-            var targetPath = Path.Combine(destinationFolder, lastDirName);
-            var fullTargetPath = Path.Combine(targetPath, fileName);
+            string targetPath = Path.Combine(destinationFolder, lastDirName);
+            string fullTargetPath = Path.Combine(targetPath, fileName);
 
             Directory.CreateDirectory(targetPath);
 
-            if (await _symlinkHelper.CreateFileLinkAsync(sourceFile, fullTargetPath))
+            if (await SymlinkHelper.CreateFileLinkAsync(sourceFile, fullTargetPath))
             {
                 await contextService.UpdateStatusAsync(sourceFile, fullTargetPath, emptyMediaInfo, FileStatus.Failed);
                 return true;
@@ -69,7 +69,6 @@ public class SymlinkHandler(
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to create fallback symlink for {SourceFile}", sourceFile);
-            throw;
         }
         return false;
     }
@@ -80,20 +79,22 @@ public class SymlinkHandler(
         {
             if (mediaInfo is {MediaType: MediaType.Movies})
             {
-                var (folderPath, fileName) = PathFormatHelper.FormatMoviePath(mediaInfo);
+                (string folderPath, string fileName) = PathFormatHelper.FormatMoviePath(mediaInfo);
                 return (Path.Combine(baseFolder, folderPath), fileName + extension);
             }
             else
             {
-                var (folderPath, fileName) = PathFormatHelper.FormatTvShowPath(mediaInfo);
+                (string folderPath, string fileName) = PathFormatHelper.FormatTvShowPath(mediaInfo);
                 return (Path.Combine(baseFolder, folderPath), fileName + extension);
             }
         }
         catch (Exception ex)
         {
             if (mediaInfo != null)
+            {
                 logger.LogError(ex, "Error formatting path for {MediaType}: {Title}",
                     mediaInfo.MediaType, mediaInfo.Title);
+            }
             throw;
         }
     }
@@ -105,11 +106,11 @@ public class SymlinkHandler(
             var emptyMediaInfo = new MediaInfo();
             Directory.CreateDirectory(targetPath);
 
-            var fullTargetPath = Path.Combine(targetPath, targetFileName);
+            string fullTargetPath = Path.Combine(targetPath, targetFileName);
 
             if (File.Exists(fullTargetPath))
             {
-                if (_symlinkHelper.IsSymlink(fullTargetPath))
+                if (SymlinkHelper.IsSymlink(fullTargetPath))
                 {
                     logger.LogDebug("Symlink already exists: {TargetPath}", fullTargetPath);
                     await contextService.UpdateStatusAsync(sourcePath, fullTargetPath, emptyMediaInfo, FileStatus.Duplicate);
@@ -118,8 +119,11 @@ public class SymlinkHandler(
                 File.Delete(fullTargetPath);
             }
 
-            if(await _symlinkHelper.CreateFileLinkAsync(sourcePath, fullTargetPath))
+            if(await SymlinkHelper.CreateFileLinkAsync(sourcePath, fullTargetPath))
+            {
                 await contextService.UpdateStatusAsync(sourcePath, fullTargetPath, emptyMediaInfo, FileStatus.Duplicate);
+            }
+
             return true;
         }
         catch (Exception ex)

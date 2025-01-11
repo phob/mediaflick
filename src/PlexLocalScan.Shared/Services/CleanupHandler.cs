@@ -3,6 +3,7 @@ using PlexLocalScan.Shared.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using PlexLocalScan.Data.Data;
 using PlexLocalScan.Core.Helper;
+using PlexLocalScan.Core.Tables;
 
 namespace PlexLocalScan.Shared.Services;
 
@@ -11,7 +12,6 @@ public class CleanupHandler(
     PlexScanContext dbContext)
     : ICleanupHandler
 {
-    private readonly SymlinkHelper _symlinkHelper = new();
     public async Task CleanupDeadSymlinksAsync(string baseFolder)
     {
         try
@@ -20,7 +20,7 @@ public class CleanupHandler(
             {
                 // First remove dead symlinks
                 RemoveDeadSymlinks(baseFolder);
-                
+
                 // Then remove empty directories
                 RemoveEmptyDirectories(baseFolder);
             });
@@ -28,7 +28,7 @@ public class CleanupHandler(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error cleaning up dead symlinks in {BaseFolder}", baseFolder);
-            throw;
+            throw new InvalidOperationException($"Error cleaning up dead symlinks in {baseFolder}", ex);
         }
     }
 
@@ -36,22 +36,20 @@ public class CleanupHandler(
     {
         try
         {
-            foreach (var file in Directory.GetFiles(folder, "*.*", SearchOption.AllDirectories))
-            {
-                if (_symlinkHelper.IsSymlink(file))
+            Directory.GetFiles(folder, "*.*", SearchOption.AllDirectories)
+                .Where(SymlinkHelper.IsSymlink)
+                .Where(IsSymbolicLinkDead)
+                .ToList()
+                .ForEach(file =>
                 {
-                    if (IsSymbolicLinkDead(file))
-                    {
-                        logger.LogDebug("Removing dead symlink: {Path} -> {Target}", file, new FileInfo(file).LinkTarget);
-                        File.Delete(file);
-                    }
-                }
-            }
+                    logger.LogDebug("Removing dead symlink: {Path} -> {Target}", file, new FileInfo(file).LinkTarget);
+                    File.Delete(file);
+                });
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error removing dead symlinks in {Folder}", folder);
-            throw;
+            throw new InvalidOperationException($"Error removing dead symlinks in {folder}", ex);
         }
     }
 
@@ -76,34 +74,31 @@ public class CleanupHandler(
     {
         try
         {
-            foreach (var directory in Directory.GetDirectories(folder, "*", SearchOption.AllDirectories)
-                                             .OrderByDescending(x => x.Length))
-            {
-                if (IsDirectoryEmpty(directory))
+            Directory.GetDirectories(folder, "*", SearchOption.AllDirectories)
+                .Where(IsDirectoryEmpty)
+                .OrderByDescending(x => x.Length)
+                .ToList()
+                .ForEach(directory =>
                 {
                     logger.LogInformation("Removing empty directory: {Path}", directory);
                     Directory.Delete(directory);
-                }
-            }
+                });
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error removing empty directories in {Folder}", folder);
-            throw;
+            throw new InvalidOperationException($"Error removing empty directories in {folder}", ex);
         }
     }
 
-    public bool IsDirectoryEmpty(string path)
-    {
-        return !Directory.EnumerateFileSystemEntries(path).Any();
-    }
+    public bool IsDirectoryEmpty(string path) => !Directory.EnumerateFileSystemEntries(path).Any();
 
     public async Task CleanupDeletedSourceFolderAsync(string sourceFolder)
     {
         try
         {
             // Get all records for the deleted source folder
-            var affectedFiles = await dbContext.ScannedFiles
+            List<ScannedFile> affectedFiles = await dbContext.ScannedFiles
                 .Where(f => f.SourceFile.StartsWith(sourceFolder))
                 .ToListAsync();
 
@@ -121,11 +116,16 @@ public class CleanupHandler(
                 .ToList();
 
             // Delete all destination files
-            foreach (var file in affectedFiles.Where(f => !string.IsNullOrEmpty(f.DestFile)))
+#pragma warning disable S3267 // Loops should be simplified with "LINQ" expressions
+            foreach (ScannedFile? file in affectedFiles.Where(f => !string.IsNullOrEmpty(f.DestFile)))
             {
                 try
                 {
-                    if (!File.Exists(file.DestFile)) continue;
+                    if (!File.Exists(file.DestFile))
+                    {
+                        continue;
+                    }
+
                     File.Delete(file.DestFile);
                     logger.LogInformation("Deleted destination file: {DestFile}", file.DestFile);
                 }
@@ -134,9 +134,10 @@ public class CleanupHandler(
                     logger.LogError(ex, "Error deleting destination file: {DestFile}", file.DestFile);
                 }
             }
+#pragma warning restore S3267 // Loops should be simplified with "LINQ" expressions
 
             // Clean up empty directories
-            foreach (var folder in destFolders.OfType<string>().Where(Directory.Exists))
+            foreach (string? folder in destFolders.OfType<string>().Where(Directory.Exists))
             {
                 RemoveEmptyDirectories(folder);
             }
@@ -144,14 +145,14 @@ public class CleanupHandler(
             // Remove database entries
             dbContext.ScannedFiles.RemoveRange(affectedFiles);
             await dbContext.SaveChangesAsync();
-            
-            logger.LogInformation("Cleaned up {Count} files for deleted source folder: {SourceFolder}", 
+
+            logger.LogInformation("Cleaned up {Count} files for deleted source folder: {SourceFolder}",
                 affectedFiles.Count, sourceFolder);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error cleaning up deleted source folder: {SourceFolder}", sourceFolder);
-            throw;
+            throw new InvalidOperationException($"Error cleaning up deleted source folder: {sourceFolder}", ex);
         }
     }
-} 
+}

@@ -16,20 +16,20 @@ public class ContextService(
     private static readonly Func<PlexScanContext, string, Task<ScannedFile?>> GetBySourceFileQuery =
         EF.CompileAsyncQuery((PlexScanContext context, string sourceFile) =>
             context.ScannedFiles.FirstOrDefault(f => f.SourceFile == sourceFile));
-            
-    private static readonly Func<PlexScanContext, string, Task<ScannedFile?>> GetByDestFileQuery =
-        EF.CompileAsyncQuery((PlexScanContext context, string destFile) =>
-            context.ScannedFiles.FirstOrDefault(f => f.DestFile == destFile));
-            
+
     private static readonly Func<PlexScanContext, int, Task<List<ScannedFile>>> GetByTmdbIdQuery =
         EF.CompileAsyncQuery((PlexScanContext context, int tmdbId) =>
             context.ScannedFiles.Where(f => f.TmdbId == tmdbId).ToList());
 
     private async Task<ScannedFile?> GetExistingScannedFileAsync(string sourceFile, string? type = null)
     {
-        var scannedFile = await GetBySourceFileQuery(dbContext, sourceFile);
+        ScannedFile? scannedFile = await GetBySourceFileQuery(dbContext, sourceFile);
 
-        if (scannedFile == null) return null;
+        if (scannedFile == null)
+        {
+            return null;
+        }
+
         if (scannedFile.Status == FileStatus.Success && type == "add")
         {
             logger.LogInformation("File already tracked and successful: {SourceFile}", sourceFile);
@@ -42,7 +42,7 @@ public class ContextService(
 
     public async Task<ScannedFile?> AddStatusAsync(string sourceFile, string? destFile, MediaType mediaType)
     {
-        var scannedFile = await GetExistingScannedFileAsync(sourceFile, "add");
+        ScannedFile? scannedFile = await GetExistingScannedFileAsync(sourceFile, "add");
         if (scannedFile != null)
         {
             return scannedFile;
@@ -75,17 +75,23 @@ public class ContextService(
             logger.LogError(ex, "Error adding file to tracking: {SourceFile}", sourceFile);
             
             // Check if it's a unique constraint violation
-            if (ex.InnerException?.Message.Contains("UNIQUE constraint failed") != true)
+            if (ex.InnerException?.Message.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase) != true)
+            {
+
                 return await GetExistingScannedFileAsync(sourceFile, "add");
+            }
             // Try to determine which constraint failed
-            if (ex.InnerException.Message.Contains("SourceFile"))
+
+            if (ex.InnerException.Message.Contains("SourceFile", StringComparison.OrdinalIgnoreCase))
             {
                 // Source file conflict - just return the existing file
                 return await GetExistingScannedFileAsync(sourceFile, "add");
             }
 
-            if (!ex.InnerException.Message.Contains("DestFile"))
+            if (!ex.InnerException.Message.Contains("DestFile", StringComparison.OrdinalIgnoreCase))
+            {
                 return await GetExistingScannedFileAsync(sourceFile, "add");
+            }
             // Dest file conflict - clear the dest file and mark as duplicate
             scannedFile.DestFile = null;
             scannedFile.Status = FileStatus.Duplicate;
@@ -100,25 +106,26 @@ public class ContextService(
             catch (Exception retryEx)
             {
                 logger.LogError(retryEx, "Error saving file after clearing DestFile: {SourceFile}", sourceFile);
-                throw;
+                return null;
             }
         }
     }
 
     public async Task<bool> UpdateStatusAsync(string sourceFile, string? destFile, MediaInfo? mediaInfo, FileStatus? status = null)
     {
-        var scannedFile = await GetExistingScannedFileAsync(sourceFile, "update");
-        if (scannedFile == null)
+        ScannedFile? scannedFile = await GetExistingScannedFileAsync(sourceFile, "update");
+        if (scannedFile == null || mediaInfo == null)
         {
             return false;
         }
+    
 
         try
         {
             // Use a transaction for the update to ensure atomicity
-            await using var transaction = await dbContext.Database.BeginTransactionAsync();
-            
-            var hasChanges = false;
+            await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction = await dbContext.Database.BeginTransactionAsync();
+
+            bool hasChanges = false;
             
             // Only set properties that have changed
             if (destFile != null && destFile != scannedFile.DestFile)
@@ -159,7 +166,7 @@ public class ContextService(
 
             if (mediaInfo.Genres != null)
             {
-                var newGenresString = ScannedFileDto.ConvertGenresToString(mediaInfo.Genres);
+                string? newGenresString = ScannedFileDto.ConvertGenresToString(mediaInfo.Genres);
                 if (newGenresString != scannedFile.Genres)
                 {
                     scannedFile.Genres = newGenresString;
@@ -184,7 +191,7 @@ public class ContextService(
                 try
                 {
                     scannedFile.UpdatedAt = DateTime.UtcNow;
-                    var saveResult = await dbContext.SaveChangesAsync();
+                    int saveResult = await dbContext.SaveChangesAsync();
                     await transaction.CommitAsync();
                     
                     if (saveResult > 0)
@@ -199,18 +206,30 @@ public class ContextService(
                 }
                 catch (DbUpdateException ex)
                 {
-                    if (ex.InnerException?.Message.Contains("UNIQUE constraint failed") != true) throw;
+                    if (ex.InnerException?.Message.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase) != true)
+                    {
+                        throw;
+                    }
                     // Handle DestFile unique constraint violation
-                    if (!ex.InnerException.Message.Contains("DestFile")) throw;
+
+                    if (!ex.InnerException.Message.Contains("DestFile", StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw;
+                    }
                     // Clear the dest file and mark as duplicate
+
                     scannedFile.DestFile = null;
                     scannedFile.Status = FileStatus.Duplicate;
                     scannedFile.UpdatedAt = DateTime.UtcNow;
                             
                     await dbContext.SaveChangesAsync();
                     await transaction.CommitAsync();
-                            
+
+#pragma warning disable S6667 // Logging in a catch clause should pass the caught exception as a parameter.
+
                     logger.LogInformation("Cleared DestFile and marked as duplicate for: {SourceFile}", sourceFile);
+#pragma warning restore S6667 // Logging in a catch clause should pass the caught exception as a parameter.
+
                     await notificationService.NotifyFileUpdated(scannedFile);
                     return true;
                 }
@@ -222,15 +241,15 @@ public class ContextService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error updating status for file: {File}", sourceFile);
-            throw;
+            return false;
         }
     }
 
     public async Task<bool> UpdateStatusByTmdbIdAsync(int tmdbId, FileStatus status)
     {
-        var scannedFiles = await GetByTmdbIdQuery(dbContext, tmdbId);
+        List<ScannedFile> scannedFiles = await GetByTmdbIdQuery(dbContext, tmdbId);
 
-        if (!scannedFiles.Any())
+        if (scannedFiles.Count == 0)
         {
             logger.LogWarning("No files found for TMDb ID: {TmdbId}", tmdbId);
             return false;
@@ -239,12 +258,12 @@ public class ContextService(
         try
         {
             // Use a transaction for batch update
-            await using var transaction = await dbContext.Database.BeginTransactionAsync();
+            await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction = await dbContext.Database.BeginTransactionAsync();
+
+            DateTime updateTime = DateTime.UtcNow;
+            bool hasChanges = false;
             
-            var updateTime = DateTime.UtcNow;
-            var hasChanges = false;
-            
-            foreach (var file in scannedFiles.Where(file => file.Status != status))
+            foreach (ScannedFile? file in scannedFiles.Where(file => file.Status != status))
             {
                 file.Status = status;
                 file.UpdatedAt = updateTime;
@@ -255,7 +274,7 @@ public class ContextService(
             {
                 try 
                 {
-                    var saveResult = await dbContext.SaveChangesAsync();
+                    int saveResult = await dbContext.SaveChangesAsync();
                     await transaction.CommitAsync();
                     
                     if (saveResult > 0)
@@ -267,29 +286,38 @@ public class ContextService(
                 }
                 catch (DbUpdateException ex)
                 {
-                    if (ex.InnerException?.Message.Contains("UNIQUE constraint failed") == true)
+                    if (ex.InnerException?.Message.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase) == true)
                     {
                         // Since this is a batch update, handle each file individually if there's a constraint violation
-                        foreach (var file in scannedFiles)
+                        foreach (ScannedFile file in scannedFiles)
                         {
                             try
                             {
-                                if (file.Status == status) continue;
+                                if (file.Status == status)
+                                {
+                                    continue;
+                                }
+
+
                                 file.Status = status;
                                 file.UpdatedAt = updateTime;
                                 await dbContext.SaveChangesAsync();
                             }
                             catch (DbUpdateException innerEx)
                             {
-                                if (innerEx.InnerException?.Message.Contains("UNIQUE constraint failed") == true 
-                                    && innerEx.InnerException.Message.Contains("DestFile"))
+                                if (innerEx.InnerException?.Message.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase) == true 
+                                    && innerEx.InnerException.Message.Contains("DestFile", StringComparison.OrdinalIgnoreCase))
                                 {
                                     // Clear the dest file and mark as duplicate
                                     file.DestFile = null;
                                     file.Status = FileStatus.Duplicate;
                                     file.UpdatedAt = updateTime;
                                     await dbContext.SaveChangesAsync();
+#pragma warning disable S6667 // Logging in a catch clause should pass the caught exception as a parameter.
+
                                     logger.LogInformation("Cleared DestFile and marked as duplicate for file with TMDb ID: {TmdbId}", tmdbId);
+#pragma warning restore S6667 // Logging in a catch clause should pass the caught exception as a parameter.
+
                                 }
                                 else
                                 {
@@ -310,7 +338,7 @@ public class ContextService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error updating status for TMDb ID: {TmdbId}", tmdbId);
-            throw;
+            return false;
         }
     }
 }

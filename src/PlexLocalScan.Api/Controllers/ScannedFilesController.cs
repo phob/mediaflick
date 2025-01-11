@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -16,7 +17,9 @@ namespace PlexLocalScan.Api.Controllers;
 [Produces("application/json")]
 [ApiExplorerSettings(GroupName = "v1")]
 [Description("Manages scanned media files and their processing status")]
-public class ScannedFilesController(
+#pragma warning disable CA1515 // Consider making public types internal
+public sealed class ScannedFilesController(
+#pragma warning restore CA1515 // Consider making public types internal
     ILogger<ScannedFilesController> logger,
     ISymlinkRecreationService symlinkRecreationService,
     ICleanupHandler cleanupHandler,
@@ -45,7 +48,7 @@ public class ScannedFilesController(
             "Getting scanned files. IDs: {Ids}, Page: {Page}, PageSize: {PageSize}, Status: {Status}, MediaType: {MediaType}, SearchTerm: {SearchTerm}, SortBy: {SortBy}, SortOrder: {SortOrder}",
             ids != null ? string.Join(",", ids) : "all", page, pageSize, filter.Status, filter.MediaType, filter.SearchTerm, filter.SortBy, filter.SortOrder);
 
-        var query = context.ScannedFiles.AsQueryable();
+        IQueryable<ScannedFile> query = context.ScannedFiles.AsQueryable();
 
         // Apply ID filter if provided
         if (ids != null && ids.Length > 0)
@@ -66,47 +69,47 @@ public class ScannedFilesController(
 
         if (!string.IsNullOrEmpty(filter.SearchTerm))
         {
-            var searchTerm = filter.SearchTerm.ToLower();
+            string searchTerm = filter.SearchTerm.ToUpperInvariant();
             query = query.Where(f =>
-                EF.Functions.Like(f.SourceFile.ToLower(), $"%{searchTerm}%") ||
-                (f.DestFile != null && EF.Functions.Like(f.DestFile.ToLower(), $"%{searchTerm}%")));
+                EF.Functions.Like(f.SourceFile.ToUpperInvariant(), $"%{searchTerm}%") ||
+                f.DestFile != null && EF.Functions.Like(f.DestFile.ToUpperInvariant(), $"%{searchTerm}%"));
         }
 
         // Apply sorting
-        query = filter.SortBy?.ToLower() switch
+        query = filter.SortBy?.ToUpperInvariant() switch
         {
-            "createdat" => filter.SortOrder?.ToLower() == "desc"
+            "createdat" => filter.SortOrder?.ToUpperInvariant() == "desc"
                 ? query.OrderByDescending(f => f.CreatedAt)
                 : query.OrderBy(f => f.CreatedAt),
-            "updatedat" => filter.SortOrder?.ToLower() == "desc"
+            "updatedat" => filter.SortOrder?.ToUpperInvariant() == "desc"
                 ? query.OrderByDescending(f => f.UpdatedAt)
                 : query.OrderBy(f => f.UpdatedAt),
-            "sourcefile" => filter.SortOrder?.ToLower() == "desc"
+            "sourcefile" => filter.SortOrder?.ToUpperInvariant() == "desc"
                 ? query.OrderByDescending(f => f.SourceFile)
                 : query.OrderBy(f => f.SourceFile),
-            "destfile" => filter.SortOrder?.ToLower() == "desc"
+            "destfile" => filter.SortOrder?.ToUpperInvariant() == "desc"
                 ? query.OrderByDescending(f => f.DestFile)
                 : query.OrderBy(f => f.DestFile),
-            "status" => filter.SortOrder?.ToLower() == "desc"
+            "status" => filter.SortOrder?.ToUpperInvariant() == "desc"
                 ? query.OrderByDescending(f => f.Status)
                 : query.OrderBy(f => f.Status),
-            "mediatype" => filter.SortOrder?.ToLower() == "desc"
+            "mediatype" => filter.SortOrder?.ToUpperInvariant() == "desc"
                 ? query.OrderByDescending(f => f.MediaType)
                 : query.OrderBy(f => f.MediaType),
-            "seasonnumber" => filter.SortOrder?.ToLower() == "desc"
+            "seasonnumber" => filter.SortOrder?.ToUpperInvariant() == "desc"
                 ? query.OrderByDescending(f => f.SeasonNumber)
                 : query.OrderBy(f => f.SeasonNumber),
-            "episodenumber" => filter.SortOrder?.ToLower() == "desc"
+            "episodenumber" => filter.SortOrder?.ToUpperInvariant() == "desc"
                 ? query.OrderByDescending(f => f.EpisodeNumber)
                 : query.OrderBy(f => f.EpisodeNumber),
-            "title" => filter.SortOrder?.ToLower() == "desc"
+            "title" => filter.SortOrder?.ToUpperInvariant() == "desc"
                 ? query.OrderByDescending(f => f.Title)
                 : query.OrderBy(f => f.Title),
             _ => query.OrderBy(f => f.SourceFile) // Default sorting
         };
 
-        var totalItems = await query.CountAsync();
-        var items = await query
+        int totalItems = await query.CountAsync();
+        List<ScannedFile> items = await query
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -133,7 +136,7 @@ public class ScannedFilesController(
     [ProducesResponseType(typeof(IEnumerable<object>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<object>>> GetTmdbIdsAndTitles([FromQuery] ScannedFileFilter filter)
     {
-        var query = context.ScannedFiles.AsQueryable();
+        IQueryable<ScannedFile> query = context.ScannedFiles.AsQueryable();
         
         query = query.Where(f => f.Status == FileStatus.Success);
         
@@ -144,8 +147,8 @@ public class ScannedFilesController(
 
         if (!string.IsNullOrEmpty(filter.SearchTerm))
         {
-            var searchTerm = filter.SearchTerm.ToLower();
-            query = query.Where(f => f.Title != null && EF.Functions.Like(f.Title.ToLower(), $"%{searchTerm}%"));
+            string searchTerm = filter.SearchTerm.ToUpperInvariant();
+            query = query.Where(f => f.Title != null && EF.Functions.Like(f.Title.ToUpperInvariant(), $"%{searchTerm}%"));
         }
 
 
@@ -165,7 +168,7 @@ public class ScannedFilesController(
     public async Task<ActionResult<ScannedFileDto>> GetScannedFile(int id)
     {
         logger.LogInformation("Getting scanned file with ID: {Id}", id);
-        var scannedFile = await context.ScannedFiles.FindAsync(id);
+        ScannedFile? scannedFile = await context.ScannedFiles.FindAsync(id);
 
         if (scannedFile == null)
         {
@@ -223,7 +226,7 @@ public class ScannedFilesController(
         {
             logger.LogInformation("Updating scanned file {Id} with request: {@Request}", id, request);
 
-            var scannedFile = await context.ScannedFiles.FindAsync(id);
+            ScannedFile? scannedFile = await context.ScannedFiles.FindAsync(id);
 
             if (scannedFile == null)
             {
@@ -233,13 +236,22 @@ public class ScannedFilesController(
 
             // Update only the provided values
             if (request.TmdbId.HasValue)
+            {
                 scannedFile.TmdbId = request.TmdbId.Value;
+            }
+
 
             if (request.SeasonNumber.HasValue)
+            {
                 scannedFile.SeasonNumber = request.SeasonNumber.Value;
+            }
+
 
             if (request.EpisodeNumber.HasValue)
+            {
                 scannedFile.EpisodeNumber = request.EpisodeNumber.Value;
+            }
+
 
             scannedFile.UpdatedAt = DateTime.UtcNow;
             scannedFile.UpdateToVersion++;
@@ -270,7 +282,7 @@ public class ScannedFilesController(
     {
         try
         {
-            var scannedFile = await context.ScannedFiles.FindAsync(id);
+            ScannedFile? scannedFile = await context.ScannedFiles.FindAsync(id);
             if (scannedFile == null)
             {
                 logger.LogWarning("Scanned file with ID {Id} not found", id);
@@ -280,7 +292,7 @@ public class ScannedFilesController(
             await context.SaveChangesAsync();
 
             // Attempt to recreate the symlink with the new information
-            var success = await symlinkRecreationService.RecreateSymlinkIfNeededAsync(scannedFile);
+            bool success = await symlinkRecreationService.RecreateSymlinkIfNeededAsync(scannedFile);
             if (!success)
             {
                 logger.LogError("Failed to recreate symlink for scanned file {Id}", id);
@@ -317,26 +329,30 @@ public class ScannedFilesController(
 
         logger.LogInformation("Deleting multiple scanned files. IDs: {@Ids}", ids);
 
-        var filesToDelete = await context.ScannedFiles
+        List<ScannedFile> filesToDelete = await context.ScannedFiles
             .Where(f => ids.Contains(f.Id))
             .ToListAsync();
 
         if (filesToDelete.Count > 0)
         {
             // Group files by media type for efficient cleanup
-            var filesByMediaType = filesToDelete.GroupBy(f => f.MediaType);
+            IEnumerable<IGrouping<MediaType?, ScannedFile>> filesByMediaType = filesToDelete.GroupBy(f => f.MediaType);
             
-            foreach (var mediaTypeGroup in filesByMediaType)
+            foreach (IGrouping<MediaType?, ScannedFile> mediaTypeGroup in filesByMediaType)
             {
-                if (!mediaTypeGroup.Key.HasValue) continue;
-                
-                var folderMapping = plexOptions.Value.FolderMappings
+                if (!mediaTypeGroup.Key.HasValue)
+                {
+                    continue;
+                }
+
+
+                FolderMappingOptions? folderMapping = plexOptions.Value.FolderMappings
                     .FirstOrDefault(fm => fm.MediaType == mediaTypeGroup.Key);
 
                 if (folderMapping != null)
                 {
                     // Delete all destination files for this media type
-                    foreach (var file in mediaTypeGroup)
+                    foreach (ScannedFile? file in mediaTypeGroup)
                     {
                         if (!string.IsNullOrEmpty(file.DestFile))
                         {
@@ -363,7 +379,7 @@ public class ScannedFilesController(
     [HttpPost("recreate-symlinks")]
     public async Task<IActionResult> RecreateSymlinks()
     {
-        var successCount = await symlinkRecreationService.RecreateAllSymlinksAsync();
+        int successCount = await symlinkRecreationService.RecreateAllSymlinksAsync();
         return Ok(new { SuccessCount = successCount });
     }
 }

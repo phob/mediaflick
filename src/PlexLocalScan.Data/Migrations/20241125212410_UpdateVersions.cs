@@ -2,39 +2,38 @@
 
 #nullable disable
 
-namespace PlexLocalScan.Data.Migrations
+namespace PlexLocalScan.Data.Migrations;
+
+/// <inheritdoc />
+public partial class UpdateVersions : Migration
 {
     /// <inheritdoc />
-    public partial class UpdateVersions : Migration
+    protected override void Up(MigrationBuilder migrationBuilder)
     {
-        /// <inheritdoc />
-        protected override void Up(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.AddColumn<int>(
-                name: "UpdateToVersion",
-                table: "ScannedFiles",
-                type: "INTEGER",
-                nullable: false,
-                defaultValue: 0);
+        migrationBuilder.AddColumn<int>(
+            name: "UpdateToVersion",
+            table: "ScannedFiles",
+            type: "INTEGER",
+            nullable: false,
+            defaultValue: 0);
 
-            migrationBuilder.AddColumn<int>(
-                name: "VersionUpdated",
-                table: "ScannedFiles",
-                type: "INTEGER",
-                nullable: false,
-                defaultValue: 0);
-        }
+        migrationBuilder.AddColumn<int>(
+            name: "VersionUpdated",
+            table: "ScannedFiles",
+            type: "INTEGER",
+            nullable: false,
+            defaultValue: 0);
+    }
 
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.DropColumn(
-                name: "UpdateToVersion",
-                table: "ScannedFiles");
+    /// <inheritdoc />
+    protected override void Down(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.DropColumn(
+            name: "UpdateToVersion",
+            table: "ScannedFiles");
 
-            migrationBuilder.DropColumn(
-                name: "VersionUpdated",
-                table: "ScannedFiles");
-        }
+        migrationBuilder.DropColumn(
+            name: "VersionUpdated",
+            table: "ScannedFiles");
     }
 }

@@ -4,7 +4,7 @@ using PlexLocalScan.Shared.Services;
 
 namespace PlexLocalScan.Shared.Interfaces;
 
-public interface IMediaLookupService
+public interface IMediaSearchService
 {
     Task<IEnumerable<MediaSearchResult>> SearchMovieTmdbIdsAsync(string title);
     Task<IEnumerable<MediaSearchResult>> SearchTvShowTmdbIdsAsync(string title);

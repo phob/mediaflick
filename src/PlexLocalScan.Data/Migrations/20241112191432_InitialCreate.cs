@@ -24,10 +24,7 @@ public partial class InitialCreate : Migration
                 CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
                 UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: true)
             },
-            constraints: table =>
-            {
-                table.PrimaryKey("PK_ScannedFiles", x => x.Id);
-            });
+            constraints: table => table.PrimaryKey("PK_ScannedFiles", x => x.Id));
 
         migrationBuilder.CreateIndex(
             name: "IX_ScannedFiles_DestFile",
@@ -43,9 +40,6 @@ public partial class InitialCreate : Migration
     }
 
     /// <inheritdoc />
-    protected override void Down(MigrationBuilder migrationBuilder)
-    {
-        migrationBuilder.DropTable(
+    protected override void Down(MigrationBuilder migrationBuilder) => migrationBuilder.DropTable(
             name: "ScannedFiles");
-    }
 }

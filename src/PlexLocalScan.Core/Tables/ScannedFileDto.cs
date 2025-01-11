@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+
 namespace PlexLocalScan.Core.Tables;
 
 public class ScannedFileDto
@@ -10,7 +12,7 @@ public class ScannedFileDto
     public string? ImdbId { get; init; }
     public string? Title { get; init; }
     public int? Year { get; init; }
-    public List<string>? Genres { get; init; }
+    public Collection<string>? Genres { get; init; }
     public int? SeasonNumber { get; init; }
     public int? EpisodeNumber { get; init; }
     public string Status { get; init; } = string.Empty;
@@ -27,31 +29,32 @@ public class ScannedFileDto
             : null;
     public static string? ConvertGenresToString(IEnumerable<string>? genres)
     {
-        if (genres == null) return null;
-        var enumerable = genres as string[] ?? genres.ToArray();
+        if (genres == null)
+        {
+            return null;
+        }
+
+        string[] enumerable = genres as string[] ?? [.. genres];
         return enumerable.Length != 0 ? string.Join(GenreSeparator, enumerable) : null;
     }
 
-    public static ScannedFileDto FromScannedFile(ScannedFile file)
+    public static ScannedFileDto FromScannedFile(ScannedFile file) => new ScannedFileDto
     {
-        return new ScannedFileDto
-        {
-            Id = file.Id,
-            SourceFile = file.SourceFile,
-            DestFile = file.DestFile,
-            MediaType = file.MediaType?.ToString(),
-            TmdbId = file.TmdbId,
-            ImdbId = file.ImdbId,
-            Title = file.Title,
-            Year = file.Year,
-            Genres = ConvertStringToGenres(file.Genres)?.ToList(),
-            SeasonNumber = file.SeasonNumber,
-            EpisodeNumber = file.EpisodeNumber,
-            Status = file.Status.ToString(),
-            CreatedAt = file.CreatedAt,
-            UpdatedAt = file.UpdatedAt,
-            VersionUpdated = file.VersionUpdated,
-            UpdateToVersion = file.UpdateToVersion
-        };
-    }
+        Id = file.Id,
+        SourceFile = file.SourceFile,
+        DestFile = file.DestFile,
+        MediaType = file.MediaType?.ToString(),
+        TmdbId = file.TmdbId,
+        ImdbId = file.ImdbId,
+        Title = file.Title,
+        Year = file.Year,
+        Genres = ConvertStringToGenres(file.Genres) is IEnumerable<string> genres ? new Collection<string>(genres.ToList()) : null,
+        SeasonNumber = file.SeasonNumber,
+        EpisodeNumber = file.EpisodeNumber,
+        Status = file.Status.ToString(),
+        CreatedAt = file.CreatedAt,
+        UpdatedAt = file.UpdatedAt,
+        VersionUpdated = file.VersionUpdated,
+        UpdateToVersion = file.UpdateToVersion
+    };
 } 

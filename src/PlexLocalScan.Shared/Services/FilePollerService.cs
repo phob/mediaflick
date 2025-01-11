@@ -12,45 +12,38 @@ using PlexLocalScan.FileTracking.Services;
 
 namespace PlexLocalScan.Shared.Services;
 
-public class FilePollerService : BackgroundService
+public class FilePollerService(
+    ILogger<FilePollerService> logger,
+    IPlexHandler plexHandler,
+    IServiceScopeFactory serviceScopeFactory,
+    IOptions<PlexOptions> options) : BackgroundService
 {
-    private readonly ILogger<FilePollerService> _logger;
-    private readonly IPlexHandler _plexHandler;
-    private readonly PlexOptions _options;
     private readonly ConcurrentDictionary<string, HashSet<string>> _knownFolders = new();
-    private readonly IServiceScopeFactory _serviceScopeFactory;
-
-    public FilePollerService(
-        ILogger<FilePollerService> logger,
-        IPlexHandler plexHandler,
-        IServiceScopeFactory serviceScopeFactory,
-        IOptions<PlexOptions> options)
-    {
-        _logger = logger;
-        _plexHandler = plexHandler;
-        _options = options.Value;
-        _serviceScopeFactory = serviceScopeFactory;
-
-        // Initialize known folders dictionary
-        foreach (var mapping in _options.FolderMappings)
-        {
-            _knownFolders[mapping.SourceFolder] = [.. Directory.GetDirectories(mapping.SourceFolder)];
-        }
-    }
+    private readonly PlexOptions _plexOptions = options.Value;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("FilePollerService started");
-        foreach (var mapping in _options.FolderMappings)
+        logger.LogInformation("FilePollerService started");
+        // Initialize known folders dictionary
+        foreach (FolderMappingOptions mapping in _plexOptions.FolderMappings)
         {
-            _logger.LogInformation("Watching folder: {sourceFolder} with Type: {mediaType}", mapping.SourceFolder, mapping.MediaType);
+            logger.LogInformation("Watching folder: {SourceFolder} with Type: {MediaType}", mapping.SourceFolder, mapping.MediaType);
+            if (Directory.Exists(mapping.SourceFolder))
+            {
+                _knownFolders[mapping.SourceFolder] = [.. Directory.GetDirectories(mapping.SourceFolder)];
+            }
+        }
+
+        foreach (FolderMappingOptions mapping in _plexOptions.FolderMappings)
+        {
+            logger.LogInformation("Watching folder: {SourceFolder} with Type: {MediaType}", mapping.SourceFolder, mapping.MediaType);
         }
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
                 await ProcessAllMappingsAsync(stoppingToken);
-                await Task.Delay(TimeSpan.FromSeconds(_options.PollingInterval), stoppingToken);
+                await Task.Delay(TimeSpan.FromSeconds(_plexOptions.PollingInterval), stoppingToken);
             }
             catch (OperationCanceledException)
             {
@@ -59,7 +52,7 @@ public class FilePollerService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while monitoring folders");
+                logger.LogError(ex, "Error occurred while monitoring folders");
                 try
                 {
                     await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
@@ -72,25 +65,25 @@ public class FilePollerService : BackgroundService
             }
         }
 
-        _logger.LogInformation("FilePollerService shutting down");
+        logger.LogInformation("FilePollerService shutting down");
     }
 
     private async Task ProcessAllMappingsAsync(CancellationToken stoppingToken)
     {
-        using var scope = _serviceScopeFactory.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<PlexScanContext>();
-        var cleanupHandler = scope.ServiceProvider.GetRequiredService<ICleanupHandler>();
+        using IServiceScope scope = serviceScopeFactory.CreateScope();
+        PlexScanContext dbContext = scope.ServiceProvider.GetRequiredService<PlexScanContext>();
+        ICleanupHandler cleanupHandler = scope.ServiceProvider.GetRequiredService<ICleanupHandler>();
         
         // Create a list to store all files that need to be deleted from the database
         var filesToDelete = new List<ScannedFile>();
         
-        foreach (var folderMapping in _options.FolderMappings)
+        foreach (FolderMappingOptions folderMapping in _plexOptions.FolderMappings)
         {
-            var folderMappingSourcePath = Path.GetFullPath(folderMapping.SourceFolder);
+            string folderMappingSourcePath = Path.GetFullPath(folderMapping.SourceFolder);
 
             if (!Directory.Exists(folderMappingSourcePath))
             {
-                _logger.LogWarning("Source folder no longer exists: {SourceFolder}", folderMappingSourcePath);
+                logger.LogWarning("Source folder no longer exists: {SourceFolder}", folderMappingSourcePath);
                 await cleanupHandler.CleanupDeletedSourceFolderAsync(folderMappingSourcePath);
                 continue;
             }
@@ -98,12 +91,12 @@ public class FilePollerService : BackgroundService
             var currentSourceSubFolders = new HashSet<string>(Directory.GetDirectories(folderMappingSourcePath));
             
             // Check for deleted folders
-            if (_knownFolders.TryGetValue(folderMapping.SourceFolder, out var previousFolders))
+            if (_knownFolders.TryGetValue(folderMapping.SourceFolder, out HashSet<string>? previousFolders))
             {
                 var deletedFolders = previousFolders.Except(currentSourceSubFolders).ToList();
-                foreach (var deletedFolder in deletedFolders)
+                foreach (string deletedFolder in deletedFolders)
                 {
-                    _logger.LogInformation("Folder was deleted: {FolderPath}", deletedFolder);
+                    logger.LogInformation("Folder was deleted: {FolderPath}", deletedFolder);
                     await cleanupHandler.CleanupDeletedSourceFolderAsync(deletedFolder);
                 }
             }
@@ -120,7 +113,7 @@ public class FilePollerService : BackgroundService
             var deletedFiles = filesAlreadyInDb.Where(trackedFile => !File.Exists(trackedFile.SourceFile)).ToList();
             foreach (var trackedFile in deletedFiles)
             {
-                _logger.LogInformation("Source file was deleted: {SourceFile}", trackedFile.SourceFile);
+                logger.LogInformation("Source file was deleted: {SourceFile}", trackedFile.SourceFile);
                     
                 // Delete destination file if it exists
                 if (!string.IsNullOrEmpty(trackedFile.DestFile) && File.Exists(trackedFile.DestFile))
@@ -128,11 +121,11 @@ public class FilePollerService : BackgroundService
                     try
                     {
                         File.Delete(trackedFile.DestFile);
-                        _logger.LogInformation("Deleted destination file: {DestFile}", trackedFile.DestFile);
+                        logger.LogInformation("Deleted destination file: {DestFile}", trackedFile.DestFile);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Error deleting destination file: {DestFile}", trackedFile.DestFile);
+                        logger.LogError(ex, "Error deleting destination file: {DestFile}", trackedFile.DestFile);
                     }
                 }
 
@@ -140,25 +133,6 @@ public class FilePollerService : BackgroundService
                 filesToDelete.Add(new ScannedFile { Id = trackedFile.Id });
             }
 
-            // Process new folders
-            var processedFolders = new HashSet<string>(
-                filesAlreadyInDb.Select(f => Path.GetDirectoryName(f.SourceFile)!)
-            );
-
-            var foldersToProcess = currentSourceSubFolders
-                .Where(folder => !processedFolders.Contains(folder));
-/*
-            // Process folders in parallel with a maximum degree of parallelism
-            await Parallel.ForEachAsync(
-                foldersToProcess,
-                new ParallelOptions 
-                { 
-                    MaxDegreeOfParallelism = 3,
-                    CancellationToken = stoppingToken 
-                },
-                async (folder, ct) => await ProcessNewFolderAsync(folder, folderMapping, ct)
-            );
-*/
             // Scan for untracked files
             await ScanForUntrackedFilesAsync(
                 folderMappingSourcePath, 
@@ -184,56 +158,22 @@ public class FilePollerService : BackgroundService
         }
     }
 
-    private async Task ProcessNewFolderAsync(string newFolder, FolderMappingOptions mapping, CancellationToken stoppingToken)
-    {
-        try
-        {
-            _logger.LogInformation("New folder detected: {FolderPath}", newFolder);
-            _knownFolders[mapping.SourceFolder].Add(newFolder);
-            
-            await Task.Delay(_options.ProcessNewFolderDelay, stoppingToken);
-
-            if (!Directory.EnumerateFileSystemEntries(newFolder).Any())
-            {
-                _logger.LogInformation("Folder is empty, skipping: {FolderPath}", newFolder);
-                return;
-            }
-
-            var destinationFolder = Path.Combine(mapping.DestinationFolder);
-            await ProcessFilesInFolderAsync(newFolder, destinationFolder, mapping);
-            
-            await _plexHandler.AddFolderForScanningAsync(destinationFolder, mapping.DestinationFolder);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error processing folder: {Folder}", newFolder);
-        }
-    }
-
-    private async Task ProcessFilesInFolderAsync(string sourceFolder, string destinationFolder, FolderMappingOptions mapping)
-    {
-        foreach (var file in Directory.EnumerateFiles(sourceFolder, "*.*", SearchOption.AllDirectories))
-        {
-            await ProcessSingleFileAsync(file, destinationFolder, mapping);
-        }
-    }
-
     private async Task ProcessSingleFileAsync(string file, string destinationFolder, FolderMappingOptions mapping)
     {
         try 
         {
-            using var scope = _serviceScopeFactory.CreateScope();
-            var contextService = scope.ServiceProvider.GetRequiredService<IContextService>();
-            var mediaDetectionService = scope.ServiceProvider.GetRequiredService<IMediaDetectionService>();
-            var symlinkHandler = scope.ServiceProvider.GetRequiredService<ISymlinkHandler>();
-            
-            var trackedFile = await contextService.AddStatusAsync(file, null, mapping.MediaType);
+            using IServiceScope scope = serviceScopeFactory.CreateScope();
+            IContextService contextService = scope.ServiceProvider.GetRequiredService<IContextService>();
+            IMediaDetectionService mediaDetectionService = scope.ServiceProvider.GetRequiredService<IMediaDetectionService>();
+            ISymlinkHandler symlinkHandler = scope.ServiceProvider.GetRequiredService<ISymlinkHandler>();
+
+            ScannedFile? trackedFile = await contextService.AddStatusAsync(file, null, mapping.MediaType);
             if (trackedFile == null)
             {
                 return;
             }
 
-            var mediaInfo = await mediaDetectionService.DetectMediaAsync(file, mapping.MediaType);
+            Core.Media.MediaInfo? mediaInfo = await mediaDetectionService.DetectMediaAsync(file, mapping.MediaType);
             if (await symlinkHandler.CreateSymlinksAsync(file, destinationFolder, mediaInfo, mapping.MediaType))
             {
                 _ = await contextService.UpdateStatusAsync(file, null, mediaInfo, FileStatus.Success);
@@ -241,7 +181,7 @@ public class FilePollerService : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error processing file: {File}", file);
+            logger.LogError(ex, "Error processing file: {File}", file);
         }
     }
 
@@ -254,7 +194,7 @@ public class FilePollerService : BackgroundService
         try
         {
             // Get all files in the source folder recursively
-            var allFiles = Directory.EnumerateFiles(sourceFolder, "*.*", SearchOption.AllDirectories);
+            IEnumerable<string> allFiles = Directory.EnumerateFiles(sourceFolder, "*.*", SearchOption.AllDirectories);
             
             // Process files in batches to avoid memory pressure
             const int batchSize = 100;
@@ -265,13 +205,13 @@ public class FilePollerService : BackgroundService
 
             foreach (var folderGroup in untrackedFiles)
             {
-                _logger.LogInformation("Processing untracked files in folder: {Folder}", folderGroup.Key);
-                var destinationFolder = Path.Combine(mapping.DestinationFolder);
-                var files = folderGroup.Select(x => x.File);
+                logger.LogInformation("Processing untracked files in folder: {Folder}", folderGroup.Key);
+                string destinationFolder = Path.Combine(mapping.DestinationFolder);
+                IEnumerable<string> files = folderGroup.Select(x => x.File);
 
-                foreach (var batch in files.Chunk(batchSize))
+                foreach (string[] batch in files.Chunk(batchSize))
                 {
-                    foreach (var file in batch)
+                    foreach (string? file in batch)
                     {
                         await ProcessSingleFileAsync(file, destinationFolder, mapping);
                     }
@@ -279,18 +219,18 @@ public class FilePollerService : BackgroundService
                 }
 
                 // Trigger Plex scan after processing each folder
-                await _plexHandler.AddFolderForScanningAsync(destinationFolder, mapping.DestinationFolder);
+                await plexHandler.AddFolderForScanningAsync(destinationFolder, mapping.DestinationFolder);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error scanning for untracked files in folder: {Folder}", sourceFolder);
+            logger.LogError(ex, "Error scanning for untracked files in folder: {Folder}", sourceFolder);
         }
     }
 
     public override Task StopAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("FilePollerService stopping, clearing known folders");
+        logger.LogInformation("FilePollerService stopping, clearing known folders");
         _knownFolders.Clear();
         return base.StopAsync(cancellationToken);
     }
