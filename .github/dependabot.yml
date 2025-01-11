@@ -9,8 +9,10 @@ updates:
     directory: "/mediaflick" # Location of package manifests
     schedule:
       interval: "daily"
+    target-branch: "working"
   - package-ecosystem: "dotnet-sdk" # See documentation for possible values
     directory: "/src" # Location of package manifests
     schedule:
       interval: "daily"
+    target-branch: "working"
 

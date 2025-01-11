@@ -302,7 +302,7 @@ internal static class ScannedFilesController
                     {
                         if (!string.IsNullOrEmpty(file.DestFile))
                         {
-                            System.IO.File.Delete(file.DestFile);
+                            File.Delete(file.DestFile);
                         }
                         
                         // Notify clients about each deletion

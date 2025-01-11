@@ -1,6 +1,6 @@
 import Image from "next/image"
 
-import { Card, CardBody, CardHeader, Chip, Spinner } from "@nextui-org/react"
+import { Card, CardBody, CardHeader, Chip, Progress, Spinner } from "@nextui-org/react"
 
 import type { MediaInfo, MediaType } from "@/lib/api/types"
 import { MediaType as MediaTypeEnum } from "@/lib/api/types"
@@ -92,21 +92,28 @@ export function MediaCard({ media, mediaType }: MediaCardProps) {
             )}
             {mediaType === MediaTypeEnum.TvShows && media.mediaInfo?.episodeCount && (
               <div className="mt-2">
-                <div className="relative h-4 w-full overflow-hidden rounded-full bg-default-200/20">
-                  <div
-                    className={`absolute h-full ${
-                      media.mediaInfo.episodeCountScanned === media.mediaInfo.episodeCount
-                        ? "bg-primary-500"
-                        : "bg-danger-500"
-                    }`}
-                    style={{
-                      width: `${((media.mediaInfo.episodeCountScanned || 0) / media.mediaInfo.episodeCount) * 100}%`,
-                    }}
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
-                    {media.mediaInfo.episodeCountScanned || 0} / {media.mediaInfo.episodeCount}
-                  </div>
-                </div>
+                <Progress
+                  size="lg"
+                  radius="full"
+                  classNames={{
+                    base: "max-w-full",
+                    track: "bg-default-200/20 drop-shadow-md border border-default-200/20",
+                    label: "tracking-wider font-medium text-default-800",
+                    value: "text-[10px] font-bold text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]",
+                  }}
+                  color={
+                    (media.mediaInfo?.episodeCountScanned ?? 0) >= media.mediaInfo.episodeCount
+                      ? "primary"
+                      : "danger"
+                  }
+                  value={((media.mediaInfo?.episodeCountScanned ?? 0) / media.mediaInfo.episodeCount) * 100}
+                  showValueLabel={true}
+                  valueLabel={`${media.mediaInfo?.episodeCountScanned ?? 0} / ${media.mediaInfo.episodeCount}`}
+                  isStriped={
+                    (media.mediaInfo?.episodeCountScanned ?? 0) > 0 &&
+                    (media.mediaInfo?.episodeCountScanned ?? 0) < media.mediaInfo.episodeCount
+                  }
+                />
               </div>
             )}
           </div>
