@@ -1,4 +1,3 @@
-using PlexLocalScan.Api.Controllers;
 using PlexLocalScan.Api.Routing;
 
 namespace PlexLocalScan.Api.Endpoints;

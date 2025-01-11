@@ -1,5 +1,3 @@
-using System.ComponentModel;
-using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -12,37 +10,18 @@ using PlexLocalScan.Shared.Options;
 
 namespace PlexLocalScan.Api.Controllers;
 
-[ApiController]
-[Route("api/[controller]")]
-[Produces("application/json")]
-[ApiExplorerSettings(GroupName = "v1")]
-[Description("Manages scanned media files and their processing status")]
-#pragma warning disable CA1515 // Consider making public types internal
-public sealed class ScannedFilesController(
-#pragma warning restore CA1515 // Consider making public types internal
-    ILogger<ScannedFilesController> logger,
-    ISymlinkRecreationService symlinkRecreationService,
-    ICleanupHandler cleanupHandler,
-    PlexScanContext context,
-    IOptions<PlexOptions> plexOptions,
-    INotificationService notificationService) : ControllerBase
+/// <summary>
+/// Endpoint implementations for scanned files functionality
+/// </summary>
+internal static class ScannedFilesController
 {
-    /// <summary>
-    /// Retrieves a paged list of scanned files with optional filtering, sorting, and specific IDs
-    /// </summary>
-    /// <param name="filter">Filter criteria for the search</param>
-    /// <param name="ids">Optional array of specific scanned file IDs to retrieve</param>
-    /// <param name="page">Page number (1-based)</param>
-    /// <param name="pageSize">Number of items per page</param>
-    /// <response code="200">Returns the paged list of scanned files</response>
-    [HttpGet]
-    [HttpPost]
-    [ProducesResponseType(typeof(PagedResult<ScannedFileDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<PagedResult<ScannedFileDto>>> GetScannedFiles(
+    internal static async Task<IResult> GetScannedFiles(
         [FromQuery] ScannedFileFilter filter,
-        [FromBody] int[]? ids = null,
+        [FromBody] int[]? ids,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10)
+        [FromQuery] int pageSize = 10,
+        PlexScanContext context = null!,
+        ILogger<Program> logger = null!)
     {
         logger.LogInformation(
             "Getting scanned files. IDs: {Ids}, Page: {Page}, PageSize: {PageSize}, Status: {Status}, MediaType: {MediaType}, SearchTerm: {SearchTerm}, SortBy: {SortBy}, SortOrder: {SortOrder}",
@@ -71,8 +50,8 @@ public sealed class ScannedFilesController(
         {
             string searchTerm = filter.SearchTerm.ToUpperInvariant();
             query = query.Where(f =>
-                EF.Functions.Like(f.SourceFile.ToUpperInvariant(), $"%{searchTerm}%") ||
-                f.DestFile != null && EF.Functions.Like(f.DestFile.ToUpperInvariant(), $"%{searchTerm}%"));
+                EF.Functions.Like(f.SourceFile.ToUpper(), $"%{searchTerm}%") ||
+                f.DestFile != null && EF.Functions.Like(f.DestFile.ToUpper(), $"%{searchTerm}%"));
         }
 
         // Apply sorting
@@ -118,7 +97,7 @@ public sealed class ScannedFilesController(
             "Retrieved {Count} scanned files. Total items: {TotalItems}, Total pages: {TotalPages}",
             items.Count, totalItems, (int)Math.Ceiling(totalItems / (double)pageSize));
 
-        return Ok(new PagedResult<ScannedFileDto>
+        return Results.Ok(new PagedResult<ScannedFileDto>
         {
             Items = items.Select(ScannedFileDto.FromScannedFile).ToList(),
             TotalItems = totalItems,
@@ -128,14 +107,13 @@ public sealed class ScannedFilesController(
         });
     }
 
-    /// <summary>
-    /// Retrieves a list of unique TMDb IDs and titles for scanned files
-    /// </summary>
-    /// <response code="200">Returns the list of unique TMDb IDs and titles</response>
-    [HttpGet("tmdb-ids-and-titles")]
-    [ProducesResponseType(typeof(IEnumerable<object>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IEnumerable<object>>> GetTmdbIdsAndTitles([FromQuery] ScannedFileFilter filter)
+    internal static async Task<IResult> GetTmdbIdsAndTitles(
+        [FromQuery] ScannedFileFilter filter,
+        PlexScanContext context = null!,
+        ILogger<Program> logger = null!)
     {
+        logger.LogInformation("Getting TMDb IDs and titles with filter: {@Filter}", filter);
+        
         IQueryable<ScannedFile> query = context.ScannedFiles.AsQueryable();
         
         query = query.Where(f => f.Status == FileStatus.Success);
@@ -151,21 +129,15 @@ public sealed class ScannedFilesController(
             query = query.Where(f => f.Title != null && EF.Functions.Like(f.Title.ToUpperInvariant(), $"%{searchTerm}%"));
         }
 
-
         var tmdbIdsAndTitles = await query.Select(f => new { f.TmdbId, f.Title }).Distinct().OrderBy(f => f.Title).ToListAsync();
-        return Ok(tmdbIdsAndTitles);
+        logger.LogInformation("Retrieved {Count} unique TMDb IDs and titles", tmdbIdsAndTitles.Count);
+        return Results.Ok(tmdbIdsAndTitles);
     }
 
-    /// <summary>
-    /// Retrieves a specific scanned file by its ID
-    /// </summary>
-    /// <param name="id">The ID of the scanned file</param>
-    /// <response code="200">Returns the requested scanned file</response>
-    /// <response code="404">If the scanned file is not found</response>
-    [HttpGet("{id}")]
-    [ProducesResponseType(typeof(ScannedFileDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ScannedFileDto>> GetScannedFile(int id)
+    internal static async Task<IResult> GetScannedFile(
+        int id,
+        PlexScanContext context = null!,
+        ILogger<Program> logger = null!)
     {
         logger.LogInformation("Getting scanned file with ID: {Id}", id);
         ScannedFile? scannedFile = await context.ScannedFiles.FindAsync(id);
@@ -173,20 +145,16 @@ public sealed class ScannedFilesController(
         if (scannedFile == null)
         {
             logger.LogWarning("Scanned file with ID {Id} not found", id);
-            return NotFound();
+            return Results.NotFound();
         }
 
         logger.LogInformation("Retrieved scanned file: {@ScannedFile}", scannedFile);
-        return Ok(ScannedFileDto.FromScannedFile(scannedFile));
+        return Results.Ok(ScannedFileDto.FromScannedFile(scannedFile));
     }
 
-    /// <summary>
-    /// Retrieves statistics about scanned files, including counts by status and media type
-    /// </summary>
-    /// <response code="200">Returns the statistics for scanned files</response>
-    [HttpGet("stats")]
-    [ProducesResponseType(typeof(ScannedFileStats), StatusCodes.Status200OK)]
-    public async Task<ActionResult<ScannedFileStats>> GetStats()
+    internal static async Task<IResult> GetStats(
+        PlexScanContext context = null!,
+        ILogger<Program> logger = null!)
     {
         logger.LogInformation("Getting scanned files statistics");
 
@@ -205,22 +173,14 @@ public sealed class ScannedFilesController(
         };
 
         logger.LogInformation("Retrieved statistics: {@Stats}", stats);
-        return Ok(stats);
+        return Results.Ok(stats);
     }
 
-    /// <summary>
-    /// Updates the TMDb ID, season number, and episode number for a scanned file
-    /// </summary>
-    /// <param name="id">The ID of the scanned file to update</param>
-    /// <param name="request">The update request containing the new values</param>
-    /// <response code="200">Returns the updated scanned file</response>
-    /// <response code="404">If the scanned file is not found</response>
-    /// <response code="400">If the update request is invalid</response>
-    [HttpPatch("{id}")]
-    [ProducesResponseType(typeof(ScannedFile), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<ScannedFile>> UpdateScannedFile(int id, [FromBody] UpdateScannedFileRequest request)
+    internal static async Task<IResult> UpdateScannedFile(
+        int id,
+        [FromBody] UpdateScannedFileRequest request,
+        PlexScanContext context = null!,
+        ILogger<Program> logger = null!)
     {
         try
         {
@@ -231,7 +191,7 @@ public sealed class ScannedFilesController(
             if (scannedFile == null)
             {
                 logger.LogWarning("Scanned file with ID {Id} not found", id);
-                return NotFound();
+                return Results.NotFound();
             }
 
             // Update only the provided values
@@ -240,45 +200,35 @@ public sealed class ScannedFilesController(
                 scannedFile.TmdbId = request.TmdbId.Value;
             }
 
-
             if (request.SeasonNumber.HasValue)
             {
                 scannedFile.SeasonNumber = request.SeasonNumber.Value;
             }
-
 
             if (request.EpisodeNumber.HasValue)
             {
                 scannedFile.EpisodeNumber = request.EpisodeNumber.Value;
             }
 
-
             scannedFile.UpdatedAt = DateTime.UtcNow;
             scannedFile.UpdateToVersion++;
 
             await context.SaveChangesAsync();
             
-            return Ok(scannedFile);
+            return Results.Ok(scannedFile);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to update scanned file {Id}", id);
-            return BadRequest(new { error = "Failed to update the scanned file", details = ex.Message });
+            return Results.BadRequest(new { error = "Failed to update the scanned file", details = ex.Message });
         }
     }
 
-    /// <summary>
-    /// Recreates the symlink for a scanned file
-    /// </summary>
-    /// <param name="id">The ID of the scanned file to recreate the symlink for</param>
-    /// <response code="200">Returns the updated scanned file</response>
-    /// <response code="404">If the scanned file is not found</response>
-    /// <response code="400">If the symlink creation fails</response>
-    [HttpPatch("{id}/recreate-symlink")]
-    [ProducesResponseType(typeof(ScannedFile), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<ScannedFile>> RecreateSymlink(int id)
+    internal static async Task<IResult> RecreateSymlink(
+        int id,
+        PlexScanContext context = null!,
+        ISymlinkRecreationService symlinkRecreationService = null!,
+        ILogger<Program> logger = null!)
     {
         try
         {
@@ -286,7 +236,7 @@ public sealed class ScannedFilesController(
             if (scannedFile == null)
             {
                 logger.LogWarning("Scanned file with ID {Id} not found", id);
-                return NotFound();
+                return Results.NotFound();
             }
 
             await context.SaveChangesAsync();
@@ -296,35 +246,32 @@ public sealed class ScannedFilesController(
             if (!success)
             {
                 logger.LogError("Failed to recreate symlink for scanned file {Id}", id);
-                return BadRequest(new { error = "Failed to recreate symlink" });
+                return Results.BadRequest(new { error = "Failed to recreate symlink" });
             }
 
             // Refresh the entity from the database to get the latest version
             await context.Entry(scannedFile).ReloadAsync();
             logger.LogInformation("Successfully updated scanned file {Id}: {@ScannedFile}", id, scannedFile);
-            return Ok(scannedFile);
+            return Results.Ok(scannedFile);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to update scanned file {Id}", id);
-            return BadRequest(new { error = "Failed to update the scanned file", details = ex.Message });
+            return Results.BadRequest(new { error = "Failed to update the scanned file", details = ex.Message });
         }
     }
 
-    /// <summary>
-    /// Deletes multiple scanned files by their IDs
-    /// </summary>
-    /// <param name="ids">Array of scanned file IDs to delete</param>
-    /// <response code="200">If the scanned files were successfully deleted</response>
-    /// <response code="400">If the request is invalid</response>
-    [HttpDelete("batch")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> DeleteScannedFiles([FromBody] int[]? ids)
+    internal static async Task<IResult> DeleteScannedFiles(
+        [FromBody] int[]? ids,
+        PlexScanContext context = null!,
+        ICleanupHandler cleanupHandler = null!,
+        IOptions<PlexOptions> plexOptions = null!,
+        INotificationService notificationService = null!,
+        ILogger<Program> logger = null!)
     {
         if (ids == null || ids.Length == 0)
         {
-            return BadRequest(new { error = "No IDs provided for deletion" });
+            return Results.BadRequest(new { error = "No IDs provided for deletion" });
         }
 
         logger.LogInformation("Deleting multiple scanned files. IDs: {@Ids}", ids);
@@ -344,7 +291,6 @@ public sealed class ScannedFilesController(
                 {
                     continue;
                 }
-
 
                 FolderMappingOptions? folderMapping = plexOptions.Value.FolderMappings
                     .FirstOrDefault(fm => fm.MediaType == mediaTypeGroup.Key);
@@ -373,13 +319,16 @@ public sealed class ScannedFilesController(
         }
 
         logger.LogInformation("Successfully deleted {Count} scanned files", filesToDelete.Count);
-        return Ok(new { deletedIds = ids });
+        return Results.Ok(new { deletedIds = ids });
     }
 
-    [HttpPost("recreate-symlinks")]
-    public async Task<IActionResult> RecreateSymlinks()
+    internal static async Task<IResult> RecreateSymlinks(
+        ISymlinkRecreationService symlinkRecreationService = null!,
+        ILogger<Program> logger = null!)
     {
+        logger.LogInformation("Starting recreation of all symlinks");
         int successCount = await symlinkRecreationService.RecreateAllSymlinksAsync();
-        return Ok(new { SuccessCount = successCount });
+        logger.LogInformation("Completed recreation of symlinks. Success count: {SuccessCount}", successCount);
+        return Results.Ok(new { SuccessCount = successCount });
     }
 }

@@ -11,6 +11,7 @@ using PlexLocalScan.SignalR.Services;
 using Scalar.AspNetCore;
 using Serilog;
 using System.Text.Json.Serialization;
+using PlexLocalScan.Api.Endpoints;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -128,6 +129,9 @@ app.UseCors();
 // Map endpoints
 app.MapControllers();
 app.MapHub<ContextHub>(ContextHub.Route);
+
+// Register all API endpoints
+app.MapApiEndpoints();
 
 if (app.Environment.IsDevelopment())
 {

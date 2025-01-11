@@ -51,17 +51,17 @@ internal static class ScannedFilesRouting
             return await ScannedFilesController.GetScannedFiles(filter, null, page, pageSize, context, logger);
         };
 
-        group.MapGet("/", getScannedFilesHandler)
+        group.MapGet("/", getScannedFilesHandler as Delegate)
             .WithName("GetScannedFiles")
             .WithDescription("Retrieves a paged list of scanned files with optional filtering and sorting")
-            .Produces<PagedResult<ScannedFileDto>>(StatusCodes.Status200OK);
+            .Produces<PagedResult<ScannedFileDto>>();
 
-        group.MapGet("{id}", 
+        group.MapGet("{id:int}", 
             async (int id, [FromServices] PlexScanContext context, [FromServices] ILogger<Program> logger) => 
                 await ScannedFilesController.GetScannedFile(id, context, logger))
             .WithName("GetScannedFile")
             .WithDescription("Retrieves a specific scanned file by its ID")
-            .Produces<ScannedFileDto>(StatusCodes.Status200OK)
+            .Produces<ScannedFileDto>()
             .Produces(StatusCodes.Status404NotFound);
 
         group.MapGet("tmdb-ids-and-titles", 
@@ -80,7 +80,7 @@ internal static class ScannedFilesRouting
             })
             .WithName("GetTmdbIdsAndTitles")
             .WithDescription("Retrieves a list of unique TMDb IDs and titles for scanned files")
-            .Produces<IEnumerable<object>>(StatusCodes.Status200OK);
+            .Produces<IEnumerable<object>>();
     }
 
     private static void MapScannedFilesStatsEndpoints(RouteGroupBuilder group) => 
@@ -89,7 +89,7 @@ internal static class ScannedFilesRouting
                 await ScannedFilesController.GetStats(context, logger))
             .WithName("GetScannedFilesStats")
             .WithDescription("Retrieves statistics about scanned files, including counts by status and media type")
-            .Produces<ScannedFileStats>(StatusCodes.Status200OK);
+            .Produces<ScannedFileStats>();
 
     private static void MapScannedFilesUpdateEndpoints(RouteGroupBuilder group)
     {
@@ -98,7 +98,7 @@ internal static class ScannedFilesRouting
                 await ScannedFilesController.UpdateScannedFile(id, request, context, logger))
             .WithName("UpdateScannedFile")
             .WithDescription("Updates the TMDb ID, season number, and episode number for a scanned file")
-            .Produces<ScannedFile>(StatusCodes.Status200OK)
+            .Produces<ScannedFile>()
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status400BadRequest);
 
@@ -107,7 +107,7 @@ internal static class ScannedFilesRouting
                 await ScannedFilesController.RecreateSymlink(id, context, symlinkRecreationService, logger))
             .WithName("RecreateSymlink")
             .WithDescription("Recreates the symlink for a scanned file")
-            .Produces<ScannedFile>(StatusCodes.Status200OK)
+            .Produces<ScannedFile>()
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status400BadRequest);
 

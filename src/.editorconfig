@@ -246,6 +246,12 @@ dotnet_diagnostic.CA1040.severity = none
 # CA1062: Validate arguments of public methods
 dotnet_diagnostic.CA1062.severity = none
 
+# CA1304: Specify CultureInfo when using string.Format
+dotnet_diagnostic.CA1304.severity = none
+
+# CA1311: Avoid non-constant static fields
+dotnet_diagnostic.CA1311.severity = none
+
 # CA1711: Identifiers should not have incorrect suffix
 dotnet_diagnostic.CA1711.severity = none
 
