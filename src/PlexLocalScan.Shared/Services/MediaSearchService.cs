@@ -4,12 +4,13 @@ using PlexLocalScan.Core.Media;
 using PlexLocalScan.Core.Series;
 using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Data.Data;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace PlexLocalScan.Shared.Services;
 
 public record MediaSearchResult(int TmdbId, string Title, int? Year, string? PosterPath);
 
-public class MediaSearchService(ITmDbClientWrapper tmdbClient, ILogger<MediaSearchService> logger, PlexScanContext dbContext) : IMediaSearchService
+public class MediaSearchService(ITmDbClientWrapper tmdbClient, ILogger<MediaSearchService> logger, PlexScanContext dbContext, IMemoryCache cache) : IMediaSearchService
 {
     public async Task<IEnumerable<MediaSearchResult>> SearchMovieTmdbIdsAsync(string title)
     {
@@ -68,7 +69,7 @@ public class MediaSearchService(ITmDbClientWrapper tmdbClient, ILogger<MediaSear
         {
             return null;
         }
-
+        TMDbLib.Objects.General.ExternalIdsTvShow externalIds = await tmdbClient.GetTvShowExternalIdsAsync(tmdbId);
         // Get episodes and seasons from database
         var episodesScannedFiles = dbContext.ScannedFiles
             .Where(f => f.TmdbId == tmdbId && f.MediaType == MediaType.TvShows)
@@ -77,12 +78,16 @@ public class MediaSearchService(ITmDbClientWrapper tmdbClient, ILogger<MediaSear
 
         int episodeCount = tvShow.NumberOfEpisodes;
         int episodeCountScanned = episodesScannedFiles.Count(e => e.Status == FileStatus.Success);
+        int seasonCount = tvShow.NumberOfSeasons;
+        int seasonCountScanned = episodesScannedFiles.GroupBy(e => e.SeasonNumber).Count();
+
 
         return new MediaInfo
         {
             Title = tvShow.Name,
             Year = tvShow.FirstAirDate?.Year,
             TmdbId = tvShow.Id,
+            ImdbId = externalIds?.ImdbId,
             MediaType = MediaType.TvShows,
             PosterPath = tvShow.PosterPath,
             BackdropPath = tvShow.BackdropPath,
@@ -90,29 +95,38 @@ public class MediaSearchService(ITmDbClientWrapper tmdbClient, ILogger<MediaSear
             Status = tvShow.Status,
             Genres = tvShow.Genres.Select(g => g.Name).ToList().AsReadOnly(),
             EpisodeCount = episodeCount,
-            EpisodeCountScanned = episodeCountScanned
+            EpisodeCountScanned = episodeCountScanned,
+            SeasonCount = seasonCount,
+            SeasonCountScanned = seasonCountScanned
         };
     }
 
     public async Task<SeasonInfo?> GetTvShowSeasonMediaInfoAsync(int tmdbId, int seasonNumber, bool includeDetails = false)
     {
+        string cacheKey = $"season_{tmdbId}_{seasonNumber}";
+        if (cache.TryGetValue<SeasonInfo>(cacheKey, out SeasonInfo? cachedSeason) && cachedSeason != null)
+        {
+            return cachedSeason;
+        }
+
         TMDbLib.Objects.TvShows.TvSeason season = await tmdbClient.GetTvSeasonAsync(tmdbId, seasonNumber);
         if (season != null)
         {
             var episodes = new List<EpisodeInfo>();
             if (includeDetails)
             {
-                foreach (TMDbLib.Objects.Search.TvSeasonEpisode? episode in season.Episodes)
+                // Batch process all episodes at once instead of individual calls
+                episodes.AddRange(season.Episodes.Select(episode => new EpisodeInfo
                 {
-                    EpisodeInfo? episodeInfo = await GetTvShowEpisodeMediaInfoAsync(tmdbId, seasonNumber, episode.EpisodeNumber, includeDetails);
-                    if (episodeInfo != null)
-                    {
-                        episodes.Add(episodeInfo);
-                    }
-                }
+                    EpisodeNumber = episode.EpisodeNumber,
+                    Name = includeDetails ? episode.Name : null,
+                    Overview = includeDetails ? episode.Overview : null,
+                    StillPath = includeDetails ? episode.StillPath : null,
+                    AirDate = includeDetails ? episode.AirDate : null
+                }));
             }
 
-            return new SeasonInfo
+            var seasonInfo = new SeasonInfo
             {
                 SeasonNumber = season.SeasonNumber,
                 Name = includeDetails ? season.Name : null,
@@ -121,6 +135,10 @@ public class MediaSearchService(ITmDbClientWrapper tmdbClient, ILogger<MediaSear
                 AirDate = includeDetails ? season.AirDate : null,
                 Episodes = episodes.AsReadOnly()
             };
+
+            // Cache the season data
+            cache.Set(cacheKey, seasonInfo, TimeSpan.FromSeconds(30));
+            return seasonInfo;
         }
         return null;
     }
