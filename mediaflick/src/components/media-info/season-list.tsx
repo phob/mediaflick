@@ -96,7 +96,7 @@ export function SeasonList({ tmdbId, seasonCount = 0 }: SeasonListProps) {
   return (
     <div className="container mx-auto mt-8">
       <h2 className="mb-4 text-2xl font-bold">Seasons</h2>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4">
         {seasons.map((season) => (
           <Card key={season.SeasonNumber} className="bg-content1">
             <CardBody>
@@ -118,8 +118,18 @@ export function SeasonList({ tmdbId, seasonCount = 0 }: SeasonListProps) {
                         </div>
                       )}
                       <div>
-                        <h3 className="text-lg font-semibold">{season.Name}</h3>
-                        <p className="text-small text-default-500">{season.Episodes.length} Episodes</p>
+                        <h3 className="text-lg font-semibold text-white">{season.Name}</h3>
+                        <p className="text-small text-default-500 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
+                          {season.Episodes.length} Episodes
+                        </p>
+                        <p className="text-small text-default-500 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
+                          {season.AirDate ? new Date(season.AirDate).toLocaleDateString() : ""}
+                        </p>
+                      </div>
+                      <div className="flex-1">
+                        <p className="line-clamp-3 text-small text-default-500 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
+                          {season.Overview}
+                        </p>
                       </div>
                     </div>
                   }
@@ -141,9 +151,10 @@ export function SeasonList({ tmdbId, seasonCount = 0 }: SeasonListProps) {
                           )}
                           <div className="flex-1">
                             <h4 className="font-semibold">
-                              {episode.EpisodeNumber}. {episode.Name}
+                              {episode.EpisodeNumber}. {episode.Name} (
+                              {episode.AirDate ? new Date(episode.AirDate).toLocaleDateString() : ""})
                             </h4>
-                            <p className="line-clamp-2 text-small text-default-500">{episode.Overview}</p>
+                            <p className="line-clamp-3 text-small text-default-500">{episode.Overview}</p>
                           </div>
                         </CardBody>
                       </Card>

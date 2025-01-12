@@ -52,6 +52,8 @@ export function MediaCard({ media, mediaType }: MediaCardProps) {
       isBlurred
       isPressable
       onPress={() => router.push(`/mediainfo/${media.tmdbId}?type=${mediaType}`)}
+      aria-label={`${media.mediaInfo?.Title || media.title}${media.mediaInfo?.Year ? ` (${media.mediaInfo.Year})` : ""} - Click to view details`}
+      role="article"
     >
       {media.mediaInfo?.PosterPath && (
         <div className="absolute inset-0">
@@ -67,7 +69,13 @@ export function MediaCard({ media, mediaType }: MediaCardProps) {
       )}
       <CardHeader className="absolute z-20 flex-col items-start">
         {mediaType === MediaTypeEnum.TvShows && media.mediaInfo?.Status && (
-          <Chip size="sm" color={getStatusColor(media.mediaInfo.Status)} variant="shadow" className="mb-2 shadow-lg">
+          <Chip
+            size="sm"
+            color={getStatusColor(media.mediaInfo.Status)}
+            variant="shadow"
+            className="mb-2 shadow-lg"
+            aria-label={`Show status: ${media.mediaInfo.Status}`}
+          >
             {media.mediaInfo.Status}
           </Chip>
         )}
@@ -112,6 +120,7 @@ export function MediaCard({ media, mediaType }: MediaCardProps) {
                   value={((media.mediaInfo?.EpisodeCountScanned ?? 0) / media.mediaInfo.EpisodeCount) * 100}
                   showValueLabel={true}
                   valueLabel={`${media.mediaInfo?.EpisodeCountScanned ?? 0} / ${media.mediaInfo.EpisodeCount}`}
+                  aria-label={`Episodes scanned: ${media.mediaInfo?.EpisodeCountScanned ?? 0} out of ${media.mediaInfo.EpisodeCount} total episodes`}
                   isStriped={
                     (media.mediaInfo?.EpisodeCountScanned ?? 0) > 0 &&
                     (media.mediaInfo?.EpisodeCountScanned ?? 0) < media.mediaInfo.EpisodeCount
