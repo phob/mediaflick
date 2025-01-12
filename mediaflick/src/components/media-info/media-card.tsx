@@ -1,4 +1,5 @@
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 
 import { Card, CardBody, CardHeader, Chip, Progress, Spinner } from "@nextui-org/react"
 
@@ -42,16 +43,20 @@ const getImageUrlSync = (path: string) => {
 }
 
 export function MediaCard({ media, mediaType }: MediaCardProps) {
+  const router = useRouter()
+
   return (
     <Card
       key={media.tmdbId}
       className="group relative h-[400px] overflow-hidden border-[1px] border-transparent ring-1 ring-white/10 transition-transform duration-200 [background:linear-gradient(theme(colors.background),theme(colors.background))_padding-box,linear-gradient(to_bottom_right,rgba(255,255,255,0.2),transparent_50%)_border-box] [box-shadow:inset_-1px_-1px_1px_rgba(0,0,0,0.1),inset_1px_1px_1px_rgba(255,255,255,0.1)] before:absolute before:inset-0 before:z-10 before:bg-gradient-to-br before:from-black/10 before:via-transparent before:to-black/30 after:absolute after:inset-0 after:bg-gradient-to-tr after:from-white/5 after:via-transparent after:to-white/10 hover:scale-[1.02] hover:shadow-xl"
       isBlurred
+      isPressable
+      onPress={() => router.push(`/mediainfo/${media.tmdbId}?type=${mediaType}`)}
     >
-      {media.mediaInfo?.posterPath && (
+      {media.mediaInfo?.PosterPath && (
         <div className="absolute inset-0">
           <Image
-            src={getImageUrlSync(media.mediaInfo.posterPath)}
+            src={getImageUrlSync(media.mediaInfo.PosterPath)}
             alt={media.title}
             fill
             className="object-cover transition-all duration-200 group-hover:scale-105 group-hover:brightness-[0.80]"
@@ -61,16 +66,16 @@ export function MediaCard({ media, mediaType }: MediaCardProps) {
         </div>
       )}
       <CardHeader className="absolute z-20 flex-col items-start">
-        {mediaType === MediaTypeEnum.TvShows && media.mediaInfo?.status && (
-          <Chip size="sm" color={getStatusColor(media.mediaInfo.status)} variant="shadow" className="mb-2 shadow-lg">
-            {media.mediaInfo.status}
+        {mediaType === MediaTypeEnum.TvShows && media.mediaInfo?.Status && (
+          <Chip size="sm" color={getStatusColor(media.mediaInfo.Status)} variant="shadow" className="mb-2 shadow-lg">
+            {media.mediaInfo.Status}
           </Chip>
         )}
         <h4 className="text-xl font-medium text-white [text-shadow:0_2px_4px_rgba(0,0,0,0.8)] hover:text-white">
-          {media.mediaInfo?.title || media.title}
+          {media.mediaInfo?.Title || media.title}
         </h4>
         <p className="text-tiny text-white/80 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
-          {media.mediaInfo?.year && `(${media.mediaInfo.year})`}
+          {media.mediaInfo?.Year && `(${media.mediaInfo.Year})`}
         </p>
       </CardHeader>
       <CardBody className="[&::-webkit-scrollbar]:auto absolute bottom-0 z-20 max-h-[200px] overflow-y-auto border-t-1 border-default-600/50 bg-black/50 bg-gradient-to-t from-black/50 via-black/30 to-transparent backdrop-blur-sm dark:border-default-100/50">
@@ -80,17 +85,17 @@ export function MediaCard({ media, mediaType }: MediaCardProps) {
           </div>
         ) : media.mediaInfo ? (
           <div className="flex flex-col gap-2">
-            {media.mediaInfo.genres && media.mediaInfo.genres.length > 0 && (
+            {media.mediaInfo.Genres && media.mediaInfo.Genres.length > 0 && (
               <p className="text-tiny text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
-                {media.mediaInfo.genres.join(", ")}
+                {media.mediaInfo.Genres.join(", ")}
               </p>
             )}
-            {media.mediaInfo.summary && (
+            {media.mediaInfo.Summary && (
               <p className="line-clamp-3 text-tiny text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
-                {media.mediaInfo.summary}
+                {media.mediaInfo.Summary}
               </p>
             )}
-            {mediaType === MediaTypeEnum.TvShows && media.mediaInfo?.episodeCount && (
+            {mediaType === MediaTypeEnum.TvShows && media.mediaInfo?.EpisodeCount && (
               <div className="mt-2">
                 <Progress
                   size="lg"
@@ -102,16 +107,14 @@ export function MediaCard({ media, mediaType }: MediaCardProps) {
                     value: "text-[10px] font-bold text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]",
                   }}
                   color={
-                    (media.mediaInfo?.episodeCountScanned ?? 0) >= media.mediaInfo.episodeCount
-                      ? "primary"
-                      : "danger"
+                    (media.mediaInfo?.EpisodeCountScanned ?? 0) >= media.mediaInfo.EpisodeCount ? "primary" : "danger"
                   }
-                  value={((media.mediaInfo?.episodeCountScanned ?? 0) / media.mediaInfo.episodeCount) * 100}
+                  value={((media.mediaInfo?.EpisodeCountScanned ?? 0) / media.mediaInfo.EpisodeCount) * 100}
                   showValueLabel={true}
-                  valueLabel={`${media.mediaInfo?.episodeCountScanned ?? 0} / ${media.mediaInfo.episodeCount}`}
+                  valueLabel={`${media.mediaInfo?.EpisodeCountScanned ?? 0} / ${media.mediaInfo.EpisodeCount}`}
                   isStriped={
-                    (media.mediaInfo?.episodeCountScanned ?? 0) > 0 &&
-                    (media.mediaInfo?.episodeCountScanned ?? 0) < media.mediaInfo.episodeCount
+                    (media.mediaInfo?.EpisodeCountScanned ?? 0) > 0 &&
+                    (media.mediaInfo?.EpisodeCountScanned ?? 0) < media.mediaInfo.EpisodeCount
                   }
                 />
               </div>

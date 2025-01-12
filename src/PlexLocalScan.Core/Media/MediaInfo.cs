@@ -23,4 +23,6 @@ public record MediaInfo
     public string? Status { get; set; }
     public int? EpisodeCount { get; set; }
     public int? EpisodeCountScanned { get; set; }
+    public int? SeasonCount { get; set; }
+    public int? SeasonCountScanned { get; set; }
 }
