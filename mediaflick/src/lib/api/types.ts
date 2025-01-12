@@ -24,6 +24,7 @@ export interface MediaInfo {
   episodeTitle?: string
   episodeTmdbId?: number
   posterPath?: string
+  backdropPath?: string
   summary?: string
   status?: string
   episodeCount?: number
