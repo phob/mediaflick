@@ -1,10 +1,10 @@
 import Image from "next/image"
 import { useEffect, useState } from "react"
 
-import { Accordion, AccordionItem, Card, CardBody, Spinner } from "@nextui-org/react"
+import { Accordion, AccordionItem, Button, Card, CardBody, Link, Spinner } from "@nextui-org/react"
 
 import { mediaApi } from "@/lib/api/endpoints"
-import type { SeasonInfo } from "@/lib/api/types"
+import type { MediaInfo, SeasonInfo } from "@/lib/api/types"
 
 // Cache for storing season data
 const seasonCache = new Map<string, { data: SeasonInfo; timestamp: number }>()
@@ -12,20 +12,20 @@ const CACHE_DURATION = 1000 * 30 // 30 seconds
 
 interface SeasonListProps {
   tmdbId: number
-  seasonCount?: number
+  mediaInfo: MediaInfo
 }
 
-export function SeasonList({ tmdbId, seasonCount = 0 }: SeasonListProps) {
+export function SeasonList({ tmdbId, mediaInfo }: SeasonListProps) {
   const [loading, setLoading] = useState(false)
   const [seasons, setSeasons] = useState<SeasonInfo[]>([])
 
   useEffect(() => {
     const loadSeasons = async () => {
-      if (!seasonCount) return
+      if (!mediaInfo.SeasonCount) return
 
       try {
         setLoading(true)
-        const seasonNumbers = Array.from({ length: seasonCount }, (_, i) => i + 1)
+        const seasonNumbers = Array.from({ length: mediaInfo.SeasonCount }, (_, i) => i + 1)
         const seasonMap = new Map<number, SeasonInfo>()
 
         // Process seasons in chunks to avoid overwhelming the API
@@ -79,7 +79,7 @@ export function SeasonList({ tmdbId, seasonCount = 0 }: SeasonListProps) {
     // Reset seasons when tmdbId or seasonCount changes
     setSeasons([])
     loadSeasons()
-  }, [seasonCount, tmdbId])
+  }, [mediaInfo.SeasonCount, tmdbId])
 
   if (loading && seasons.length === 0) {
     return (
@@ -130,6 +130,20 @@ export function SeasonList({ tmdbId, seasonCount = 0 }: SeasonListProps) {
                         <p className="line-clamp-3 text-small text-default-500 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
                           {season.Overview}
                         </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="bordered"
+                          color="primary"
+                          size="sm"
+                          className="p-0"
+                          as={Link}
+                          href={`https://debridmediamanager.com/show/${mediaInfo.ImdbId}/${season.SeasonNumber}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          DMM
+                        </Button>
                       </div>
                     </div>
                   }

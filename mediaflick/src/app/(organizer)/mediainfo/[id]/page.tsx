@@ -58,7 +58,7 @@ export default function MediaInfoPage() {
         <div className="container mx-auto px-4 py-24">
           <MediaDetails mediaInfo={mediaInfo} />
           {mediaInfo.MediaType === MediaType.TvShows && (
-            <SeasonList tmdbId={mediaInfo.TmdbId} seasonCount={mediaInfo.SeasonCount} />
+            <SeasonList tmdbId={mediaInfo.TmdbId} mediaInfo={mediaInfo} />
           )}
         </div>
       </div>

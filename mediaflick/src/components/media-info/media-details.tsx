@@ -43,7 +43,22 @@ export function MediaDetails({ mediaInfo }: MediaDetailsProps) {
               ))}
             </div>
           )}
-
+          {mediaInfo.ImdbId && (
+            <div>
+              <h3 className="mb-2 text-xl font-semibold">IMDb ID:</h3>
+              <p className="text-default-500">
+                {mediaInfo.MediaType === MediaType.Movies ? (
+                  <a href={`https://debridmediamanager.com/movie/${mediaInfo.ImdbId}`} target="_blank" rel="noopener noreferrer">
+                    {mediaInfo.ImdbId}
+                  </a>
+                ) : (
+                  <a href={`https://debridmediamanager.com/show/${mediaInfo.ImdbId}/1`} target="_blank" rel="noopener noreferrer">
+                    {mediaInfo.ImdbId}
+                  </a>
+                )}
+              </p>
+            </div>
+          )}
           {mediaInfo.Overview && (
             <div>
               <h2 className="mb-2 text-xl font-semibold">Overview</h2>
