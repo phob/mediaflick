@@ -139,6 +139,21 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave, initialMediaT
               <Button color="danger" onPress={onClose}>
                 Cancel
               </Button>
+              <Button
+                color="default"
+                onPress={() => {
+                  setEditableRows((prev) =>
+                    prev.map((row) => ({
+                      ...row,
+                      tmdbId: 0,
+                      seasonNumber: undefined,
+                      episodeNumber: undefined,
+                    }))
+                  )
+                }}
+              >
+                Clear
+              </Button>
               <Button color="primary" onPress={handleSave} isDisabled={loading}>
                 Save Changes
               </Button>

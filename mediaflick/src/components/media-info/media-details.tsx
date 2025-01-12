@@ -10,9 +10,6 @@ interface MediaDetailsProps {
 }
 
 export function MediaDetails({ mediaInfo }: MediaDetailsProps) {
-  console.log(mediaInfo)
-  console.log("mediaInfo.mediaType: ", mediaInfo.MediaType)
-  console.log("MediaType.TvShows: ", MediaType.TvShows)
   return (
     <div className="container mx-auto grid grid-cols-1 gap-8 md:grid-cols-[300px_1fr]">
       {/* Poster */}
