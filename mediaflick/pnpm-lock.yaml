@@ -115,8 +115,8 @@ importers:
         specifier: ^3.4.17
         version: 3.4.17
       tailwindcss-motion:
-        specifier: ^1.0.0
-        version: 1.0.0(tailwindcss@3.4.17)
+        specifier: ^1.0.1
+        version: 1.0.1(tailwindcss@3.4.17)
       typescript:
         specifier: ^5.7.3
         version: 5.7.3
@@ -3231,8 +3231,8 @@ packages:
     peerDependencies:
       tailwindcss: '>=3.0.0 || insiders'
 
-  tailwindcss-motion@1.0.0:
-    resolution: {integrity: sha512-Bc8XJxiSGjup0NHsph4OBGXXFfmbInFUhvVVluKPScQD1R2kDQTZIODqumsI/lONryeTpDdKzwuuw1a99Z38bQ==}
+  tailwindcss-motion@1.0.1:
+    resolution: {integrity: sha512-ZqarvI3XSclT46Dq1wOo9qG9Yx0TIyEtkMfTo8l0JuVKvO1WiSbvAECuTqdYHpC9Ml7abuJIk7u907SBHYprwQ==}
     peerDependencies:
       tailwindcss: '>=3.0.0 || insiders'
 
@@ -7477,7 +7477,7 @@ snapshots:
     dependencies:
       tailwindcss: 3.4.17
 
-  tailwindcss-motion@1.0.0(tailwindcss@3.4.17):
+  tailwindcss-motion@1.0.1(tailwindcss@3.4.17):
     dependencies:
       tailwindcss: 3.4.17
 
