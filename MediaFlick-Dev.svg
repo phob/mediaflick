@@ -26,9 +26,9 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
-     inkscape:zoom="1.7042017"
-     inkscape:cx="396.66665"
-     inkscape:cy="561.25984"
+     inkscape:zoom="2.4101052"
+     inkscape:cx="324.67462"
+     inkscape:cy="220.52979"
      inkscape:window-width="3840"
      inkscape:window-height="2131"
      inkscape:window-x="-9"
@@ -47,10 +47,10 @@
        style="color-interpolation-filters:sRGB"
        inkscape:label="Drop Shadow"
        id="filter88"
-       x="-0.053030092"
-       y="-0.18741562"
-       width="1.1502519"
-       height="1.5310109">
+       x="-0.060761877"
+       y="-0.18568801"
+       width="1.1696993"
+       height="1.5186004">
       <feFlood
          result="flood"
          in="SourceGraphic"
@@ -85,10 +85,10 @@
        style="color-interpolation-filters:sRGB"
        inkscape:label="Drop Shadow"
        id="filter90"
-       x="-0.052853932"
-       y="-0.17206141"
-       width="1.1497528"
-       height="1.4875073">
+       x="-0.055552059"
+       y="-0.18084493"
+       width="1.1551491"
+       height="1.5050744">
       <feFlood
          result="flood"
          in="SourceGraphic"
@@ -126,31 +126,29 @@
      id="layer1">
     <text
        xml:space="preserve"
-       transform="scale(0.26458333)"
-       id="text3"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:condensed;font-size:32px;font-family:Impact;-inkscape-font-specification:'Impact Condensed';text-align:start;letter-spacing:23.6701px;writing-mode:lr-tb;direction:ltr;white-space:pre;shape-inside:url(#rect3);display:inline;fill:#f9f9f9" />
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.46667px;font-family:'ComicShannsMono Nerd Font';-inkscape-font-specification:'ComicShannsMono Nerd Font';text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#f9f9f9;stroke-width:0.264583;filter:url(#filter88)"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.46667px;font-family:Impact;-inkscape-font-specification:Impact;text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#f9f9f9;stroke:#000000;stroke-width:0.122517;stroke-dasharray:none;stroke-opacity:1;filter:url(#filter88)"
        x="2.9498162"
        y="9.0047045"
        id="text1"
-       transform="matrix(3.8872447,0,0,3.8872447,-5.7366174,-4.4096026)"><tspan
+       transform="matrix(3.8872447,0,0,3.8872447,-4.3738194,46.116289)"
+       inkscape:export-filename="text1.svg"
+       inkscape:export-xdpi="96"
+       inkscape:export-ydpi="96"><tspan
          sodipodi:role="line"
          id="tspan1"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.46667px;font-family:'ComicShannsMono Nerd Font';-inkscape-font-specification:'ComicShannsMono Nerd Font';fill:#f9f9f9;stroke-width:0.264583"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.46667px;font-family:Impact;-inkscape-font-specification:Impact;fill:#f9f9f9;stroke:#000000;stroke-width:0.122517;stroke-dasharray:none;stroke-opacity:1"
          x="2.9498162"
          y="9.0047045">Media</tspan></text>
     <text
        xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:condensed;font-size:8.46667px;font-family:Impact;-inkscape-font-specification:'Impact Condensed';text-align:start;letter-spacing:1.18637px;word-spacing:0px;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#ccff00;stroke-width:0.264583;filter:url(#filter90)"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:condensed;font-size:8.46667px;font-family:Impact;-inkscape-font-specification:'Impact Condensed';text-align:start;letter-spacing:1.18637px;word-spacing:0px;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#ccff00;stroke:#000000;stroke-width:0.122517;stroke-dasharray:none;stroke-opacity:1;filter:url(#filter90)"
        x="27.945637"
        y="9.159955"
        id="text2"
-       transform="matrix(3.8872447,0,0,3.8872447,-5.7366174,-4.4096026)"><tspan
+       transform="matrix(3.8872447,0,0,3.8872447,-7.6329714,45.705636)"><tspan
          sodipodi:role="line"
          id="tspan2"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:condensed;font-family:Impact;-inkscape-font-specification:'Impact Condensed';letter-spacing:1.18637px;word-spacing:0px;fill:#ccff00;stroke-width:0.264583"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:condensed;font-family:Impact;-inkscape-font-specification:'Impact Condensed';letter-spacing:1.18637px;word-spacing:0px;fill:#ccff00;stroke:#000000;stroke-width:0.122517;stroke-dasharray:none;stroke-opacity:1"
          x="27.945637"
          y="9.159955"
          rotate="0 0 0 0 0 0">FLICK</tspan></text>
