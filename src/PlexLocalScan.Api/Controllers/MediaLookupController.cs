@@ -4,7 +4,6 @@ using PlexLocalScan.Core.Series;
 using PlexLocalScan.Shared.Services;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace PlexLocalScan.Api.Controllers;
 
