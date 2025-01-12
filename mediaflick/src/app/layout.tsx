@@ -22,14 +22,16 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className="dark">
-      <body className={clsx("container mx-auto min-h-screen bg-background font-sans antialiased", fontSans.variable)}>
+      <body className={clsx("min-h-screen bg-background font-sans antialiased", fontSans.variable)}>
         <Providers>
-          <div className="sticky top-0 z-50 motion-translate-y-in-[-100%] motion-blur-in-md motion-opacity-in-0">
-            <div>
-              <HeadBar />
+          <div className="fixed left-0 right-0 top-0 z-[100]">
+            <div className="container mx-auto">
+              <div className="backdrop-blur-md motion-translate-y-in-[-100%] motion-blur-in-md motion-opacity-in-0">
+                <HeadBar />
+              </div>
             </div>
           </div>
-          <main className="min-h-[calc(100vh-4rem)] px-4">{children}</main>
+          <main className="relative min-h-screen pt-16">{children}</main>
         </Providers>
       </body>
     </html>

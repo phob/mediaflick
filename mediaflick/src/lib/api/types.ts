@@ -13,21 +13,25 @@ export interface MediaSearchResult {
 }
 
 export interface MediaInfo {
-  title: string
-  year?: number
-  genres?: string[]
-  tmdbId: number
-  imdbId: string
-  mediaType: MediaType
-  seasonNumber?: number
-  episodeNumber?: number
-  episodeTitle?: string
-  episodeTmdbId?: number
-  posterPath?: string
-  summary?: string
-  status?: string
-  episodeCount?: number
-  episodeCountScanned?: number
+  Title: string
+  Year: number
+  Genres: string[]
+  TmdbId: number
+  ImdbId: string
+  MediaType: MediaType
+  SeasonNumber?: number
+  EpisodeNumber?: number
+  EpisodeTitle?: string
+  EpisodeTmdbId?: number
+  PosterPath?: string
+  BackdropPath?: string
+  Summary?: string
+  Overview?: string
+  Status?: string
+  EpisodeCount?: number
+  EpisodeCountScanned?: number
+  SeasonCount?: number
+  SeasonCountScanned?: number
 }
 
 export enum MediaType {
@@ -45,21 +49,21 @@ export enum MediaStatus {
 }
 
 export interface SeasonInfo {
-  seasonNumber: number
-  name: string
-  overview: string
-  posterPath: string
-  airDate: string
-  episodes: EpisodeInfo[]
+  SeasonNumber: number
+  Name: string
+  Overview: string
+  PosterPath: string
+  AirDate: string
+  Episodes: EpisodeInfo[]
 }
 
 export interface EpisodeInfo {
-  episodeNumber: number
-  name: string
-  overview: string
-  stillPath: string
-  airDate: string
-  tmdbId: number
+  EpisodeNumber: number
+  Name: string
+  Overview: string
+  StillPath: string
+  AirDate: string
+  TmdbId: number
 }
 
 export interface ScannedFile {

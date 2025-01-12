@@ -9,6 +9,11 @@ import { mediaApi } from "@/lib/api/endpoints"
 import type { MediaType } from "@/lib/api/types"
 import { MediaType as MediaTypeEnum } from "@/lib/api/types"
 
+interface TmdbEntry {
+  tmdbId: number
+  title: string
+}
+
 export default function MediaInfo() {
   const [searchTerm, setSearchTerm] = useState("")
   const [mediaType, setMediaType] = useState<MediaType>(MediaTypeEnum.Movies)
@@ -20,7 +25,8 @@ export default function MediaInfo() {
   const loadUniqueMedia = useCallback(async () => {
     try {
       setLoading(true)
-      const entries = await mediaApi.getTmdbIdsAndTitles({ searchTerm, mediaType })
+      const response = await mediaApi.getTmdbIdsAndTitles({ searchTerm, mediaType })
+      const entries = response as unknown as TmdbEntry[]
       setUniqueMedia(
         entries.map((entry) => ({
           tmdbId: entry.tmdbId,

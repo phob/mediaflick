@@ -2,6 +2,9 @@ using PlexLocalScan.Shared.Interfaces;
 using PlexLocalScan.Core.Media;
 using PlexLocalScan.Core.Series;
 using PlexLocalScan.Shared.Services;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace PlexLocalScan.Api.Controllers;
 
@@ -10,6 +13,13 @@ namespace PlexLocalScan.Api.Controllers;
 /// </summary>
 internal static class MediaLookupEndpoints
 {
+    private static readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        WriteIndented = false,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Converters = { new JsonStringEnumConverter() }
+    };
+
     internal static async Task<IResult> SearchMovies(
         string title,
         IMediaSearchService mediaLookupService,
@@ -22,7 +32,8 @@ internal static class MediaLookupEndpoints
 
         logger.LogInformation("Searching for movies with title: {Title}", title);
         IEnumerable<MediaSearchResult> results = await mediaLookupService.SearchMovieTmdbIdsAsync(title);
-        return Results.Ok(results);
+        string json = JsonSerializer.Serialize(results, _jsonOptions);
+        return Results.Text(json, "application/json");
     }
 
     internal static async Task<IResult> SearchTvShows(
@@ -37,7 +48,8 @@ internal static class MediaLookupEndpoints
 
         logger.LogInformation("Searching for TV shows with title: {Title}", title);
         IEnumerable<MediaSearchResult> results = await mediaLookupService.SearchTvShowTmdbIdsAsync(title);
-        return Results.Ok(results);
+        string json = JsonSerializer.Serialize(results, _jsonOptions);
+        return Results.Text(json, "application/json");
     }
 
     internal static async Task<IResult> GetMovieInfo(
@@ -48,7 +60,13 @@ internal static class MediaLookupEndpoints
         logger.LogInformation("Getting movie info for TMDb ID: {TmdbId}", tmdbId);
         MediaInfo? movieInfo = await mediaLookupService.GetMovieMediaInfoAsync(tmdbId);
         
-        return movieInfo is null ? Results.NotFound() : Results.Ok(movieInfo);
+        if (movieInfo is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        string json = JsonSerializer.Serialize(movieInfo, _jsonOptions);
+        return Results.Text(json, "application/json");
     }
 
     internal static async Task<IResult> GetTvShowInfo(
@@ -59,7 +77,13 @@ internal static class MediaLookupEndpoints
         logger.LogInformation("Getting TV show info for TMDb ID: {TmdbId}", tmdbId);
         MediaInfo? tvShowInfo = await mediaLookupService.GetTvShowMediaInfoAsync(tmdbId);
         
-        return tvShowInfo is null ? Results.NotFound() : Results.Ok(tvShowInfo);
+        if (tvShowInfo is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        string json = JsonSerializer.Serialize(tvShowInfo, _jsonOptions);
+        return Results.Text(json, "application/json");
     }
 
     internal static async Task<IResult> GetTvSeasonInfo(
@@ -71,7 +95,13 @@ internal static class MediaLookupEndpoints
         logger.LogInformation("Getting TV season info for TMDb ID: {TmdbId}, Season Number: {SeasonNumber}", tmdbId, seasonNumber);
         SeasonInfo? tvSeasonInfo = await mediaLookupService.GetTvShowSeasonMediaInfoAsync(tmdbId, seasonNumber, includeDetails: true);
 
-        return tvSeasonInfo is null ? Results.NotFound() : Results.Ok(tvSeasonInfo);
+        if (tvSeasonInfo is null)
+        {
+            return TypedResults.NotFound();
+        }
+
+        string json = JsonSerializer.Serialize(tvSeasonInfo, _jsonOptions);
+        return Results.Text(json, "application/json");
     }
 
     internal static async Task<IResult> GetTvEpisodeInfo(
@@ -85,20 +115,12 @@ internal static class MediaLookupEndpoints
             tmdbId, seasonNumber, episodeNumber);
         EpisodeInfo? tvEpisodeInfo = await mediaLookupService.GetTvShowEpisodeMediaInfoAsync(tmdbId, seasonNumber, episodeNumber, includeDetails: true);
 
-        return tvEpisodeInfo is null ? Results.NotFound() : Results.Ok(tvEpisodeInfo);
-    }
-
-    internal static async Task<IResult> GetImageUrl(
-        IMediaSearchService mediaLookupService,
-        string path,
-        string size = "w500")
-    {
-        if (string.IsNullOrWhiteSpace(path))
+        if (tvEpisodeInfo is null)
         {
-            return Results.BadRequest("Path is required");
+            return TypedResults.NotFound();
         }
 
-        string? imageUrl = await mediaLookupService.GetImageUrlAsync(path, size);
-        return imageUrl is null ? Results.NotFound() : Results.Redirect(imageUrl, permanent: true);
+        string json = JsonSerializer.Serialize(tvEpisodeInfo, _jsonOptions);
+        return Results.Text(json, "application/json");
     }
 } 

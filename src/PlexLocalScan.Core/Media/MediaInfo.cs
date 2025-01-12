@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using PlexLocalScan.Core.Series;
 using PlexLocalScan.Core.Tables;
 
 namespace PlexLocalScan.Core.Media;
@@ -18,8 +17,12 @@ public record MediaInfo
     public int? EpisodeNumber2 { get; init; }
     public int? EpisodeTmdbId { get; set; }
     public string? PosterPath { get; set; }
+    public string? BackdropPath { get; set; }
+    public string? Overview { get; set; }
     public string? Summary { get; set; }
     public string? Status { get; set; }
     public int? EpisodeCount { get; set; }
     public int? EpisodeCountScanned { get; set; }
+    public int? SeasonCount { get; set; }
+    public int? SeasonCountScanned { get; set; }
 }
