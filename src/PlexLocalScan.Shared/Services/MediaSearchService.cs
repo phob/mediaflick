@@ -52,7 +52,8 @@ public class MediaSearchService(ITmDbClientWrapper tmdbClient, ILogger<MediaSear
                 TmdbId = movie.Id,
                 MediaType = MediaType.Movies,
                 PosterPath = movie.PosterPath,
-                Summary = movie.Overview,
+                BackdropPath = movie.BackdropPath,
+                Overview = movie.Overview,
                 Status = movie.Status
             };
             return mediaInfo;
@@ -84,7 +85,8 @@ public class MediaSearchService(ITmDbClientWrapper tmdbClient, ILogger<MediaSear
             TmdbId = tvShow.Id,
             MediaType = MediaType.TvShows,
             PosterPath = tvShow.PosterPath,
-            Summary = tvShow.Overview,
+            BackdropPath = tvShow.BackdropPath,
+            Overview = tvShow.Overview,
             Status = tvShow.Status,
             Genres = tvShow.Genres.Select(g => g.Name).ToList().AsReadOnly(),
             EpisodeCount = episodeCount,
