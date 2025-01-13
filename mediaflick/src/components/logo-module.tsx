@@ -3,14 +3,14 @@ export function LogoModule() {
 <svg xmlns="http://www.w3.org/2000/svg">
     <defs>
         <filter id="a" width="1.17" height="1.519" x="-.061" y="-.186" style={{colorInterpolation: "sRGB"}}>
-            <feFlood flood-color="#000" flood-opacity=".722" result="flood"/>
+            <feFlood floodColor="#000" floodOpacity=".722" result="flood"/>
             <feGaussianBlur in="SourceGraphic" result="blur" stdDeviation=".5"/>
             <feOffset dx="1" dy="1" in="blur" result="offset"/>
             <feComposite in="flood" in2="offset" operator="in" result="comp1"/>
             <feComposite in="SourceGraphic" in2="comp1" result="comp2"/>
         </filter>
         <filter id="b" width="1.156" height="1.505" x="-.056" y="-.181" style={{colorInterpolation: "sRGB"}}>
-            <feFlood flood-color="#000" flood-opacity=".722" result="flood"/>
+            <feFlood floodColor="#000" floodOpacity=".722" result="flood"/>
             <feGaussianBlur in="SourceGraphic" result="blur" stdDeviation=".5"/>
             <feOffset dx="1" dy="1" in="blur" result="offset"/>
             <feComposite in="flood" in2="offset" operator="in" result="comp1"/>

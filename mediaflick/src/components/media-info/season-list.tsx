@@ -120,7 +120,7 @@ export function SeasonList({ tmdbId, mediaInfo }: SeasonListProps) {
                       <div>
                         <h3 className="text-lg font-semibold text-white">{season.Name}</h3>
                         <p className="text-small text-default-500 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
-                          {season.Episodes.length} Episodes
+                          {season.Episodes.length} Episodes {season.Episodes.filter(e => e.IsScanned).length >= season.Episodes.length ? "✅" : "❌"}
                         </p>
                         <p className="text-small text-default-500 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
                           {season.AirDate ? new Date(season.AirDate).toLocaleDateString() : ""}
@@ -166,7 +166,8 @@ export function SeasonList({ tmdbId, mediaInfo }: SeasonListProps) {
                           <div className="flex-1">
                             <h4 className="font-semibold">
                               {episode.EpisodeNumber}. {episode.Name} (
-                              {episode.AirDate ? new Date(episode.AirDate).toLocaleDateString() : ""})
+                              {episode.AirDate ? new Date(episode.AirDate).toLocaleDateString() : ""}) 
+                              {episode.IsScanned ? "✅" : "❌"}
                             </h4>
                             <p className="line-clamp-3 text-small text-default-500">{episode.Overview}</p>
                           </div>
