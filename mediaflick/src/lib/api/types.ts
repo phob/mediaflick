@@ -64,6 +64,7 @@ export interface EpisodeInfo {
   StillPath: string
   AirDate: string
   TmdbId: number
+  IsScanned: boolean
 }
 
 export interface ScannedFile {
