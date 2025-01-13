@@ -13,13 +13,15 @@ public sealed class PlexScanContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<ScannedFile>()
-            .HasIndex(f => f.SourceFile)
-            .IsUnique();
-            
+            .HasIndex(f => f.SourceFile);
+
         modelBuilder.Entity<ScannedFile>()
-            .HasIndex(f => f.DestFile)
+            .HasIndex(f => f.DestFile);
+
+        modelBuilder.Entity<ScannedFile>()
+            .HasIndex(f => new { f.SourceFile, f.DestFile, f.EpisodeNumber })
             .IsUnique();
-            
+
         modelBuilder.Entity<ScannedFile>()
             .Property(f => f.Status)
             .HasConversion<string>();
@@ -33,15 +35,10 @@ public sealed class PlexScanContext : DbContext
             .HasConversion<string>();
 
         modelBuilder.Entity<ScannedFile>()
-            .Property(f => f.TmdbId)
-            .HasConversion<int>();
+            .HasIndex(f => f.TmdbId);
 
         modelBuilder.Entity<ScannedFile>()
             .Property(f => f.SeasonNumber)
-            .HasConversion<int>();
-
-        modelBuilder.Entity<ScannedFile>()
-            .Property(f => f.EpisodeNumber)
             .HasConversion<int>();
 
         modelBuilder.Entity<ScannedFile>()
