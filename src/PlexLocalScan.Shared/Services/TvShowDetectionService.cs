@@ -34,7 +34,7 @@ public class TvShowDetectionService(
             {
                 MediaType = MediaType.TvShows
             };
-            Match match = _tvShowPattern.Match(fileName);
+            var match = _tvShowPattern.Match(fileName);
             if (!match.Success)
             {
                 await contextService.UpdateStatusAsync(filePath, null, emptyMediaInfo, FileStatus.Failed);
@@ -42,7 +42,7 @@ public class TvShowDetectionService(
                 return null;
             }
 
-            Match titleMatch = _titleCleanupPattern.Match(match.Groups["title"].Value.Replace(".", " ", StringComparison.OrdinalIgnoreCase).Trim());
+            var titleMatch = _titleCleanupPattern.Match(match.Groups["title"].Value.Replace(".", " ", StringComparison.OrdinalIgnoreCase).Trim());
             if (!titleMatch.Success)
             {
                 await contextService.UpdateStatusAsync(filePath, null, emptyMediaInfo, FileStatus.Failed);
@@ -50,15 +50,15 @@ public class TvShowDetectionService(
                 return null;
             }
 
-            string title = titleMatch.Groups["title"].Value;
-            int season = int.Parse(match.Groups["season"].Value, CultureInfo.InvariantCulture);
-            int episode = int.Parse(match.Groups["episode"].Value, CultureInfo.InvariantCulture);
+            var title = titleMatch.Groups["title"].Value;
+            var season = int.Parse(match.Groups["season"].Value, CultureInfo.InvariantCulture);
+            var episode = int.Parse(match.Groups["episode"].Value, CultureInfo.InvariantCulture);
             int? episode2 = match.Groups["episode2"].Success
                 ? int.Parse(match.Groups["episode2"].Value, CultureInfo.InvariantCulture)
                 : null;
 
-            string cacheKey = $"tvshow_{title}_{season}_{episode}";
-            if (cache.TryGetValue<MediaInfo>(cacheKey, out MediaInfo? cachedInfo) && cachedInfo != null)
+            var cacheKey = $"tvshow_{title}_{season}_{episode}";
+            if (cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo) && cachedInfo != null)
             {
                 var cachedMediaInfo = new MediaInfo
                 {
@@ -75,14 +75,14 @@ public class TvShowDetectionService(
                 return cachedInfo;
             }
 
-            SearchTv? bestMatch =  await TmdbSearchShowAsync(filePath, emptyMediaInfo, title);
+            var bestMatch =  await TmdbSearchShowAsync(filePath, emptyMediaInfo, title);
             if (bestMatch == null)
             {
                 return null;
             }
-            TMDbLib.Objects.TvShows.TvShow tvShowDetails = await tmdbClient.GetTvShowAsync(bestMatch.Id);
-            TMDbLib.Objects.TvShows.TvEpisode? episodeInfo = await tmdbClient.GetTvEpisodeAsync(bestMatch.Id, season, episode);
-            TMDbLib.Objects.General.ExternalIdsTvShow externalIds = await tmdbClient.GetTvShowExternalIdsAsync(bestMatch.Id);
+            var tvShowDetails = await tmdbClient.GetTvShowAsync(bestMatch.Id);
+            var episodeInfo = await tmdbClient.GetTvEpisodeAsync(bestMatch.Id, season, episode);
+            var externalIds = await tmdbClient.GetTvShowExternalIdsAsync(bestMatch.Id);
             var mediaInfo = new MediaInfo
             {
                 Title = bestMatch.Name,
@@ -110,12 +110,12 @@ public class TvShowDetectionService(
 
     private async Task<SearchTv?> TmdbSearchShowAsync(string filePath, MediaInfo emptyMediaInfo, string title)
     {
-        TMDbLib.Objects.General.SearchContainer<SearchTv> searchResults = await tmdbClient.SearchTvShowAsync(title);
+        var searchResults = await tmdbClient.SearchTvShowAsync(title);
         if (searchResults.Results.Count == 0)
         {
             searchResults = await tmdbClient.SearchTvShowAsync(title.Replace("complete", "", StringComparison.OrdinalIgnoreCase));
         }
-        SearchTv? bestMatch = searchResults.Results
+        var bestMatch = searchResults.Results
             .OrderByDescending(s => GetTitleSimilarity(title, s.Name))
             .ThenByDescending(s => s.Popularity)
             .FirstOrDefault();
@@ -132,21 +132,21 @@ public class TvShowDetectionService(
     {
         try
         {
-            string cacheKey = $"tvshow_tmdb_{tmdbId}_{season}_{episode}";
-            if (cache.TryGetValue<MediaInfo>(cacheKey, out MediaInfo? cachedInfo))
+            var cacheKey = $"tvshow_tmdb_{tmdbId}_{season}_{episode}";
+            if (cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo))
             {
                 return cachedInfo;
             }
 
-            TMDbLib.Objects.TvShows.TvShow tvShowDetails = await tmdbClient.GetTvShowAsync(tmdbId);
+            var tvShowDetails = await tmdbClient.GetTvShowAsync(tmdbId);
             if (tvShowDetails == null)
             {
                 logger.LogWarning("No TMDb show found for ID: {TmdbId}", tmdbId);
                 return null;
             }
 
-            TMDbLib.Objects.TvShows.TvEpisode? episodeInfo = await tmdbClient.GetTvEpisodeAsync(tmdbId, season, episode);
-            TMDbLib.Objects.General.ExternalIdsTvShow externalIds = await tmdbClient.GetTvShowExternalIdsAsync(tmdbId);
+            var episodeInfo = await tmdbClient.GetTvEpisodeAsync(tmdbId, season, episode);
+            var externalIds = await tmdbClient.GetTvShowExternalIdsAsync(tmdbId);
 
             var mediaInfo = new MediaInfo
             {
@@ -190,10 +190,10 @@ public class TvShowDetectionService(
             return 0.8;
         }
 
-        string[] searchWords = searchTitle.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        string[] resultWords = resultTitle.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var searchWords = searchTitle.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var resultWords = resultTitle.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
-        int matchedWords = searchWords.Count(sw => resultWords.Any(rw => rw == sw));
+        var matchedWords = searchWords.Count(sw => resultWords.Any(rw => rw == sw));
         return (double)matchedWords / Math.Max(searchWords.Length, resultWords.Length);
     }
 } 

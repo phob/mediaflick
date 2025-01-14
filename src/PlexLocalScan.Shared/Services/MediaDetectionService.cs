@@ -17,7 +17,7 @@ public class MediaDetectionService(
     public async Task<MediaInfo?> DetectMediaAsync(string filePath, MediaType mediaType)
     {
         var mediaInfo = new MediaInfo { MediaType = mediaType };
-        string fileName = fileSystemService.GetFileName(filePath);
+        var fileName = fileSystemService.GetFileName(filePath);
         logger.LogDebug("Attempting to detect media info for: {FileName}", fileName);
 
         try
@@ -51,7 +51,7 @@ public class MediaDetectionService(
 
     private static bool IsValidMediaInfo(MediaInfo mediaInfo)
     {
-        bool hasBasicInfo = new[] { mediaInfo }.Any(m => 
+        var hasBasicInfo = new[] { mediaInfo }.Any(m => 
             !string.IsNullOrWhiteSpace(m.Title) && 
             m.Year > 0 && 
             m.TmdbId > 0 && 

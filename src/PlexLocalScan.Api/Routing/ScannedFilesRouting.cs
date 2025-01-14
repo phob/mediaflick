@@ -16,7 +16,7 @@ internal static class ScannedFilesRouting
 
     public static void MapScannedFilesEndpoints(this IEndpointRouteBuilder app)
     {
-        RouteGroupBuilder group = app.MapGroup(ScannedFilesBaseRoute)
+        var group = app.MapGroup(ScannedFilesBaseRoute)
             .WithTags("Scanned Files")
             .WithOpenApi()
             .WithDescription("Manages scanned media files and their processing status");

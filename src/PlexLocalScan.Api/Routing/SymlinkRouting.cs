@@ -11,7 +11,7 @@ internal static class SymlinkRouting
 
     public static void MapSymlinkEndpoints(this IEndpointRouteBuilder app)
     {
-        RouteGroupBuilder group = app.MapGroup(SymlinkBaseRoute)
+        var group = app.MapGroup(SymlinkBaseRoute)
             .WithTags("Symlinks")
             .WithOpenApi()
             .WithDescription("Manages symlink cleanup");

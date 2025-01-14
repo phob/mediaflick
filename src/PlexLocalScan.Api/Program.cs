@@ -13,7 +13,7 @@ using Serilog;
 using System.Text.Json.Serialization;
 using PlexLocalScan.Api.Endpoints;
 
-WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
 // Configure CORS
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
@@ -23,10 +23,10 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
             .AllowCredentials()));
 
 // Configure YAML configuration
-string configPath = Path.Combine(AppContext.BaseDirectory, "config", "config.yml");
+var configPath = Path.Combine(AppContext.BaseDirectory, "config", "config.yml");
 Directory.CreateDirectory(Path.GetDirectoryName(configPath)!);
 Console.WriteLine("configPath: " + configPath);
-string configDir = Path.GetDirectoryName(configPath) 
+var configDir = Path.GetDirectoryName(configPath) 
     ?? throw new InvalidOperationException("Config directory path cannot be null");
 
 builder.Configuration
@@ -43,7 +43,7 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .Enrich.WithMachineName()
     .Enrich.WithThreadId());
 
-IServiceCollection services = builder.Services;
+var services = builder.Services;
 
 // Add SignalR
 services.AddSignalR();
@@ -73,7 +73,7 @@ services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
     .AddScoped<ISymlinkHandler, SymlinkHandler>()
     .AddScoped<ITmDbClientWrapper>(sp =>
     {
-        IOptions<TmDbOptions> tmdbOptions = sp.GetRequiredService<IOptions<TmDbOptions>>();
+        var tmdbOptions = sp.GetRequiredService<IOptions<TmDbOptions>>();
         return new TMDbClientWrapper(tmdbOptions.Value.ApiKey);
     })
     .AddScoped<IMovieDetectionService, MovieDetectionService>()
@@ -88,18 +88,18 @@ services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
     .AddHostedService<FilePollerService>()
     .AddDbContext<PlexScanContext>((_, options) =>
     {
-        string connectionString = $"Data Source={Path.Combine(AppContext.BaseDirectory, "config", "plexscan.db")}";
+        var connectionString = $"Data Source={Path.Combine(AppContext.BaseDirectory, "config", "plexscan.db")}";
         options.UseSqlite(connectionString);
     })
     .AddHttpClient()
     .AddMemoryCache();
 
-WebApplication app = builder.Build();
+var app = builder.Build();
 
 // Apply migrations on startup
-using (IServiceScope scope = app.Services.CreateScope())
+using (var scope = app.Services.CreateScope())
 {
-    PlexScanContext db = scope.ServiceProvider.GetRequiredService<PlexScanContext>();
+    var db = scope.ServiceProvider.GetRequiredService<PlexScanContext>();
     await db.Database.MigrateAsync();
 }
 
@@ -108,10 +108,10 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
     {
         context.Response.StatusCode = 500;
         context.Response.ContentType = "application/json";
-        Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature? error = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
+        var error = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
         if (error != null)
         {
-            Exception ex = error.Error;
+            var ex = error.Error;
             Log.Error(ex, "An unhandled exception occurred");
             await context.Response.WriteAsJsonAsync(new
             {

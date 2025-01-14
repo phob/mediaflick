@@ -35,26 +35,26 @@ public class MovieDetectionService(
         try
         {
             _logger.LogDebug("Attempting to detect movie pattern for: {FileName}", fileName);
-            Match match = _moviePattern.Match(fileName);
+            var match = _moviePattern.Match(fileName);
             if (!match.Success)
             {
                 _logger.LogDebug("Filename does not match movie pattern: {FileName}", fileName);
                 return emptyMediaInfo;
             }
 
-            string title = match.Groups["title"].Value.Replace(".", " ", StringComparison.OrdinalIgnoreCase).Trim();
-            string yearStr = match.Groups["year"].Value;
-            int year = int.Parse(yearStr, CultureInfo.CurrentCulture);
+            var title = match.Groups["title"].Value.Replace(".", " ", StringComparison.OrdinalIgnoreCase).Trim();
+            var yearStr = match.Groups["year"].Value;
+            var year = int.Parse(yearStr, CultureInfo.CurrentCulture);
 
             _logger.LogDebug("Detected movie pattern - Title: {Title}, Year: {Year}", title, year);
 
-            string cacheKey = $"movie_{title}_{year}";
-            if (_cache.TryGetValue<MediaInfo>(cacheKey, out MediaInfo? cachedInfo))
+            var cacheKey = $"movie_{title}_{year}";
+            if (_cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo))
             {
                 return cachedInfo ?? emptyMediaInfo;
             }
 
-            MediaInfo mediaInfo = await SearchTmDbForMovie(title, year, filePath, emptyMediaInfo);
+            var mediaInfo = await SearchTmDbForMovie(title, year, filePath, emptyMediaInfo);
             mediaInfo.MediaType = MediaType.Movies;
             if (mediaInfo == null)
             {
@@ -84,7 +84,7 @@ public class MovieDetectionService(
             throw new ArgumentOutOfRangeException(nameof(year), "Year must be between 1800 and 5 years in the future");
         }
 
-        TMDbLib.Objects.General.SearchContainer<TMDbLib.Objects.Search.SearchMovie> searchResults = await _tmdbClient.SearchMovieAsync(title);
+        var searchResults = await _tmdbClient.SearchMovieAsync(title);
 
         if (searchResults?.Results == null)
         {
@@ -92,7 +92,7 @@ public class MovieDetectionService(
             return emptyMediaInfo;
         }
 
-        TMDbLib.Objects.Search.SearchMovie? bestMatch = searchResults.Results
+        var bestMatch = searchResults.Results
             .Where(m => m.ReleaseDate?.Year == year)
             .MaxBy(m => m.Popularity);
 
@@ -102,7 +102,7 @@ public class MovieDetectionService(
             await _fileTrackingService.UpdateStatusAsync(filePath, null, emptyMediaInfo, FileStatus.Failed);
             return emptyMediaInfo;
         }
-        TMDbLib.Objects.General.ExternalIdsMovie externalIds = await _tmdbClient.GetMovieExternalIdsAsync(bestMatch.Id);
+        var externalIds = await _tmdbClient.GetMovieExternalIdsAsync(bestMatch.Id);
 
         return new MediaInfo
         {
@@ -122,15 +122,15 @@ public class MovieDetectionService(
         };
         try
         {
-            string cacheKey = $"movie_tmdb_{tmdbId}";
-            if (_cache.TryGetValue<MediaInfo>(cacheKey, out MediaInfo? cachedInfo))
+            var cacheKey = $"movie_tmdb_{tmdbId}";
+            if (_cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo))
             {
                 return cachedInfo ?? emptyMediaInfo;
             }
 
-            TMDbLib.Objects.Movies.Movie movieDetails = await _tmdbClient.GetMovieAsync(tmdbId);
+            var movieDetails = await _tmdbClient.GetMovieAsync(tmdbId);
 
-            TMDbLib.Objects.General.ExternalIdsMovie externalIds = await _tmdbClient.GetMovieExternalIdsAsync(movieDetails.Id);
+            var externalIds = await _tmdbClient.GetMovieExternalIdsAsync(movieDetails.Id);
 
             var mediaInfo = new MediaInfo
             {

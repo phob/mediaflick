@@ -10,7 +10,7 @@ internal static class ConfigRouting
 
     public static void MapConfigEndpoints(this IEndpointRouteBuilder app)
     {
-        RouteGroupBuilder group = app.MapGroup(ConfigBaseRoute)
+        var group = app.MapGroup(ConfigBaseRoute)
             .WithTags("Configuration")
             .WithOpenApi()
             .WithDescription("Manages configuration settings for the application");
