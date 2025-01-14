@@ -1,56 +1,45 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Caching.Memory;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using PlexLocalScan.Core.Media;
 using PlexLocalScan.Core.Tables;
 using PlexLocalScan.FileTracking.Services;
 using PlexLocalScan.Shared.Interfaces;
 using PlexLocalScan.Shared.Options;
-using System.Globalization;
+using static PlexLocalScan.Shared.Services.RegexMovie;
 
 namespace PlexLocalScan.Shared.Services;
 
-public class MovieDetectionService : IMovieDetectionService
+public class MovieDetectionService(
+    ILogger<MovieDetectionService> logger,
+    ITmDbClientWrapper tmdbClient,
+    IMemoryCache cache,
+    IContextService fileTrackingService,
+    IOptions<MediaDetectionOptions> options) : IMovieDetectionService
 {
-    private readonly ILogger<MovieDetectionService> _logger;
-    private readonly ITmDbClientWrapper _tmdbClient;
-    private readonly IMemoryCache _cache;
-    private readonly IContextService _fileTrackingService;
-    private readonly MediaDetectionOptions _options;
-    private readonly Regex _moviePattern;
-    private readonly MediaInfo _emptyMediaInfo = new()
-    {
-        MediaType = MediaType.Movies
-    };
+    private readonly ILogger<MovieDetectionService> _logger = logger;
+    private readonly ITmDbClientWrapper _tmdbClient = tmdbClient;
+    private readonly IMemoryCache _cache = cache;
+    private readonly IContextService _fileTrackingService = fileTrackingService;
+    private readonly MediaDetectionOptions _options = options.Value;
+    private readonly Regex _moviePattern = BasicMovieRegex;
 
-    public MovieDetectionService(
-        ILogger<MovieDetectionService> logger,
-        ITmDbClientWrapper tmdbClient,
-        IMemoryCache cache,
-        IContextService fileTrackingService,
-        IOptions<MediaDetectionOptions> options)
+    public async Task<MediaInfo> DetectMovieAsync(string fileName, string filePath)
     {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _tmdbClient = tmdbClient ?? throw new ArgumentNullException(nameof(tmdbClient));
-        _cache = cache ?? throw new ArgumentNullException(nameof(cache));
-        _fileTrackingService = fileTrackingService ?? throw new ArgumentNullException(nameof(fileTrackingService));
-        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
-
-        _moviePattern = new Regex(_options.MoviePattern, RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    }
-
-    public async Task<MediaInfo?> DetectMovieAsync(string fileName, string filePath)
-    {
+        var emptyMediaInfo = new MediaInfo
+        {
+            MediaType = MediaType.Movies
+        };
         try
         {
             _logger.LogDebug("Attempting to detect movie pattern for: {FileName}", fileName);
             Match match = _moviePattern.Match(fileName);
             if (!match.Success)
             {
-                await _fileTrackingService.UpdateStatusAsync(fileName, null, _emptyMediaInfo, FileStatus.Failed);
                 _logger.LogDebug("Filename does not match movie pattern: {FileName}", fileName);
-                return null;
+                return emptyMediaInfo;
             }
 
             string title = match.Groups["title"].Value.Replace(".", " ", StringComparison.OrdinalIgnoreCase).Trim();
@@ -62,14 +51,14 @@ public class MovieDetectionService : IMovieDetectionService
             string cacheKey = $"movie_{title}_{year}";
             if (_cache.TryGetValue<MediaInfo>(cacheKey, out MediaInfo? cachedInfo))
             {
-                return cachedInfo;
+                return cachedInfo ?? emptyMediaInfo;
             }
 
-            MediaInfo mediaInfo = await SearchTmDbForMovie(title, year, filePath);
+            MediaInfo mediaInfo = await SearchTmDbForMovie(title, year, filePath, emptyMediaInfo);
             mediaInfo.MediaType = MediaType.Movies;
             if (mediaInfo == null)
             {
-                return null;
+                return emptyMediaInfo;
             }
 
             _cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
@@ -79,11 +68,11 @@ public class MovieDetectionService : IMovieDetectionService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error detecting movie: {FileName}", fileName);
-            return null;
+            return emptyMediaInfo;
         }
     }
 
-    private async Task<MediaInfo> SearchTmDbForMovie(string title, int year, string filePath)
+    private async Task<MediaInfo> SearchTmDbForMovie(string title, int year, string filePath, MediaInfo emptyMediaInfo)
     {
         if (string.IsNullOrWhiteSpace(title))
         {
@@ -100,8 +89,7 @@ public class MovieDetectionService : IMovieDetectionService
         if (searchResults?.Results == null)
         {
             _logger.LogError("TMDb API returned null or invalid response for title: {Title}", title);
-            await _fileTrackingService.UpdateStatusAsync(filePath, null, _emptyMediaInfo, FileStatus.Failed);
-            return _emptyMediaInfo;
+            return emptyMediaInfo;
         }
 
         TMDbLib.Objects.Search.SearchMovie? bestMatch = searchResults.Results
@@ -111,8 +99,8 @@ public class MovieDetectionService : IMovieDetectionService
         if (bestMatch == null)
         {
             _logger.LogWarning("No TMDb match found for movie: {Title} ({Year})", title, year);
-            await _fileTrackingService.UpdateStatusAsync(filePath, null, _emptyMediaInfo, FileStatus.Failed);
-            return _emptyMediaInfo;
+            await _fileTrackingService.UpdateStatusAsync(filePath, null, emptyMediaInfo, FileStatus.Failed);
+            return emptyMediaInfo;
         }
         TMDbLib.Objects.General.ExternalIdsMovie externalIds = await _tmdbClient.GetMovieExternalIdsAsync(bestMatch.Id);
 
@@ -126,22 +114,21 @@ public class MovieDetectionService : IMovieDetectionService
         };
     }
 
-    public async Task<MediaInfo?> DetectMovieByTmdbIdAsync(int tmdbId)
+    public async Task<MediaInfo> DetectMovieByTmdbIdAsync(int tmdbId)
     {
+        var emptyMediaInfo = new MediaInfo
+        {
+            MediaType = MediaType.Movies
+        };
         try
         {
             string cacheKey = $"movie_tmdb_{tmdbId}";
             if (_cache.TryGetValue<MediaInfo>(cacheKey, out MediaInfo? cachedInfo))
             {
-                return cachedInfo;
+                return cachedInfo ?? emptyMediaInfo;
             }
 
             TMDbLib.Objects.Movies.Movie movieDetails = await _tmdbClient.GetMovieAsync(tmdbId);
-            if (movieDetails == null)
-            {
-                _logger.LogWarning("No TMDb movie found for ID: {TmdbId}", tmdbId);
-                return null;
-            }
 
             TMDbLib.Objects.General.ExternalIdsMovie externalIds = await _tmdbClient.GetMovieExternalIdsAsync(movieDetails.Id);
 
@@ -160,7 +147,8 @@ public class MovieDetectionService : IMovieDetectionService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error detecting movie by TMDb ID: {TmdbId}", tmdbId);
-            return null;
+            return emptyMediaInfo;
         }
     }
 } 
+
