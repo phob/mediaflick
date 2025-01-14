@@ -1,10 +1,8 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Caching.Memory;
-using Moq;
+using NSubstitute;
 using PlexLocalScan.Core.Media;
-using PlexLocalScan.Core.Tables;
-using PlexLocalScan.FileTracking.Services;
 using PlexLocalScan.Shared.Interfaces;
 using PlexLocalScan.Shared.Options;
 using PlexLocalScan.Shared.Services;
@@ -13,7 +11,9 @@ using TMDbLib.Objects.Search;
 using MediaType = PlexLocalScan.Core.Tables.MediaType;
 
 namespace PlexLocalScan.Test.Services;
-internal sealed record MovieTestData
+#pragma warning disable CA1515
+public sealed record MovieTestData
+#pragma warning restore CA1515
 {
     public required string FileName { get; init; }
     public required string Title { get; init; }
@@ -22,36 +22,36 @@ internal sealed record MovieTestData
     public required int Year { get; init; }
     public required DateTime ReleaseDate { get; init; }
     public double Popularity { get; init; } = 90.0;
-} 
+}
 
 public class MovieDetectionServiceTests
 {
-    private readonly Mock<ITmDbClientWrapper> _tmdbClientMock;
-    private readonly Mock<IMemoryCache> _cacheMock;
+    private readonly ITmDbClientWrapper _tmdbClient;
+    private readonly IMemoryCache _cache;
     private readonly MovieDetectionService _service;
+
     public MovieDetectionServiceTests()
     {
-        Mock<ILogger<MovieDetectionService>> loggerMock = new();
-        _tmdbClientMock = new Mock<ITmDbClientWrapper>();
-        _cacheMock = new Mock<IMemoryCache>();
-        Mock<IContextService> fileTrackingServiceMock = new();
+        var logger = Substitute.For<ILogger<MovieDetectionService>>();
+        _tmdbClient = Substitute.For<ITmDbClientWrapper>();
+        _cache = Substitute.For<IMemoryCache>();
         var options = Options.Create(new MediaDetectionOptions { CacheDuration = TimeSpan.FromMinutes(30) });
 
         // Setup cache mock to accept any Set operations
-        _cacheMock.Setup(x => x.CreateEntry(It.IsAny<object>()))
-            .Returns(Mock.Of<ICacheEntry>());
+        var cacheEntry = Substitute.For<ICacheEntry>();
+        _cache.CreateEntry(Arg.Any<object>()).Returns(cacheEntry);
 
         _service = new MovieDetectionService(
-            loggerMock.Object,
-            _tmdbClientMock.Object,
-            _cacheMock.Object,
-            fileTrackingServiceMock.Object,
+            logger,
+            _tmdbClient,
+            _cache,
             options
         );
     }
 
-    [Theory, MemberData(nameof(MovieTestData))]
-    internal async Task DetectMovieAsyncWithValidMoviesReturnsCorrectInfo(MovieTestData testData)
+    [Theory]
+    [MemberData(nameof(MovieTestData))]
+    public async Task DetectMovieAsyncWithValidMoviesReturnsCorrectInfo(MovieTestData testData)
     {
         // Arrange
         var filePath = Path.Combine(@"D:\Movies", testData.FileName);
@@ -71,10 +71,8 @@ public class MovieDetectionServiceTests
 
         var externalIds = new ExternalIdsMovie { ImdbId = testData.ImdbId };
 
-        _tmdbClientMock.Setup(x => x.SearchMovieAsync(testData.Title))
-            .ReturnsAsync(searchContainer);
-        _tmdbClientMock.Setup(x => x.GetMovieExternalIdsAsync(testData.TmdbId))
-            .ReturnsAsync(externalIds);
+        _tmdbClient.SearchMovieAsync(testData.Title).Returns(searchContainer);
+        _tmdbClient.GetMovieExternalIdsAsync(testData.TmdbId).Returns(externalIds);
 
         // Act
         var result = await _service.DetectMovieAsync(testData.FileName, filePath);
@@ -88,42 +86,36 @@ public class MovieDetectionServiceTests
         Assert.Equal(MediaType.Movies, result.MediaType);
     }
 
-    public static IEnumerable<object[]> MovieTestData =>
+    public static TheoryData<MovieTestData> MovieTestData =>
     [
-        [
-            new MovieTestData
-            {
-                FileName = "The Matrix 1999.mkv",
-                Title = "The Matrix",
-                TmdbId = 603,
-                ImdbId = "tt0133093",
-                Year = 1999,
-                ReleaseDate = new DateTime(1999, 3, 31, 0, 0, 0, DateTimeKind.Utc)
-            }
-        ],        
-        [
-            new MovieTestData
-            {
-                FileName = "Inception (2010).mkv",
-                Title = "Inception",
-                TmdbId = 27205,
-                ImdbId = "tt1375666",
-                Year = 2010,
-                ReleaseDate = new DateTime(2010, 7, 15, 0, 0, 0, DateTimeKind.Utc),
-                Popularity = 95.0
-            }
-        ],
-        [
-            new MovieTestData
-            {
-                FileName = "Pulp.Fiction.1994.mkv",
-                Title = "Pulp Fiction",
-                TmdbId = 680,
-                ImdbId = "tt0110912",
-                Year = 1994,
-                ReleaseDate = new DateTime(1994, 10, 14, 0, 0, 0, DateTimeKind.Utc)
-            }
-        ]
+        new MovieTestData
+        {
+            FileName = "The Matrix 1999.mkv",
+            Title = "The Matrix",
+            TmdbId = 603,
+            ImdbId = "tt0133093",
+            Year = 1999,
+            ReleaseDate = new DateTime(1999, 3, 31, 0, 0, 0, DateTimeKind.Utc)
+        },
+        new MovieTestData
+        {
+            FileName = "Inception (2010).mkv",
+            Title = "Inception",
+            TmdbId = 27205,
+            ImdbId = "tt1375666",
+            Year = 2010,
+            ReleaseDate = new DateTime(2010, 7, 15, 0, 0, 0, DateTimeKind.Utc),
+            Popularity = 95.0
+        },
+        new MovieTestData
+        {
+            FileName = "Pulp.Fiction.1994.mkv",
+            Title = "Pulp Fiction",
+            TmdbId = 680,
+            ImdbId = "tt0110912",
+            Year = 1994,
+            ReleaseDate = new DateTime(1994, 10, 14, 0, 0, 0, DateTimeKind.Utc)
+        }
     ];
 
     [Fact]
@@ -154,8 +146,7 @@ public class MovieDetectionServiceTests
             Results = new List<SearchMovie>()
         };
 
-        _tmdbClientMock.Setup(x => x.SearchMovieAsync("The Matrix"))
-            .ReturnsAsync(searchContainer);
+        _tmdbClient.SearchMovieAsync("The Matrix").Returns(searchContainer);
 
         // Act
         var result = await _service.DetectMovieAsync(fileName, filePath);
@@ -180,10 +171,8 @@ public class MovieDetectionServiceTests
         };
         var externalIds = new ExternalIdsMovie { ImdbId = "tt0133093" };
 
-        _tmdbClientMock.Setup(x => x.GetMovieAsync(tmdbId))
-            .ReturnsAsync(movie);
-        _tmdbClientMock.Setup(x => x.GetMovieExternalIdsAsync(tmdbId))
-            .ReturnsAsync(externalIds);
+        _tmdbClient.GetMovieAsync(tmdbId).Returns(movie);
+        _tmdbClient.GetMovieExternalIdsAsync(tmdbId).Returns(externalIds);
 
         // Act
         var result = await _service.DetectMovieByTmdbIdAsync(tmdbId);
@@ -202,8 +191,8 @@ public class MovieDetectionServiceTests
     {
         // Arrange
         const int tmdbId = -1;
-        _tmdbClientMock.Setup(x => x.GetMovieAsync(It.IsAny<int>()))
-            .ThrowsAsync(new HttpRequestException("Invalid TMDb ID"));
+        _tmdbClient.GetMovieAsync(Arg.Any<int>())
+            .Returns(Task.FromException<TMDbLib.Objects.Movies.Movie>(new HttpRequestException("Invalid TMDb ID")));
 
         // Act
         var result = await _service.DetectMovieByTmdbIdAsync(tmdbId);
@@ -230,9 +219,11 @@ public class MovieDetectionServiceTests
             MediaType = MediaType.Movies
         };
 
-        object? cached = cachedMediaInfo;
-        _cacheMock.Setup(x => x.TryGetValue(It.IsAny<string>(), out cached))
-            .Returns(true);
+        _cache.TryGetValue(Arg.Any<string>(), out _)
+            .Returns(callInfo => {
+                callInfo[1] = cachedMediaInfo;
+                return true;
+            });
 
         // Act
         var result = await _service.DetectMovieAsync(fileName, filePath);
@@ -245,6 +236,6 @@ public class MovieDetectionServiceTests
         Assert.Equal(cachedMediaInfo.ImdbId, result.ImdbId);
         
         // Verify TMDb API was not called
-        _tmdbClientMock.Verify(x => x.SearchMovieAsync(It.IsAny<string>()), Times.Never);
+        await _tmdbClient.DidNotReceive().SearchMovieAsync(Arg.Any<string>());
     }
 } 

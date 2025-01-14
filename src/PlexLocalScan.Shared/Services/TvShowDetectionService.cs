@@ -17,37 +17,28 @@ public class TvShowDetectionService(
     ILogger<TvShowDetectionService> logger,
     ITmDbClientWrapper tmdbClient,
     IMemoryCache cache,
-    IContextService contextService,
     IOptions<MediaDetectionOptions> options)
     : ITvShowDetectionService
 {
     private readonly MediaDetectionOptions _options = options.Value;
     private readonly Regex _tvShowPattern = BasicSeasonEpisodeRegex;
     private readonly Regex _titleCleanupPattern = FinerTitleRegex;
+    private readonly MediaInfo _emptyMediaInfo = new()
+    {
+        MediaType = MediaType.TvShows
+    };
 
-    public async Task<MediaInfo?> DetectTvShowAsync(string fileName, string filePath)
+    public async Task<MediaInfo> DetectTvShowAsync(string fileName, string filePath)
     {
         try
         {
             logger.LogDebug("Attempting to detect TV show pattern for: {FileName}", fileName);
-            var emptyMediaInfo = new MediaInfo
-            {
-                MediaType = MediaType.TvShows
-            };
             var match = _tvShowPattern.Match(fileName);
-            if (!match.Success)
-            {
-                await contextService.UpdateStatusAsync(filePath, null, emptyMediaInfo, FileStatus.Failed);
-                logger.LogDebug("Filename does not match TV show pattern: {FileName}", fileName);
-                return null;
-            }
-
             var titleMatch = _titleCleanupPattern.Match(match.Groups["title"].Value.Replace(".", " ", StringComparison.OrdinalIgnoreCase).Trim());
-            if (!titleMatch.Success)
+            if (!match.Success || !titleMatch.Success)
             {
-                await contextService.UpdateStatusAsync(filePath, null, emptyMediaInfo, FileStatus.Failed);
-                logger.LogWarning("Failed to clean title for TV show: {FileName}", fileName);
-                return null;
+                logger.LogDebug("Filename does not match TV show pattern: {FileName}", fileName);
+                return _emptyMediaInfo;
             }
 
             var title = titleMatch.Groups["title"].Value;
@@ -58,27 +49,15 @@ public class TvShowDetectionService(
                 : null;
 
             var cacheKey = $"tvshow_{title}_{season}_{episode}";
-            if (cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo) && cachedInfo != null)
+            if (cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo))
             {
-                var cachedMediaInfo = new MediaInfo
-                {
-                    MediaType = MediaType.TvShows,
-                    TmdbId = cachedInfo.TmdbId,
-                    ImdbId = cachedInfo.ImdbId,
-                    SeasonNumber = cachedInfo.SeasonNumber,
-                    EpisodeNumber = cachedInfo.EpisodeNumber,
-                    Genres = cachedInfo.Genres,
-                    Title = cachedInfo.Title,
-                    Year = cachedInfo.Year
-                };
-                await contextService.UpdateStatusAsync(filePath, null, cachedMediaInfo, FileStatus.Processing);
-                return cachedInfo;
+                return cachedInfo ?? _emptyMediaInfo;
             }
 
-            var bestMatch =  await TmdbSearchShowAsync(filePath, emptyMediaInfo, title);
+            var bestMatch =  await TmdbSearchShowAsync(title);
             if (bestMatch == null)
             {
-                return null;
+                return _emptyMediaInfo;
             }
             var tvShowDetails = await tmdbClient.GetTvShowAsync(bestMatch.Id);
             var episodeInfo = await tmdbClient.GetTvEpisodeAsync(bestMatch.Id, season, episode);
@@ -97,18 +76,17 @@ public class TvShowDetectionService(
                 EpisodeTmdbId = episodeInfo?.Id,
                 Genres = tvShowDetails.Genres?.Select(g => g.Name).ToList().AsReadOnly()
             };
-            await contextService.UpdateStatusAsync(filePath, null, mediaInfo, FileStatus.Processing);
             cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
             return mediaInfo;
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error detecting TV show: {FileName}", fileName);
-            return null;
+            return _emptyMediaInfo;
         }
     }
 
-    private async Task<SearchTv?> TmdbSearchShowAsync(string filePath, MediaInfo emptyMediaInfo, string title)
+    private async Task<SearchTv?> TmdbSearchShowAsync(string title)
     {
         var searchResults = await tmdbClient.SearchTvShowAsync(title);
         if (searchResults.Results.Count == 0)
@@ -119,30 +97,30 @@ public class TvShowDetectionService(
             .OrderByDescending(s => GetTitleSimilarity(title, s.Name))
             .ThenByDescending(s => s.Popularity)
             .FirstOrDefault();
-        if (bestMatch == null)
+        if (bestMatch != null)
         {
-            await contextService.UpdateStatusAsync(filePath, null, emptyMediaInfo, FileStatus.Failed);
-            logger.LogWarning("No TMDb match found for TV show: {Title}", title);
-            return null;
+            return bestMatch;
         }
-        return bestMatch;
+
+        logger.LogWarning("No TMDb match found for TV show: {Title}", title);
+        return null;
     }
 
-    public async Task<MediaInfo?> DetectTvShowByTmdbIdAsync(int tmdbId, int season, int episode)
+    public async Task<MediaInfo> DetectTvShowByTmdbIdAsync(int tmdbId, int season, int episode)
     {
         try
         {
             var cacheKey = $"tvshow_tmdb_{tmdbId}_{season}_{episode}";
             if (cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo))
             {
-                return cachedInfo;
+                return cachedInfo ?? _emptyMediaInfo;
             }
 
             var tvShowDetails = await tmdbClient.GetTvShowAsync(tmdbId);
             if (tvShowDetails == null)
             {
                 logger.LogWarning("No TMDb show found for ID: {TmdbId}", tmdbId);
-                return null;
+                return _emptyMediaInfo;
             }
 
             var episodeInfo = await tmdbClient.GetTvEpisodeAsync(tmdbId, season, episode);
@@ -168,7 +146,7 @@ public class TvShowDetectionService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error detecting TV show by TMDb ID: {TmdbId}", tmdbId);
-            return null;
+            return _emptyMediaInfo;
         }
     }
 
