@@ -11,7 +11,7 @@ internal static class MediaLookupRouting
 
     public static void MapMediaLookupEndpoints(this IEndpointRouteBuilder app)
     {
-        RouteGroupBuilder group = app.MapGroup(MediaLookupBaseRoute)
+        var group = app.MapGroup(MediaLookupBaseRoute)
             .WithTags("Media Lookup")
             .WithOpenApi()
             .WithDescription("Provides media lookup functionality using TMDb");

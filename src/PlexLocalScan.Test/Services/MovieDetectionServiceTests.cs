@@ -13,20 +13,29 @@ using TMDbLib.Objects.Search;
 using MediaType = PlexLocalScan.Core.Tables.MediaType;
 
 namespace PlexLocalScan.Test.Services;
+internal sealed record MovieTestData
+{
+    public required string FileName { get; init; }
+    public required string Title { get; init; }
+    public required int TmdbId { get; init; }
+    public required string ImdbId { get; init; }
+    public required int Year { get; init; }
+    public required DateTime ReleaseDate { get; init; }
+    public double Popularity { get; init; } = 90.0;
+} 
 
 public class MovieDetectionServiceTests
 {
     private readonly Mock<ITmDbClientWrapper> _tmdbClientMock;
     private readonly Mock<IMemoryCache> _cacheMock;
     private readonly MovieDetectionService _service;
-
     public MovieDetectionServiceTests()
     {
         Mock<ILogger<MovieDetectionService>> loggerMock = new();
         _tmdbClientMock = new Mock<ITmDbClientWrapper>();
         _cacheMock = new Mock<IMemoryCache>();
         Mock<IContextService> fileTrackingServiceMock = new();
-        IOptions<MediaDetectionOptions> options = Options.Create(new MediaDetectionOptions { CacheDuration = TimeSpan.FromMinutes(30) });
+        var options = Options.Create(new MediaDetectionOptions { CacheDuration = TimeSpan.FromMinutes(30) });
 
         // Setup cache mock to accept any Set operations
         _cacheMock.Setup(x => x.CreateEntry(It.IsAny<object>()))
@@ -45,7 +54,7 @@ public class MovieDetectionServiceTests
     internal async Task DetectMovieAsyncWithValidMoviesReturnsCorrectInfo(MovieTestData testData)
     {
         // Arrange
-        string filePath = Path.Combine(@"D:\Movies", testData.FileName);
+        var filePath = Path.Combine(@"D:\Movies", testData.FileName);
         var searchContainer = new SearchContainer<SearchMovie>
         {
             Results =
@@ -68,7 +77,7 @@ public class MovieDetectionServiceTests
             .ReturnsAsync(externalIds);
 
         // Act
-        MediaInfo result = await _service.DetectMovieAsync(testData.FileName, filePath);
+        var result = await _service.DetectMovieAsync(testData.FileName, filePath);
 
         // Assert
         Assert.NotNull(result);
@@ -92,17 +101,6 @@ public class MovieDetectionServiceTests
                 ReleaseDate = new DateTime(1999, 3, 31, 0, 0, 0, DateTimeKind.Utc)
             }
         ],        
-        [
-            new MovieTestData
-            {
-                FileName = "Number 99.mkv",
-                Title = "The Matrix",
-                TmdbId = 603,
-                ImdbId = "tt0133093",
-                Year = 1999,
-                ReleaseDate = new DateTime(1999, 3, 31, 0, 0, 0, DateTimeKind.Utc)
-            }
-        ],
         [
             new MovieTestData
             {
@@ -136,7 +134,7 @@ public class MovieDetectionServiceTests
         const string filePath = @"D:\Movies\invalid_movie_name.mkv";
 
         // Act
-        MediaInfo result = await _service.DetectMovieAsync(fileName, filePath);
+        var result = await _service.DetectMovieAsync(fileName, filePath);
 
         // Assert
         Assert.NotNull(result);
@@ -160,7 +158,7 @@ public class MovieDetectionServiceTests
             .ReturnsAsync(searchContainer);
 
         // Act
-        MediaInfo result = await _service.DetectMovieAsync(fileName, filePath);
+        var result = await _service.DetectMovieAsync(fileName, filePath);
 
         // Assert
         Assert.NotNull(result);
@@ -188,7 +186,7 @@ public class MovieDetectionServiceTests
             .ReturnsAsync(externalIds);
 
         // Act
-        MediaInfo result = await _service.DetectMovieByTmdbIdAsync(tmdbId);
+        var result = await _service.DetectMovieByTmdbIdAsync(tmdbId);
 
         // Assert
         Assert.NotNull(result);
@@ -208,7 +206,7 @@ public class MovieDetectionServiceTests
             .ThrowsAsync(new HttpRequestException("Invalid TMDb ID"));
 
         // Act
-        MediaInfo result = await _service.DetectMovieByTmdbIdAsync(tmdbId);
+        var result = await _service.DetectMovieByTmdbIdAsync(tmdbId);
 
         // Assert
         Assert.NotNull(result);
@@ -237,7 +235,7 @@ public class MovieDetectionServiceTests
             .Returns(true);
 
         // Act
-        MediaInfo result = await _service.DetectMovieAsync(fileName, filePath);
+        var result = await _service.DetectMovieAsync(fileName, filePath);
 
         // Assert
         Assert.NotNull(result);

@@ -15,13 +15,13 @@ public class PlexHandler(ILogger<PlexHandler> logger, IOptions<PlexOptions> opti
     {
         try
         {
-            string url = $"{_options.ApiEndpoint}/library/sections?X-Plex-Token={_options.PlexToken}";
-            string response = await httpClient.GetStringAsync(new Uri(url));
+            var url = $"{_options.ApiEndpoint}/library/sections?X-Plex-Token={_options.PlexToken}";
+            var response = await httpClient.GetStringAsync(new Uri(url));
             
             var doc = new System.Xml.XmlDocument();
             doc.LoadXml(response);
 
-            System.Xml.XmlNodeList? directories = doc.SelectNodes("//Directory");
+            var directories = doc.SelectNodes("//Directory");
             if (directories == null)
             {
                 return "all";
@@ -29,7 +29,7 @@ public class PlexHandler(ILogger<PlexHandler> logger, IOptions<PlexOptions> opti
 
             foreach (System.Xml.XmlNode dir in directories)
             {
-                System.Xml.XmlNodeList? locations = dir.SelectNodes("Location");
+                var locations = dir.SelectNodes("Location");
                 if (locations == null)
                 {
                     continue;
@@ -37,10 +37,10 @@ public class PlexHandler(ILogger<PlexHandler> logger, IOptions<PlexOptions> opti
                 
                 foreach (System.Xml.XmlNode loc in locations)
                 {
-                    System.Xml.XmlAttribute? pathAttr = loc.Attributes?["path"];
+                    var pathAttr = loc.Attributes?["path"];
                     if (pathAttr?.Value != null && folderPath.StartsWith(pathAttr.Value, StringComparison.OrdinalIgnoreCase))
                     {
-                        System.Xml.XmlAttribute? keyAttr = dir.Attributes?["key"];
+                        var keyAttr = dir.Attributes?["key"];
                         return keyAttr?.Value ?? "all";
                     }
                 }
@@ -61,15 +61,15 @@ public class PlexHandler(ILogger<PlexHandler> logger, IOptions<PlexOptions> opti
         {
             logger.LogInformation("Adding folder for scanning: {FolderPath}", folderPath);
 
-            string sectionId = await GetSectionIdForPathAsync(baseFolder);
+            var sectionId = await GetSectionIdForPathAsync(baseFolder);
             logger.LogDebug("Found section ID: {SectionId} for base folder: {BaseFolder}", sectionId, baseFolder);
 
-            string encodedPath = Uri.EscapeDataString(folderPath);
-            string url = $"{_options.ApiEndpoint}/library/sections/{sectionId}/refresh?path={encodedPath}&X-Plex-Token={_options.PlexToken}";
+            var encodedPath = Uri.EscapeDataString(folderPath);
+            var url = $"{_options.ApiEndpoint}/library/sections/{sectionId}/refresh?path={encodedPath}&X-Plex-Token={_options.PlexToken}";
             
             logger.LogDebug("Request URL: {Url}", url.Replace(_options.PlexToken, "REDACTED", StringComparison.OrdinalIgnoreCase));
 
-            HttpResponseMessage response = await httpClient.GetAsync(new Uri(url));
+            var response = await httpClient.GetAsync(new Uri(url));
             
             if (response.IsSuccessStatusCode)
             {
@@ -98,15 +98,15 @@ public class PlexHandler(ILogger<PlexHandler> logger, IOptions<PlexOptions> opti
         {
             logger.LogInformation("Deleting folder from Plex: {FolderPath}", folderPath);
 
-            string sectionId = await GetSectionIdForPathAsync(folderPath);
+            var sectionId = await GetSectionIdForPathAsync(folderPath);
             logger.LogDebug("Found section ID: {SectionId} for folder: {FolderPath}", sectionId, folderPath);
 
-            string encodedPath = HttpUtility.UrlEncode(folderPath);
-            string url = $"{_options.ApiEndpoint}/library/sections/{sectionId}/refresh?path={encodedPath}&X-Plex-Token={_options.PlexToken}&type=1";
+            var encodedPath = HttpUtility.UrlEncode(folderPath);
+            var url = $"{_options.ApiEndpoint}/library/sections/{sectionId}/refresh?path={encodedPath}&X-Plex-Token={_options.PlexToken}&type=1";
             
             logger.LogDebug("Request URL: {Url}", url.Replace(_options.PlexToken, "REDACTED", StringComparison.OrdinalIgnoreCase));
 
-            HttpResponseMessage response = await httpClient.DeleteAsync(new Uri(url));
+            var response = await httpClient.DeleteAsync(new Uri(url));
             
             if (response.IsSuccessStatusCode)
             {
