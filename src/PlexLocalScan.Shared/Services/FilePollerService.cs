@@ -174,6 +174,7 @@ public class FilePollerService(
             }
 
             Core.Media.MediaInfo? mediaInfo = await mediaDetectionService.DetectMediaAsync(file, mapping.MediaType);
+            
             if (await symlinkHandler.CreateSymlinksAsync(file, destinationFolder, mediaInfo, mapping.MediaType))
             {
                 _ = await contextService.UpdateStatusAsync(file, null, mediaInfo, FileStatus.Success);
