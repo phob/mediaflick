@@ -59,7 +59,7 @@ public class MovieDetectionServiceTests
         {
             Results =
             [
-                new()
+                new SearchMovie
                 {
                     Id = testData.TmdbId,
                     Title = testData.Title,
