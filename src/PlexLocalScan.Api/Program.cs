@@ -66,7 +66,6 @@ services.AddHostedService<HeartbeatService>();
 services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
     .Configure<TmDbOptions>(builder.Configuration.GetSection("TMDb"))
     .Configure<MediaDetectionOptions>(builder.Configuration.GetSection("MediaDetection"))
-    .Configure<DatabaseOptions>(builder.Configuration.GetSection("Database"))
     .Configure<FolderMappingOptions>(builder.Configuration.GetSection("FolderMapping"))
     .AddSingleton<IPlexHandler, PlexHandler>()
     .AddScoped<INotificationService, NotificationService>()

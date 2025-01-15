@@ -4,7 +4,6 @@ using Microsoft.Extensions.Caching.Memory;
 using System.Text.RegularExpressions;
 using PlexLocalScan.Core.Media;
 using PlexLocalScan.Core.Tables;
-using PlexLocalScan.FileTracking.Services;
 using PlexLocalScan.Shared.Interfaces;
 using static PlexLocalScan.Shared.Services.RegexTv;
 using TMDbLib.Objects.Search;
@@ -33,7 +32,8 @@ public class TvShowDetectionService(
         try
         {
             logger.LogDebug("Attempting to detect TV show pattern for: {FileName}", fileName);
-            var match = _tvShowPattern.Match(fileName);
+            var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+            var match = _tvShowPattern.Match(fileNameWithoutExtension);
             var titleMatch = _titleCleanupPattern.Match(match.Groups["title"].Value.Replace(".", " ", StringComparison.OrdinalIgnoreCase).Trim());
             if (!match.Success || !titleMatch.Success)
             {
