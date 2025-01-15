@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using PlexLocalScan.Core.Media;
-using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Shared.Interfaces;
 using PlexLocalScan.Shared.Options;
 using PlexLocalScan.Shared.Services;
