@@ -1,11 +1,15 @@
 # Build Stage
-FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS backend-build
+FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS backend-build
 WORKDIR /src
 
 # Copy solution and project files
+COPY ["src/PlexLocalScan.Abstractions/PlexLocalScan.Abstractions.csproj", "PlexLocalScan.Abstractions/"]
 COPY ["src/PlexLocalScan.Api/PlexLocalScan.Api.csproj", "PlexLocalScan.Api/"]
-COPY ["src/PlexLocalScan.Shared/PlexLocalScan.Shared.csproj", "PlexLocalScan.Shared/"]
+COPY ["src/PlexLocalScan.Core/PlexLocalScan.Core.csproj", "PlexLocalScan.Core/"]
 COPY ["src/PlexLocalScan.Data/PlexLocalScan.Data.csproj", "PlexLocalScan.Data/"]
+COPY ["src/PlexLocalScan.FileTracking/PlexLocalScan.FileTracking.csproj", "PlexLocalScan.FileTracking/"]
+COPY ["src/PlexLocalScan.Shared/PlexLocalScan.Shared.csproj", "PlexLocalScan.Shared/"]
+COPY ["src/PlexLocalScan.SignalR/PlexLocalScan.SignalR.csproj", "PlexLocalScan.SignalR/"]
 
 # Restore dependencies
 RUN dotnet restore "PlexLocalScan.Api/PlexLocalScan.Api.csproj"
@@ -28,7 +32,7 @@ COPY frontend .
 RUN npm run build
 
 # Runtime Stage
-FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine
+FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine
 WORKDIR /app
 
 # Install required dependencies
