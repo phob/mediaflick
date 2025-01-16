@@ -23,7 +23,7 @@ public class ContextService(
 
     private async Task<ScannedFile?> GetExistingScannedFileAsync(string sourceFile, string? type = null)
     {
-        ScannedFile? scannedFile = await GetBySourceFileQuery(dbContext, sourceFile);
+        var scannedFile = await GetBySourceFileQuery(dbContext, sourceFile);
 
         if (scannedFile == null)
         {
@@ -42,7 +42,7 @@ public class ContextService(
 
     public async Task<ScannedFile?> AddStatusAsync(string sourceFile, string? destFile, MediaType mediaType)
     {
-        ScannedFile? scannedFile = await GetExistingScannedFileAsync(sourceFile, "add");
+        var scannedFile = await GetExistingScannedFileAsync(sourceFile, "add");
         if (scannedFile != null)
         {
             return scannedFile;
@@ -113,7 +113,7 @@ public class ContextService(
 
     public async Task<bool> UpdateStatusAsync(string sourceFile, string? destFile, MediaInfo? mediaInfo, FileStatus? status = null)
     {
-        ScannedFile? scannedFile = await GetExistingScannedFileAsync(sourceFile, "update");
+        var scannedFile = await GetExistingScannedFileAsync(sourceFile, "update");
         if (scannedFile == null || mediaInfo == null)
         {
             return false;
@@ -123,9 +123,9 @@ public class ContextService(
         try
         {
             // Use a transaction for the update to ensure atomicity
-            await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction = await dbContext.Database.BeginTransactionAsync();
+            await using var transaction = await dbContext.Database.BeginTransactionAsync();
 
-            bool hasChanges = false;
+            var hasChanges = false;
             
             // Only set properties that have changed
             if (destFile != null && destFile != scannedFile.DestFile)
@@ -166,7 +166,7 @@ public class ContextService(
 
             if (mediaInfo.Genres != null)
             {
-                string? newGenresString = ScannedFileDto.ConvertGenresToString(mediaInfo.Genres);
+                var newGenresString = ScannedFileDto.ConvertGenresToString(mediaInfo.Genres);
                 if (newGenresString != scannedFile.Genres)
                 {
                     scannedFile.Genres = newGenresString;
@@ -191,7 +191,7 @@ public class ContextService(
                 try
                 {
                     scannedFile.UpdatedAt = DateTime.UtcNow;
-                    int saveResult = await dbContext.SaveChangesAsync();
+                    var saveResult = await dbContext.SaveChangesAsync();
                     await transaction.CommitAsync();
                     
                     if (saveResult > 0)
@@ -247,7 +247,7 @@ public class ContextService(
 
     public async Task<bool> UpdateStatusByTmdbIdAsync(int tmdbId, FileStatus status)
     {
-        List<ScannedFile> scannedFiles = await GetByTmdbIdQuery(dbContext, tmdbId);
+        var scannedFiles = await GetByTmdbIdQuery(dbContext, tmdbId);
 
         if (scannedFiles.Count == 0)
         {
@@ -258,12 +258,12 @@ public class ContextService(
         try
         {
             // Use a transaction for batch update
-            await using Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction = await dbContext.Database.BeginTransactionAsync();
+            await using var transaction = await dbContext.Database.BeginTransactionAsync();
 
-            DateTime updateTime = DateTime.UtcNow;
-            bool hasChanges = false;
+            var updateTime = DateTime.UtcNow;
+            var hasChanges = false;
             
-            foreach (ScannedFile? file in scannedFiles.Where(file => file.Status != status))
+            foreach (var file in scannedFiles.Where(file => file.Status != status))
             {
                 file.Status = status;
                 file.UpdatedAt = updateTime;
@@ -274,7 +274,7 @@ public class ContextService(
             {
                 try 
                 {
-                    int saveResult = await dbContext.SaveChangesAsync();
+                    var saveResult = await dbContext.SaveChangesAsync();
                     await transaction.CommitAsync();
                     
                     if (saveResult > 0)
@@ -289,7 +289,7 @@ public class ContextService(
                     if (ex.InnerException?.Message.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase) == true)
                     {
                         // Since this is a batch update, handle each file individually if there's a constraint violation
-                        foreach (ScannedFile file in scannedFiles)
+                        foreach (var file in scannedFiles)
                         {
                             try
                             {

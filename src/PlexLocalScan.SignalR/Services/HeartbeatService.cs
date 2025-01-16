@@ -29,7 +29,7 @@ public class HeartbeatService : IHostedService, IDisposable
     {
         try
         {
-            long timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             await _hubContext.Clients.All.OnHeartbeat(timestamp);
         }
         catch

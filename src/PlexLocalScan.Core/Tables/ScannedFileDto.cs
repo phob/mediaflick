@@ -34,7 +34,7 @@ public class ScannedFileDto
             return null;
         }
 
-        string[] enumerable = genres as string[] ?? [.. genres];
+        var enumerable = genres as string[] ?? [.. genres];
         return enumerable.Length != 0 ? string.Join(GenreSeparator, enumerable) : null;
     }
 
