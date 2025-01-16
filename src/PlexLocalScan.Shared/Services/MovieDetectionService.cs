@@ -72,7 +72,7 @@ public class MovieDetectionService : IMovieDetectionService
                 return null;
             }
 
-            _cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
+            _cache.Set(cacheKey, mediaInfo, _options.CacheDurationSeconds);
             await _fileTrackingService.UpdateStatusAsync(filePath, null, mediaInfo, FileStatus.Processing);
             return mediaInfo;
         }
@@ -154,7 +154,7 @@ public class MovieDetectionService : IMovieDetectionService
                 MediaType = MediaType.Movies
             };
 
-            _cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
+            _cache.Set(cacheKey, mediaInfo, _options.CacheDurationSeconds);
             return mediaInfo;
         }
         catch (Exception ex)

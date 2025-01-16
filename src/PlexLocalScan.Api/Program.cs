@@ -12,6 +12,7 @@ using Scalar.AspNetCore;
 using Serilog;
 using System.Text.Json.Serialization;
 using PlexLocalScan.Api.Endpoints;
+using PlexLocalScan.Api.Loader;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -94,14 +95,51 @@ services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
     .AddHttpClient()
     .AddMemoryCache();
 
+// Configure database settings
+services.AddOptions<PlexOptions>()
+    .Configure<PlexScanContext>((options, context) =>
+    {
+        var settingsLoader = new DatabaseSettingsLoader(context);
+        PlexDbOptions plexOptions = settingsLoader.LoadPlexOptionsAsync().GetAwaiter().GetResult();
+        
+        options.Host = plexOptions.Host;
+        options.Port = plexOptions.Port;
+        options.PlexToken = plexOptions.PlexToken;
+        options.PollingInterval = plexOptions.PollingInterval;
+        options.ProcessNewFolderDelay = plexOptions.ProcessNewFolderDelay;
+        foreach (FolderMappingDbOptions fm in plexOptions.FolderMappings)
+        {
+            options.FolderMappings.Add(new FolderMappingOptions
+            {
+                SourceFolder = fm.SourceFolder,
+                DestinationFolder = fm.DestinationFolder,
+                MediaType = fm.MediaType
+            });
+        }
+    });
+
+services.AddOptions<TmDbOptions>()
+    .Configure<PlexScanContext>((options, context) =>
+    {
+        var settingsLoader = new DatabaseSettingsLoader(context);
+        TmDbDbOptions tmdbOptions = settingsLoader.LoadTmDbOptionsAsync().GetAwaiter().GetResult();
+        options.ApiKey = tmdbOptions.ApiKey;
+    });
+
+services.AddOptions<MediaDetectionOptions>()
+    .Configure<PlexScanContext>((options, context) =>
+    {
+        var settingsLoader = new DatabaseSettingsLoader(context);
+        MediaDetectionDbOptions mediaDetectionOptions = settingsLoader.LoadMediaDetectionOptionsAsync().GetAwaiter().GetResult();
+        options.CacheDurationSeconds = TimeSpan.FromSeconds(mediaDetectionOptions.CacheDurationSeconds);
+    });
+
 WebApplication app = builder.Build();
 
 // Apply migrations on startup
-using (IServiceScope scope = app.Services.CreateScope())
-{
-    PlexScanContext db = scope.ServiceProvider.GetRequiredService<PlexScanContext>();
-    await db.Database.MigrateAsync();
-}
+using IServiceScope scope = app.Services.CreateScope();
+PlexScanContext dbContext = scope.ServiceProvider.GetRequiredService<PlexScanContext>();
+await dbContext.Database.MigrateAsync();
 
 // Configure the HTTP request pipeline
 app.UseExceptionHandler(errorApp => errorApp.Run(async context =>

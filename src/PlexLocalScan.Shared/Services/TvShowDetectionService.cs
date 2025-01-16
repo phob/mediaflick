@@ -98,7 +98,7 @@ public class TvShowDetectionService(
                 Genres = tvShowDetails.Genres?.Select(g => g.Name).ToList().AsReadOnly()
             };
             await contextService.UpdateStatusAsync(filePath, null, mediaInfo, FileStatus.Processing);
-            cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
+            cache.Set(cacheKey, mediaInfo, _options.CacheDurationSeconds);
             return mediaInfo;
         }
         catch (Exception ex)
@@ -162,7 +162,7 @@ public class TvShowDetectionService(
                 Genres = tvShowDetails.Genres?.Select(g => g.Name).ToList().AsReadOnly()
             };
 
-            cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
+            cache.Set(cacheKey, mediaInfo, _options.CacheDurationSeconds);
             return mediaInfo;
         }
         catch (Exception ex)
