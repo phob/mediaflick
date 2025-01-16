@@ -98,7 +98,7 @@ public class CleanupHandler(
         try
         {
             // Get all records for the deleted source folder
-            List<ScannedFile> affectedFiles = await dbContext.ScannedFiles
+            var affectedFiles = await dbContext.ScannedFiles
                 .Where(f => f.SourceFile.StartsWith(sourceFolder))
                 .ToListAsync();
 
@@ -117,7 +117,7 @@ public class CleanupHandler(
 
             // Delete all destination files
 #pragma warning disable S3267 // Loops should be simplified with "LINQ" expressions
-            foreach (ScannedFile? file in affectedFiles.Where(f => !string.IsNullOrEmpty(f.DestFile)))
+            foreach (var file in affectedFiles.Where(f => !string.IsNullOrEmpty(f.DestFile)))
             {
                 try
                 {
@@ -137,7 +137,7 @@ public class CleanupHandler(
 #pragma warning restore S3267 // Loops should be simplified with "LINQ" expressions
 
             // Clean up empty directories
-            foreach (string? folder in destFolders.OfType<string>().Where(Directory.Exists))
+            foreach (var folder in destFolders.OfType<string>().Where(Directory.Exists))
             {
                 RemoveEmptyDirectories(folder);
             }

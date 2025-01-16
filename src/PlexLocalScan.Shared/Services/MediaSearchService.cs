@@ -14,14 +14,14 @@ public class MediaSearchService(ITmDbClientWrapper tmdbClient, ILogger<MediaSear
 {
     public async Task<IEnumerable<MediaSearchResult>> SearchMovieTmdbIdsAsync(string title)
     {
-        TMDbLib.Objects.General.SearchContainer<TMDbLib.Objects.Search.SearchMovie> searchResults = await tmdbClient.SearchMovieAsync(title);
+        var searchResults = await tmdbClient.SearchMovieAsync(title);
         return searchResults.Results.Select(r => new MediaSearchResult(r.Id, r.Title, r.ReleaseDate?.Year, r.PosterPath)).ToList();
     }
 
     public async Task<IEnumerable<MediaSearchResult>> SearchTvShowTmdbIdsAsync(string title)
     {
         logger.LogInformation("Searching for TV show with title: {Title}", title);
-        TMDbLib.Objects.General.SearchContainer<TMDbLib.Objects.Search.SearchTv> searchResults = await tmdbClient.SearchTvShowAsync(title);
+        var searchResults = await tmdbClient.SearchTvShowAsync(title);
 
         if (searchResults.Results == null)
         {
@@ -37,13 +37,13 @@ public class MediaSearchService(ITmDbClientWrapper tmdbClient, ILogger<MediaSear
 
     public async Task<MediaInfo?> GetMovieMediaInfoAsync(int tmdbId)
     {
-        string cacheKey = $"movie_{tmdbId}";
-        if (cache.TryGetValue<MediaInfo>(cacheKey, out MediaInfo? cachedInfo))
+        var cacheKey = $"movie_{tmdbId}";
+        if (cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo))
         {
             return cachedInfo;
         }
-        TMDbLib.Objects.Movies.Movie movie = await tmdbClient.GetMovieAsync(tmdbId);
-        TMDbLib.Objects.General.ExternalIdsMovie externalIds = await tmdbClient.GetMovieExternalIdsAsync(tmdbId);
+        var movie = await tmdbClient.GetMovieAsync(tmdbId);
+        var externalIds = await tmdbClient.GetMovieExternalIdsAsync(tmdbId);
         var mediaInfo = new MediaInfo
         {
             Title = movie.Title,
@@ -63,24 +63,24 @@ public class MediaSearchService(ITmDbClientWrapper tmdbClient, ILogger<MediaSear
 
     public async Task<MediaInfo?> GetTvShowMediaInfoAsync(int tmdbId, bool includeDetails = false)
     {
-        string cacheKey = $"tvshow_{tmdbId}";
-        if (cache.TryGetValue<MediaInfo>(cacheKey, out MediaInfo? cachedInfo))
+        var cacheKey = $"tvshow_{tmdbId}";
+        if (cache.TryGetValue<MediaInfo>(cacheKey, out var cachedInfo))
         {
             return cachedInfo;
         }
             
-        TMDbLib.Objects.TvShows.TvShow tvShow = await tmdbClient.GetTvShowAsync(tmdbId);
-        TMDbLib.Objects.General.ExternalIdsTvShow externalIds = await tmdbClient.GetTvShowExternalIdsAsync(tmdbId);
+        var tvShow = await tmdbClient.GetTvShowAsync(tmdbId);
+        var externalIds = await tmdbClient.GetTvShowExternalIdsAsync(tmdbId);
         // Get episodes and seasons from database
-        int episodesScannedFiles = dbContext.ScannedFiles
+        var episodesScannedFiles = dbContext.ScannedFiles
             .Where(f => f.TmdbId == tmdbId 
                         && f.MediaType == MediaType.TvShows
                         && f.Status == FileStatus.Success)
             .OrderBy(e => e.SeasonNumber)
             .Count();
 
-        int episodeCount = tvShow.NumberOfEpisodes;
-        int seasonCount = tvShow.NumberOfSeasons;
+        var episodeCount = tvShow.NumberOfEpisodes;
+        var seasonCount = tvShow.NumberOfSeasons;
 
         var info = new MediaInfo
         {
@@ -107,13 +107,13 @@ public class MediaSearchService(ITmDbClientWrapper tmdbClient, ILogger<MediaSear
 
     public async Task<SeasonInfo?> GetTvShowSeasonMediaInfoAsync(int tmdbId, int seasonNumber, bool includeDetails = false)
     {
-        string cacheKey = $"season_{tmdbId}_{seasonNumber}";
-        if (cache.TryGetValue<SeasonInfo>(cacheKey, out SeasonInfo? cachedSeason) && cachedSeason != null)
+        var cacheKey = $"season_{tmdbId}_{seasonNumber}";
+        if (cache.TryGetValue<SeasonInfo>(cacheKey, out var cachedSeason) && cachedSeason != null)
         {
             return cachedSeason;
         }
 
-        TMDbLib.Objects.TvShows.TvSeason season = await tmdbClient.GetTvSeasonAsync(tmdbId, seasonNumber);
+        var season = await tmdbClient.GetTvSeasonAsync(tmdbId, seasonNumber);
         var episodes = new List<EpisodeInfo>();
         if (includeDetails)
         {
@@ -150,12 +150,12 @@ public class MediaSearchService(ITmDbClientWrapper tmdbClient, ILogger<MediaSear
 
     public async Task<EpisodeInfo?> GetTvShowEpisodeMediaInfoAsync(int tmdbId, int seasonNumber, int episodeNumber, bool includeDetails = false)
     {
-        string cacheKey = $"episode_{tmdbId}_{seasonNumber}_{episodeNumber}";
-        if (cache.TryGetValue<EpisodeInfo>(cacheKey, out EpisodeInfo? cachedEpisode) && cachedEpisode != null)
+        var cacheKey = $"episode_{tmdbId}_{seasonNumber}_{episodeNumber}";
+        if (cache.TryGetValue<EpisodeInfo>(cacheKey, out var cachedEpisode) && cachedEpisode != null)
         {
             return cachedEpisode;
         }
-        TMDbLib.Objects.TvShows.TvEpisode episode = await tmdbClient.GetTvEpisodeAsync(tmdbId, seasonNumber, episodeNumber);
+        var episode = await tmdbClient.GetTvEpisodeAsync(tmdbId, seasonNumber, episodeNumber);
 
         var episodeInfo = new EpisodeInfo
         {

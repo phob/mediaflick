@@ -16,7 +16,7 @@ public class SymlinkHandler(
     {
         try
         {
-            string extension = Path.GetExtension(sourceFile);
+            var extension = Path.GetExtension(sourceFile);
             if (!SymlinkHelper.IsVideoFile(extension)) {
                 return false;
             }
@@ -27,7 +27,7 @@ public class SymlinkHandler(
                 return false;
             }
 
-            (string targetPath, string targetFileName) = GetTargetPath(mediaInfo, destinationFolder, extension);
+            (var targetPath, var targetFileName) = GetTargetPath(mediaInfo, destinationFolder, extension);
             return await CreateSymlinkWithStructureAsync(sourceFile, targetPath, targetFileName);
         }
         catch (Exception ex)
@@ -46,14 +46,14 @@ public class SymlinkHandler(
             {
                 MediaType = mediaType
             };
-            string sourceDirectory = Path.GetDirectoryName(sourceFile) 
+            var sourceDirectory = Path.GetDirectoryName(sourceFile) 
                 ?? throw new InvalidOperationException("Unable to get source directory");
-            string fileName = Path.GetFileName(sourceFile);
+            var fileName = Path.GetFileName(sourceFile);
 
-            string lastDirName = new DirectoryInfo(sourceDirectory).Name;
+            var lastDirName = new DirectoryInfo(sourceDirectory).Name;
 
-            string targetPath = Path.Combine(destinationFolder, lastDirName);
-            string fullTargetPath = Path.Combine(targetPath, fileName);
+            var targetPath = Path.Combine(destinationFolder, lastDirName);
+            var fullTargetPath = Path.Combine(targetPath, fileName);
 
             Directory.CreateDirectory(targetPath);
 
@@ -79,12 +79,12 @@ public class SymlinkHandler(
         {
             if (mediaInfo is {MediaType: MediaType.Movies})
             {
-                (string folderPath, string fileName) = PathFormatHelper.FormatMoviePath(mediaInfo);
+                (var folderPath, var fileName) = PathFormatHelper.FormatMoviePath(mediaInfo);
                 return (Path.Combine(baseFolder, folderPath), fileName + extension);
             }
             else
             {
-                (string folderPath, string fileName) = PathFormatHelper.FormatTvShowPath(mediaInfo);
+                (var folderPath, var fileName) = PathFormatHelper.FormatTvShowPath(mediaInfo);
                 return (Path.Combine(baseFolder, folderPath), fileName + extension);
             }
         }
@@ -106,7 +106,7 @@ public class SymlinkHandler(
             var emptyMediaInfo = new MediaInfo();
             Directory.CreateDirectory(targetPath);
 
-            string fullTargetPath = Path.Combine(targetPath, targetFileName);
+            var fullTargetPath = Path.Combine(targetPath, targetFileName);
 
             if (File.Exists(fullTargetPath))
             {

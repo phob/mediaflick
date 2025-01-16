@@ -16,28 +16,57 @@ public class MediaDetectionService(
 {
     public async Task<MediaInfo?> DetectMediaAsync(string filePath, MediaType mediaType)
     {
-        var emptyMediaInfo = new MediaInfo{
-            MediaType = mediaType
-        };
-        string fileName = fileSystemService.GetFileName(filePath);
+        var mediaInfo = new MediaInfo { MediaType = mediaType };
+        var fileName = fileSystemService.GetFileName(filePath);
         logger.LogDebug("Attempting to detect media info for: {FileName}", fileName);
 
         try
         {
-            return mediaType switch
+            mediaInfo = mediaType switch
             {
                 MediaType.Movies => await movieDetectionService.DetectMovieAsync(fileName, filePath),
                 MediaType.TvShows => await tvShowDetectionService.DetectTvShowAsync(fileName, filePath),
-                MediaType.Extras => null,
-                MediaType.Unknown => null,
+                MediaType.Extras => mediaInfo,
+                MediaType.Unknown => mediaInfo,
                 _ => throw new ArgumentException($"Unsupported media type: {mediaType}")
             };
+
+            if (mediaInfo is not null && !IsValidMediaInfo(mediaInfo))
+            {
+                logger.LogWarning("Invalid or incomplete media info detected for {FileName}", fileName);
+                await contextService.UpdateStatusAsync(filePath, null, mediaInfo, FileStatus.Failed);
+                return mediaInfo;
+            }
+
+            await contextService.UpdateStatusAsync(filePath, null, mediaInfo, FileStatus.Processing);
+            return mediaInfo;
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error detecting media info for {FileName}", fileName);
-            await contextService.UpdateStatusAsync(filePath, null, emptyMediaInfo, FileStatus.Failed);
-            return emptyMediaInfo;
+            await contextService.UpdateStatusAsync(filePath, null, mediaInfo, FileStatus.Failed);
+            return mediaInfo;
         }
+    }
+
+    private static bool IsValidMediaInfo(MediaInfo mediaInfo)
+    {
+        var hasBasicInfo = new[] { mediaInfo }.Any(m => 
+            !string.IsNullOrWhiteSpace(m.Title) && 
+            m.Year > 0 && 
+            m.TmdbId > 0 && 
+            m.ImdbId != null);
+
+        if (!hasBasicInfo)
+        {
+            return false;
+        }
+
+        return mediaInfo.MediaType switch
+        {
+            MediaType.Movies => true,
+            MediaType.TvShows => mediaInfo.SeasonNumber > 0 && mediaInfo.EpisodeNumber > 0,
+            _ => false
+        };
     }
 } 
