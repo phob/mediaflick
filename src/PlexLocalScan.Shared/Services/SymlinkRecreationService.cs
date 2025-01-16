@@ -58,7 +58,7 @@ public class SymlinkRecreationService(
             }
 
             // Get the correct destination folder from configuration
-            FolderMappingOptions? folderMapping = plexOptions.Value.FolderMappings
+            var folderMapping = plexOptions.Value.FolderMappings
                 .FirstOrDefault(m => m.MediaType == mediaInfo.MediaType);
 
             if (folderMapping == null)
@@ -67,7 +67,7 @@ public class SymlinkRecreationService(
                 return false;
             }
 
-            string destFolder = folderMapping.DestinationFolder;
+            var destFolder = folderMapping.DestinationFolder;
             if (string.IsNullOrEmpty(destFolder))
             {
                 logger.LogError("Destination folder is null or empty for media type {MediaType}", mediaInfo.MediaType);
@@ -83,7 +83,7 @@ public class SymlinkRecreationService(
             // Update the version number to match
             scannedFile.VersionUpdated = scannedFile.UpdateToVersion;
 
-            FileStatus fileStatus = FileStatus.Success;
+            var fileStatus = FileStatus.Success;
             if (scannedFile is {Status: FileStatus.Duplicate, DestFile: null})
             {
                 fileStatus = FileStatus.Duplicate;
@@ -118,20 +118,20 @@ public class SymlinkRecreationService(
 
     public async Task<int> RecreateAllSymlinksAsync()
     {
-        int successCount = 0;
-        int failedCount = 0;
+        var successCount = 0;
+        var failedCount = 0;
 
         try
         {
             // Get all files that need updating
-            List<ScannedFile> filesToUpdate = await dbContext.ScannedFiles
+            var filesToUpdate = await dbContext.ScannedFiles
                 .Where(f => f.UpdateToVersion > f.VersionUpdated)
                 .ToListAsync();
 
             logger.LogInformation("Found {Count} files that need symlink recreation", filesToUpdate.Count);
 
             // Group files by TMDb ID to check for duplicates
-            IEnumerable<IGrouping<int, ScannedFile>> movieGroups = filesToUpdate
+            var movieGroups = filesToUpdate
                 .Where(f => f is {MediaType: MediaType.Movies, TmdbId: not null})
                 .GroupBy(f => f.TmdbId!.Value);
 
@@ -140,10 +140,10 @@ public class SymlinkRecreationService(
                 .GroupBy(f => new { TmdbId = f.TmdbId!.Value, Season = f.SeasonNumber!.Value, Episode = f.EpisodeNumber!.Value });
 
             // Process movies - only keep the first file for each TMDb ID
-            foreach (IGrouping<int, ScannedFile> movieGroup in movieGroups)
+            foreach (var movieGroup in movieGroups)
             {
-                ScannedFile firstFile = movieGroup.First();
-                IEnumerable<ScannedFile> duplicates = movieGroup.Skip(1);
+                var firstFile = movieGroup.First();
+                var duplicates = movieGroup.Skip(1);
 
                 // Process the first file
                 if (await RecreateSymlinkIfNeededAsync(firstFile))
@@ -156,7 +156,7 @@ public class SymlinkRecreationService(
                 }
 
                 // Mark duplicates as failed
-                foreach (ScannedFile? duplicate in duplicates)
+                foreach (var duplicate in duplicates)
                 {
                     var mediaInfo = new MediaInfo
                     {
@@ -177,8 +177,8 @@ public class SymlinkRecreationService(
             // Process TV shows - only keep the first file for each TMDb ID + season + episode combination
             foreach (var tvShowGroup in tvShowGroups)
             {
-                ScannedFile firstFile = tvShowGroup.First();
-                IEnumerable<ScannedFile> duplicates = tvShowGroup.Skip(1);
+                var firstFile = tvShowGroup.First();
+                var duplicates = tvShowGroup.Skip(1);
 
                 // Process the first file
                 if (await RecreateSymlinkIfNeededAsync(firstFile))
@@ -191,7 +191,7 @@ public class SymlinkRecreationService(
                 }
 
                 // Mark duplicates as failed
-                foreach (ScannedFile? duplicate in duplicates)
+                foreach (var duplicate in duplicates)
                 {
                     var mediaInfo = new MediaInfo
                     {

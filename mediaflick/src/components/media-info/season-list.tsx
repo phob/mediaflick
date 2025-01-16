@@ -1,10 +1,11 @@
 import Image from "next/image"
 import { useEffect, useState } from "react"
 
-import { Accordion, AccordionItem, Card, CardBody, Spinner } from "@nextui-org/react"
+import { Accordion, AccordionItem, Button, Card, CardBody, Link, Spinner } from "@nextui-org/react"
+import { Calendar, CheckCircle2, Film, Info, XCircle } from "lucide-react"
 
 import { mediaApi } from "@/lib/api/endpoints"
-import type { SeasonInfo } from "@/lib/api/types"
+import type { MediaInfo, SeasonInfo } from "@/lib/api/types"
 
 // Cache for storing season data
 const seasonCache = new Map<string, { data: SeasonInfo; timestamp: number }>()
@@ -12,20 +13,20 @@ const CACHE_DURATION = 1000 * 30 // 30 seconds
 
 interface SeasonListProps {
   tmdbId: number
-  seasonCount?: number
+  mediaInfo: MediaInfo
 }
 
-export function SeasonList({ tmdbId, seasonCount = 0 }: SeasonListProps) {
+export function SeasonList({ tmdbId, mediaInfo }: SeasonListProps) {
   const [loading, setLoading] = useState(false)
   const [seasons, setSeasons] = useState<SeasonInfo[]>([])
 
   useEffect(() => {
     const loadSeasons = async () => {
-      if (!seasonCount) return
+      if (!mediaInfo.SeasonCount) return
 
       try {
         setLoading(true)
-        const seasonNumbers = Array.from({ length: seasonCount }, (_, i) => i + 1)
+        const seasonNumbers = Array.from({ length: mediaInfo.SeasonCount }, (_, i) => i + 1)
         const seasonMap = new Map<number, SeasonInfo>()
 
         // Process seasons in chunks to avoid overwhelming the API
@@ -79,7 +80,7 @@ export function SeasonList({ tmdbId, seasonCount = 0 }: SeasonListProps) {
     // Reset seasons when tmdbId or seasonCount changes
     setSeasons([])
     loadSeasons()
-  }, [seasonCount, tmdbId])
+  }, [mediaInfo.SeasonCount, tmdbId])
 
   if (loading && seasons.length === 0) {
     return (
@@ -95,19 +96,34 @@ export function SeasonList({ tmdbId, seasonCount = 0 }: SeasonListProps) {
 
   return (
     <div className="container mx-auto mt-8">
-      <h2 className="mb-4 text-2xl font-bold">Seasons</h2>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <h2 className="mb-6 flex items-center gap-2 text-2xl font-bold">
+        <Film className="h-6 w-6" />
+        Seasons
+      </h2>
+      <div className="grid grid-cols-1 gap-6">
         {seasons.map((season) => (
-          <Card key={season.SeasonNumber} className="bg-content1">
+          <Card
+            key={season.SeasonNumber}
+            className="motion-safe:animate-fadeIn bg-content1 transition-transform"
+          >
             <CardBody>
-              <Accordion variant="splitted" className="px-0">
+              <Accordion
+                variant="shadow"
+                className="px-0"
+                motionProps={{
+                  variants: {
+                    enter: { y: 0, opacity: 1 },
+                    exit: { y: -10, opacity: 0 },
+                  },
+                }}
+              >
                 <AccordionItem
                   key={season.SeasonNumber}
                   aria-label={`Season ${season.SeasonNumber}`}
                   title={
                     <div className="flex items-center gap-4">
                       {season.PosterPath && (
-                        <div className="relative h-32 w-24 overflow-hidden rounded-lg">
+                        <div className="relative h-36 w-24 overflow-hidden rounded-xl shadow-lg transition-transform hover:scale-105">
                           <Image
                             src={`https://image.tmdb.org/t/p/w500${season.PosterPath}`}
                             alt={season.Name}
@@ -117,19 +133,58 @@ export function SeasonList({ tmdbId, seasonCount = 0 }: SeasonListProps) {
                           />
                         </div>
                       )}
-                      <div>
-                        <h3 className="text-lg font-semibold">{season.Name}</h3>
-                        <p className="text-small text-default-500">{season.Episodes.length} Episodes</p>
+                      <div className="flex-1 space-y-2">
+                        <h3 className="text-xl font-semibold text-foreground">{season.Name}</h3>
+                        <div className="flex items-center gap-4 text-small text-default-500">
+                          <div className="flex items-center gap-1">
+                            <Film className="h-4 w-4" />
+                            <span>
+                              {season.Episodes.length} Episodes{" "}
+                              {season.Episodes.filter((e) => e.IsScanned).length >= season.Episodes.length ? (
+                                <CheckCircle2 className="inline h-4 w-4 text-success" />
+                              ) : (
+                                <XCircle className="inline h-4 w-4 text-danger" />
+                              )}
+                            </span>
+                          </div>
+                          {season.AirDate && (
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-4 w-4" />
+                              <span>{new Date(season.AirDate).toLocaleDateString()}</span>
+                            </div>
+                          )}
+                        </div>
+                        <p className="line-clamp-2 text-small text-default-500">
+                          {season.Overview || "No overview available"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="flat"
+                          color="primary"
+                          size="sm"
+                          className="min-w-[80px]"
+                          as={Link}
+                          href={`https://debridmediamanager.com/show/${mediaInfo.ImdbId}/${season.SeasonNumber}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          startContent={<Info className="h-4 w-4" />}
+                        >
+                          DMM
+                        </Button>
                       </div>
                     </div>
                   }
                 >
                   <div className="grid gap-4 px-2 py-4 md:grid-cols-2 lg:grid-cols-1">
                     {season.Episodes.map((episode) => (
-                      <Card key={episode.EpisodeNumber} className="border-none bg-content2/40">
+                      <Card
+                        key={episode.EpisodeNumber}
+                        className="border-none bg-content2/40 transition-all hover:bg-content2/60"
+                      >
                         <CardBody className="flex flex-row gap-4">
                           {episode.StillPath && (
-                            <div className="relative h-24 w-40 overflow-hidden rounded-lg">
+                            <div className="relative h-24 w-40 overflow-hidden rounded-xl shadow-md transition-transform hover:scale-105">
                               <Image
                                 src={`https://image.tmdb.org/t/p/w300${episode.StillPath}`}
                                 alt={episode.Name}
@@ -139,11 +194,26 @@ export function SeasonList({ tmdbId, seasonCount = 0 }: SeasonListProps) {
                               />
                             </div>
                           )}
-                          <div className="flex-1">
-                            <h4 className="font-semibold">
-                              {episode.EpisodeNumber}. {episode.Name}
-                            </h4>
-                            <p className="line-clamp-2 text-small text-default-500">{episode.Overview}</p>
+                          <div className="flex-1 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-medium font-semibold">
+                                {episode.EpisodeNumber}. {episode.Name}
+                              </h4>
+                              {episode.IsScanned ? (
+                                <CheckCircle2 className="h-4 w-4 text-success" />
+                              ) : (
+                                <XCircle className="h-4 w-4 text-danger" />
+                              )}
+                            </div>
+                            {episode.AirDate && (
+                              <div className="flex items-center gap-1 text-small text-default-500">
+                                <Calendar className="h-4 w-4" />
+                                <span>{new Date(episode.AirDate).toLocaleDateString()}</span>
+                              </div>
+                            )}
+                            <p className="line-clamp-2 text-small text-default-500">
+                              {episode.Overview || "No overview available"}
+                            </p>
                           </div>
                         </CardBody>
                       </Card>

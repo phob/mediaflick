@@ -11,14 +11,13 @@ internal static class MediaLookupRouting
 
     public static void MapMediaLookupEndpoints(this IEndpointRouteBuilder app)
     {
-        RouteGroupBuilder group = app.MapGroup(MediaLookupBaseRoute)
+        var group = app.MapGroup(MediaLookupBaseRoute)
             .WithTags("Media Lookup")
             .WithOpenApi()
             .WithDescription("Provides media lookup functionality using TMDb");
 
         MapMovieEndpoints(group);
         MapTvShowEndpoints(group);
-        MapImageEndpoints(group);
     }
 
     private static void MapMovieEndpoints(RouteGroupBuilder group)
@@ -62,11 +61,4 @@ internal static class MediaLookupRouting
             .Produces<EpisodeInfo>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound);
     }
-
-    private static void MapImageEndpoints(RouteGroupBuilder group) => group.MapGet("images/{*path}", MediaLookupEndpoints.GetImageUrl)
-        .WithName("GetImageUrl")
-        .WithDescription("Gets the URL for an image by TMDb path and size")
-        .Produces<string>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound);
 }

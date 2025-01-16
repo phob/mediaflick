@@ -1,11 +1,16 @@
 # Build Stage
-FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS backend-build
+FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS backend-build
 WORKDIR /src
 
 # Copy solution and project files
+COPY ["src/PlexLocalScan.Abstractions/PlexLocalScan.Abstractions.csproj", "PlexLocalScan.Abstractions/"]
 COPY ["src/PlexLocalScan.Api/PlexLocalScan.Api.csproj", "PlexLocalScan.Api/"]
-COPY ["src/PlexLocalScan.Shared/PlexLocalScan.Shared.csproj", "PlexLocalScan.Shared/"]
+COPY ["src/PlexLocalScan.Core/PlexLocalScan.Core.csproj", "PlexLocalScan.Core/"]
 COPY ["src/PlexLocalScan.Data/PlexLocalScan.Data.csproj", "PlexLocalScan.Data/"]
+COPY ["src/PlexLocalScan.FileTracking/PlexLocalScan.FileTracking.csproj", "PlexLocalScan.FileTracking/"]
+COPY ["src/PlexLocalScan.Shared/PlexLocalScan.Shared.csproj", "PlexLocalScan.Shared/"]
+COPY ["src/PlexLocalScan.SignalR/PlexLocalScan.SignalR.csproj", "PlexLocalScan.SignalR/"]
+COPY ["src/PlexLocalScan.Test/PlexLocalScan.Test.csproj", "PlexLocalScan.Test/"]
 
 # Restore dependencies
 RUN dotnet restore "PlexLocalScan.Api/PlexLocalScan.Api.csproj"
@@ -18,21 +23,21 @@ RUN dotnet publish "PlexLocalScan.Api/PlexLocalScan.Api.csproj" -c Release -o /a
 
 # Frontend Build Stage
 FROM node:18-alpine AS frontend-build
-WORKDIR /frontend
+WORKDIR /mediaflick
 
 # Copy frontend files
-COPY frontend/package*.json ./
-RUN npm install
+COPY mediaflick/package*.json ./
+RUN pnpm install
 
-COPY frontend .
-RUN npm run build
+COPY mediaflick .
+RUN pnpm run build
 
 # Runtime Stage
-FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine
+FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine
 WORKDIR /app
 
 # Install required dependencies
-RUN apk add --no-cache icu-libs nodejs npm
+RUN apk add --no-cache icu-libs nodejs pnpm
 
 # Create necessary directories
 RUN mkdir -p config/logs
@@ -45,13 +50,13 @@ RUN mkdir -p /mnt/organized/movies
 COPY --from=backend-build /app/publish .
 
 # Copy the built frontend app
-COPY --from=frontend-build /frontend/.next ./.next
-COPY --from=frontend-build /frontend/public ./public
-COPY --from=frontend-build /frontend/package*.json ./
-COPY --from=frontend-build /frontend/next.config.js ./
+COPY --from=frontend-build /mediaflick/.next ./.next
+COPY --from=frontend-build /mediaflick/public ./public
+COPY --from=frontend-build /mediaflick/package*.json ./
+COPY --from=frontend-build /mediaflick/next.config.js ./
 
 # Install production dependencies for frontend
-RUN npm install --production
+RUN pnpm install --production
 
 # Set environment variable for timezone and globalization
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false

@@ -13,8 +13,8 @@ public static class PathFormatHelper
             throw new ArgumentException("Movie title and year are required");
         }
 
-        string movieFolder = $"{CleanFileName(mediaInfo.Title)} ({mediaInfo.Year})";
-        string movieFileName = $"{CleanFileName(mediaInfo.Title)} ({mediaInfo.Year}) {{imdb-{mediaInfo.ImdbId}}}";
+        var movieFolder = $"{CleanFileName(mediaInfo.Title)} ({mediaInfo.Year})";
+        var movieFileName = $"{CleanFileName(mediaInfo.Title)} ({mediaInfo.Year}) {{imdb-{mediaInfo.ImdbId}}}";
         return (movieFolder, movieFileName);
     }
 
@@ -27,9 +27,9 @@ public static class PathFormatHelper
             throw new ArgumentException("TV show title, season, episode, and year are required");
         }
 
-        string showFolder = $"{CleanFileName(mediaInfo.Title)} ({mediaInfo.Year})";
-        string seasonFolder = $"Season {mediaInfo.SeasonNumber:D2}";
-        string fileName = $"{CleanFileName(mediaInfo.Title)} - S{mediaInfo.SeasonNumber:D2}E{mediaInfo.EpisodeNumber:D2}";
+        var showFolder = $"{CleanFileName(mediaInfo.Title)} ({mediaInfo.Year})";
+        var seasonFolder = $"Season {mediaInfo.SeasonNumber:D2}";
+        var fileName = $"{CleanFileName(mediaInfo.Title)} - S{mediaInfo.SeasonNumber:D2}E{mediaInfo.EpisodeNumber:D2}";
         
         if (mediaInfo.EpisodeNumber2.HasValue)
         {
@@ -46,7 +46,7 @@ public static class PathFormatHelper
 
     private static string CleanFileName(string fileName)
     {
-        char[] invalid = Path.GetInvalidFileNameChars();
+        var invalid = Path.GetInvalidFileNameChars();
         return string.Join("", fileName.Select(c => invalid.Contains(c) ? " -" : c.ToString()))
             .Replace("  ", " ", StringComparison.Ordinal)  // Remove any double spaces that might occur
             .Trim();

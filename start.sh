@@ -1,2 +1,2 @@
 #!/bin/sh
-dotnet PlexLocalScan.Api.dll & npm start
+dotnet PlexLocalScan.Api.dll & pnpm start
