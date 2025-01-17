@@ -18,7 +18,7 @@ public class FilePollerService(
     IServiceScopeFactory serviceScopeFactory,
     IOptions<PlexOptions> options) : BackgroundService
 {
-    private readonly ConcurrentDictionary<string, HashSet<string>> _knownFolders = new();
+    private readonly ConcurrentDictionary<string, HashSet<string>> _knownFolders = new ConcurrentDictionary<string, HashSet<string>>();
     private readonly PlexOptions _plexOptions = options.Value;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

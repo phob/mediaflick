@@ -22,11 +22,14 @@ COPY src/ .
 RUN dotnet publish "PlexLocalScan.Api/PlexLocalScan.Api.csproj" -c Release -o /app/publish
 
 # Frontend Build Stage
-FROM node:18-alpine AS frontend-build
+FROM node:20-slim AS frontend-build
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable pnpm
 WORKDIR /mediaflick
 
 # Copy frontend files
-COPY mediaflick/package*.json ./
+COPY mediaflick/package*.json mediaflick/pnpm-lock.yaml ./
 RUN pnpm install
 
 COPY mediaflick .
@@ -37,7 +40,10 @@ FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine
 WORKDIR /app
 
 # Install required dependencies
-RUN apk add --no-cache icu-libs nodejs pnpm
+RUN apk add --no-cache icu-libs nodejs npm
+RUN npm install -g pnpm
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
 
 # Create necessary directories
 RUN mkdir -p config/logs
@@ -51,9 +57,8 @@ COPY --from=backend-build /app/publish .
 
 # Copy the built frontend app
 COPY --from=frontend-build /mediaflick/.next ./.next
-COPY --from=frontend-build /mediaflick/public ./public
 COPY --from=frontend-build /mediaflick/package*.json ./
-COPY --from=frontend-build /mediaflick/next.config.js ./
+COPY --from=frontend-build /mediaflick/next.config.* ./
 
 # Install production dependencies for frontend
 RUN pnpm install --production

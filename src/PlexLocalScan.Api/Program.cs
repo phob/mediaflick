@@ -11,6 +11,7 @@ using PlexLocalScan.SignalR.Services;
 using Scalar.AspNetCore;
 using Serilog;
 using System.Text.Json.Serialization;
+using PlexLocalScan.Api;
 using PlexLocalScan.Api.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,6 +29,8 @@ Directory.CreateDirectory(Path.GetDirectoryName(configPath)!);
 Console.WriteLine("configPath: " + configPath);
 var configDir = Path.GetDirectoryName(configPath) 
     ?? throw new InvalidOperationException("Config directory path cannot be null");
+
+await ConfigurationHelper.EnsureDefaultConfigAsync(configPath);
 
 builder.Configuration
     .SetBasePath(configDir)
@@ -64,6 +67,7 @@ services.AddHostedService<HeartbeatService>();
 
 // Reuse the same services from Console project
 services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
+    .AddSingleton(new YamlConfigurationService(builder.Configuration, configPath))
     .Configure<TmDbOptions>(builder.Configuration.GetSection("TMDb"))
     .Configure<MediaDetectionOptions>(builder.Configuration.GetSection("MediaDetection"))
     .Configure<FolderMappingOptions>(builder.Configuration.GetSection("FolderMapping"))
