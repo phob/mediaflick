@@ -17,7 +17,7 @@ public class SymlinkRecreationService(
     ISymlinkHandler symlinkHandler,
     ICleanupHandler cleanupHandler,
     IContextService contextService,
-    IOptions<PlexOptions> plexOptions,
+    IOptionsSnapshot<PlexOptions> plexOptions,
     PlexScanContext dbContext) : ISymlinkRecreationService
 {
     public async Task<bool> RecreateSymlinkIfNeededAsync(ScannedFile scannedFile)

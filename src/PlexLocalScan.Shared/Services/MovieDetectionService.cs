@@ -15,7 +15,7 @@ public class MovieDetectionService(
     ILogger<MovieDetectionService> logger,
     ITmDbClientWrapper tmdbClient,
     IMemoryCache cache,
-    IOptions<MediaDetectionOptions> options) : IMovieDetectionService
+    IOptionsSnapshot<MediaDetectionOptions> options) : IMovieDetectionService
 {
     private readonly MediaDetectionOptions _options = options.Value;
     private readonly Regex _moviePattern = BasicMovieRegex;
@@ -52,7 +52,7 @@ public class MovieDetectionService(
             var mediaInfo = await SearchTmDbForMovie(title, year, emptyMediaInfo);
             mediaInfo.MediaType = MediaType.Movies;
 
-            cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
+            cache.Set(cacheKey, mediaInfo, TimeSpan.FromSeconds(_options.CacheDuration));
             return mediaInfo;
         }
         catch (Exception ex)
@@ -130,7 +130,7 @@ public class MovieDetectionService(
                 MediaType = MediaType.Movies
             };
 
-            cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
+            cache.Set(cacheKey, mediaInfo, TimeSpan.FromSeconds(_options.CacheDuration));
             return mediaInfo;
         }
         catch (Exception ex)

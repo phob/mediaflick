@@ -11,7 +11,7 @@ internal static class SymlinkController
 {
     internal static async Task<IResult> CleanupDeadSymlinks(
         ICleanupHandler cleanupHandler,
-        IOptions<PlexOptions> plexOptions,
+        IOptionsSnapshot<PlexOptions> plexOptions,
         ILogger<Program> logger)
     {
         try

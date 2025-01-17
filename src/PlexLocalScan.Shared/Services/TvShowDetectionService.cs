@@ -16,7 +16,7 @@ public class TvShowDetectionService(
     ILogger<TvShowDetectionService> logger,
     ITmDbClientWrapper tmdbClient,
     IMemoryCache cache,
-    IOptions<MediaDetectionOptions> options)
+    IOptionsSnapshot<MediaDetectionOptions> options)
     : ITvShowDetectionService
 {
     private readonly MediaDetectionOptions _options = options.Value;
@@ -76,7 +76,7 @@ public class TvShowDetectionService(
                 EpisodeTmdbId = episodeInfo?.Id,
                 Genres = tvShowDetails.Genres?.Select(g => g.Name).ToList().AsReadOnly()
             };
-            cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
+            cache.Set(cacheKey, mediaInfo, TimeSpan.FromSeconds(_options.CacheDuration));
             return mediaInfo;
         }
         catch (Exception ex)
@@ -140,7 +140,7 @@ public class TvShowDetectionService(
                 Genres = tvShowDetails.Genres?.Select(g => g.Name).ToList().AsReadOnly()
             };
 
-            cache.Set(cacheKey, mediaInfo, _options.CacheDuration);
+            cache.Set(cacheKey, mediaInfo, TimeSpan.FromSeconds(_options.CacheDuration));
             return mediaInfo;
         }
         catch (Exception ex)

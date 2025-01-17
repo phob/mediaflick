@@ -56,7 +56,8 @@ public class TvDetectionServiceTests
         _tmDbClient = Substitute.For<ITmDbClientWrapper>();
         _cache = Substitute.For<IMemoryCache>();
         var logger = Substitute.For<ILogger<TvShowDetectionService>>();
-        var options = Options.Create(new MediaDetectionOptions { CacheDuration = TimeSpan.FromMinutes(30) });
+        var options = Substitute.For<IOptionsSnapshot<MediaDetectionOptions>>();
+        options.Value.Returns(new MediaDetectionOptions { CacheDuration = 60 * 30 });
 
         _sut = new TvShowDetectionService(logger, _tmDbClient, _cache, options);
     }

@@ -265,7 +265,7 @@ internal static class ScannedFilesController
         [FromBody] int[]? ids,
         PlexScanContext context = null!,
         ICleanupHandler cleanupHandler = null!,
-        IOptions<PlexOptions> plexOptions = null!,
+        IOptionsSnapshot<PlexOptions> plexOptions = null!,
         INotificationService notificationService = null!,
         ILogger<Program> logger = null!)
     {

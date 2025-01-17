@@ -35,7 +35,8 @@ public class MovieDetectionServiceTests
         var logger = Substitute.For<ILogger<MovieDetectionService>>();
         _tmdbClient = Substitute.For<ITmDbClientWrapper>();
         _cache = Substitute.For<IMemoryCache>();
-        var options = Options.Create(new MediaDetectionOptions { CacheDuration = TimeSpan.FromMinutes(30) });
+        var options = Substitute.For<IOptionsSnapshot<MediaDetectionOptions>>();
+        options.Value.Returns(new MediaDetectionOptions { CacheDuration = 60 * 30 });
 
         // Setup cache mock to accept any Set operations
         var cacheEntry = Substitute.For<ICacheEntry>();

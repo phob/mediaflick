@@ -34,7 +34,7 @@ await ConfigurationHelper.EnsureDefaultConfigAsync(configPath);
 
 builder.Configuration
     .SetBasePath(configDir)
-    .AddYamlFile(Path.GetFileName(configPath), false)
+    .AddYamlFile(Path.GetFileName(configPath), false, reloadOnChange: true)
     .AddEnvironmentVariables()
     .AddCommandLine(args);
 
@@ -62,22 +62,30 @@ services.AddControllers()
     });
 services.AddEndpointsApiExplorer();
 services.AddOpenApi();
-
+services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
+services.Configure<Microsoft.AspNetCore.Mvc.JsonOptions>(options =>
+{
+    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 // Add HeartbeatService
 services.AddHostedService<HeartbeatService>();
 
 // Reuse the same services from Console project
-services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
-    .AddSingleton(new YamlConfigurationService(builder.Configuration, configPath))
+services.AddOptions()
+    .Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
     .Configure<TmDbOptions>(builder.Configuration.GetSection("TMDb"))
     .Configure<MediaDetectionOptions>(builder.Configuration.GetSection("MediaDetection"))
     .Configure<FolderMappingOptions>(builder.Configuration.GetSection("FolderMapping"))
+    .AddSingleton(new YamlConfigurationService(builder.Configuration, configPath))
     .AddSingleton<IPlexHandler, PlexHandler>()
     .AddScoped<INotificationService, NotificationService>()
     .AddScoped<ISymlinkHandler, SymlinkHandler>()
     .AddScoped<ITmDbClientWrapper>(sp =>
     {
-        var tmdbOptions = sp.GetRequiredService<IOptions<TmDbOptions>>();
+        var tmdbOptions = sp.GetRequiredService<IOptionsSnapshot<TmDbOptions>>();
         return new TMDbClientWrapper(tmdbOptions.Value.ApiKey);
     })
     .AddScoped<IMovieDetectionService, MovieDetectionService>()

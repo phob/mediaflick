@@ -9,19 +9,17 @@ namespace PlexLocalScan.Shared.Services;
 
 public class FilePollerService(
     ILogger<FilePollerService> logger,
-    IOptions<PlexOptions> options,
-    IOptions<TmDbOptions> tmDbOptions,
+    IOptionsMonitor<PlexOptions> options,
+    IOptionsMonitor<TmDbOptions> tmDbOptions,
     IServiceScopeFactory serviceScopeFactory) : BackgroundService
 {
     private readonly ConcurrentDictionary<string, HashSet<string>> _knownFolders = new();
-    private readonly PlexOptions _plexOptions = options.Value;
-    private readonly TmDbOptions _tmDbOptions = tmDbOptions.Value;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         logger.LogInformation("FilePollerService started");
         // Initialize known folders dictionary
-        foreach (var mapping in _plexOptions.FolderMappings)
+        foreach (var mapping in options.CurrentValue.FolderMappings)
         {
             logger.LogInformation("Watching folder: {SourceFolder} with Type: {MediaType}", mapping.SourceFolder, mapping.MediaType);
             if (Directory.Exists(mapping.SourceFolder))
@@ -31,18 +29,19 @@ public class FilePollerService(
         }
         while (!stoppingToken.IsCancellationRequested)
         {
+            logger.LogInformation("PollingInterval: {PollingInterval}", options.CurrentValue.PollingInterval);
             try
             {
-                if (_tmDbOptions.ApiKey == "your-tmdb-api-key")
+                if (tmDbOptions.CurrentValue.ApiKey == "your-tmdb-api-key")
                 {
                     logger.LogError("TmDb API key is not set");
-                    await Task.Delay(TimeSpan.FromSeconds(_plexOptions.PollingInterval), stoppingToken);
+                    await Task.Delay(TimeSpan.FromSeconds(options.CurrentValue.PollingInterval), stoppingToken);
                     continue;
                 }
                 using var scope = serviceScopeFactory.CreateScope();
                 var fileProcessing = scope.ServiceProvider.GetRequiredService<IFileProcessing>();
-                await fileProcessing.ProcessAllMappingsAsync(_plexOptions, _knownFolders);
-                await Task.Delay(TimeSpan.FromSeconds(_plexOptions.PollingInterval), stoppingToken);
+                await fileProcessing.ProcessAllMappingsAsync(options.CurrentValue, _knownFolders);
+                await Task.Delay(TimeSpan.FromSeconds(options.CurrentValue.PollingInterval), stoppingToken);
             }
             catch (OperationCanceledException)
             {

@@ -6,7 +6,7 @@ using PlexLocalScan.Shared.Interfaces;
 
 namespace PlexLocalScan.Shared.Services;
 
-public class PlexHandler(ILogger<PlexHandler> logger, IOptions<PlexOptions> options, HttpClient httpClient)
+public class PlexHandler(ILogger<PlexHandler> logger, IOptionsSnapshot<PlexOptions> options, HttpClient httpClient)
     : IPlexHandler
 {
     private readonly PlexOptions _options = options.Value;

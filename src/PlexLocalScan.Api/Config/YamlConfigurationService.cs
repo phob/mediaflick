@@ -6,7 +6,7 @@ internal sealed class YamlConfigurationService(IConfiguration configuration, str
 
     public async Task UpdateConfigAsync<T>(string sectionName, T updatedConfig)
     {
-        string yaml = File.Exists(filePath) ? await File.ReadAllTextAsync(filePath).ConfigureAwait(false) : string.Empty;
+        string yaml = File.Exists(filePath) ? await File.ReadAllTextAsync(filePath) : string.Empty;
         var deserializer = new YamlDotNet.Serialization.Deserializer();
         YamlDotNet.Serialization.ISerializer serializer = new YamlDotNet.Serialization.SerializerBuilder().Build();
         Dictionary<string, object> config = deserializer.Deserialize<Dictionary<string, object>>(yaml) ?? [];
@@ -14,7 +14,7 @@ internal sealed class YamlConfigurationService(IConfiguration configuration, str
         config[sectionName] = updatedConfig ?? throw new ArgumentNullException(nameof(updatedConfig));
         string updatedYaml = serializer.Serialize(config);
 
-        await File.WriteAllTextAsync(filePath, updatedYaml).ConfigureAwait(false);
+        await File.WriteAllTextAsync(filePath, updatedYaml);
         _configurationRoot.Reload();
     }
 }
