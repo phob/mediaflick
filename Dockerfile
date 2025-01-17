@@ -2,23 +2,11 @@
 FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS backend-build
 WORKDIR /src
 
-# Copy solution and project files
-COPY ["src/PlexLocalScan.Abstractions/PlexLocalScan.Abstractions.csproj", "PlexLocalScan.Abstractions/"]
-COPY ["src/PlexLocalScan.Api/PlexLocalScan.Api.csproj", "PlexLocalScan.Api/"]
-COPY ["src/PlexLocalScan.Core/PlexLocalScan.Core.csproj", "PlexLocalScan.Core/"]
-COPY ["src/PlexLocalScan.Data/PlexLocalScan.Data.csproj", "PlexLocalScan.Data/"]
-COPY ["src/PlexLocalScan.FileTracking/PlexLocalScan.FileTracking.csproj", "PlexLocalScan.FileTracking/"]
-COPY ["src/PlexLocalScan.Shared/PlexLocalScan.Shared.csproj", "PlexLocalScan.Shared/"]
-COPY ["src/PlexLocalScan.SignalR/PlexLocalScan.SignalR.csproj", "PlexLocalScan.SignalR/"]
-COPY ["src/PlexLocalScan.Test/PlexLocalScan.Test.csproj", "PlexLocalScan.Test/"]
-
-# Restore dependencies
-RUN dotnet restore "PlexLocalScan.Api/PlexLocalScan.Api.csproj"
-
 # Copy the rest of the source code
 COPY src/ .
 
-# Build and publish
+# Restore dependencies
+RUN dotnet restore "PlexLocalScan.Api/PlexLocalScan.Api.csproj"
 RUN dotnet publish "PlexLocalScan.Api/PlexLocalScan.Api.csproj" -c Release -o /app/publish
 
 # Frontend Build Stage
@@ -40,8 +28,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine
 WORKDIR /app
 
 # Install required dependencies
-RUN apk add --no-cache icu-libs nodejs npm
-RUN npm install -g pnpm
+RUN apk add --no-cache icu-libs nodejs npm && npm install -g pnpm
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
@@ -59,6 +46,7 @@ COPY --from=backend-build /app/publish .
 COPY --from=frontend-build /mediaflick/.next ./.next
 COPY --from=frontend-build /mediaflick/package*.json ./
 COPY --from=frontend-build /mediaflick/next.config.* ./
+COPY --from=frontend-build /mediaflick/pnpm-lock.yaml ./
 
 # Install production dependencies for frontend
 RUN pnpm install --production
@@ -69,6 +57,7 @@ ENV NODE_ENV=production
 
 # Expose only the frontend port
 EXPOSE 3000
+EXPOSE 5000
 
 # Start both services using a shell script
 COPY start.sh .

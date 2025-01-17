@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using PlexLocalScan.Abstractions;
 using PlexLocalScan.Core.Tables;
-using PlexLocalScan.SignalR.Services;
 
 namespace PlexLocalScan.SignalR.Hubs;
 

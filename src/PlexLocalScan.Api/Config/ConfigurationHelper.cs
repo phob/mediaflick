@@ -1,6 +1,6 @@
 using YamlDotNet.Serialization;
 
-namespace PlexLocalScan.Api;
+namespace PlexLocalScan.Api.Config;
 
 internal static class ConfigurationHelper
 {
@@ -26,7 +26,8 @@ internal static class ConfigurationHelper
                     ProcessNewFolderDelay = 30,
                     FolderMappings = new[]
                     {
-                        new { SourceFolder = "/path/to/source", DestinationFolder = "/path/to/destination", MediaType = "Movies" }
+                        new { SourceFolder = "/mnt/zurg/movies", DestinationFolder = "/mnt/organized/movies", MediaType = "Movies" },
+                        new { SourceFolder = "/mnt/zurg/tvseries", DestinationFolder = "/mnt/organized/tvseries", MediaType = "TvShows" }
                     }
                 },
                 TMDb = new

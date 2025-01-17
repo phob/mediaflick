@@ -11,7 +11,7 @@ using PlexLocalScan.SignalR.Services;
 using Scalar.AspNetCore;
 using Serilog;
 using System.Text.Json.Serialization;
-using PlexLocalScan.Api;
+using PlexLocalScan.Api.Config;
 using PlexLocalScan.Api.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -44,7 +44,8 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Services(services)
     .Enrich.FromLogContext()
     .Enrich.WithMachineName()
-    .Enrich.WithThreadId());
+    .Enrich.WithThreadId()
+    .WriteTo.Console());
 
 var services = builder.Services;
 
@@ -87,13 +88,13 @@ services.Configure<PlexOptions>(builder.Configuration.GetSection("Plex"))
     .AddScoped<ICleanupHandler, CleanupHandler>()
     .AddScoped<ISymlinkRecreationService, SymlinkRecreationService>()
     .AddScoped<IContextService, ContextService>()
-    
-    .AddHostedService<FilePollerService>()
+    .AddScoped<IFileProcessing, FileProcessing>()
     .AddDbContext<PlexScanContext>((_, options) =>
     {
         var connectionString = $"Data Source={Path.Combine(AppContext.BaseDirectory, "config", "plexscan.db")}";
         options.UseSqlite(connectionString);
     })
+    .AddHostedService<FilePollerService>()
     .AddHttpClient()
     .AddMemoryCache();
 
@@ -136,12 +137,9 @@ app.MapHub<ContextHub>(ContextHub.Route);
 // Register all API endpoints
 app.MapApiEndpoints();
 
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-    app.MapScalarApiReference(options => options.Theme = ScalarTheme.Mars);
-    app.MapGet("/", () => Results.Redirect("/scalar/v1"));
-}
+app.MapOpenApi();
+app.MapScalarApiReference(options => options.Theme = ScalarTheme.Mars);
+app.MapGet("/", () => Results.Redirect("/scalar/v1"));
 
 try
 {
