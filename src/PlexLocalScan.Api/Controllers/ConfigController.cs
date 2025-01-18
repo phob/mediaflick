@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Options;
 using PlexLocalScan.Api.Config;
-using PlexLocalScan.Shared.Options;
+using PlexLocalScan.Shared.Configuration.Options;
 
 namespace PlexLocalScan.Api.Controllers;
 
@@ -29,7 +29,7 @@ internal static class ConfigController
         return Results.Ok(plexOptions.Value);
     }
 
-    internal static IResult GetTMDbConfig(IOptionsSnapshot<TmDbOptions> tmdbOptions)
+    internal static IResult GetTmDbConfig(IOptionsSnapshot<TmDbOptions> tmdbOptions)
     {
         return Results.Ok(tmdbOptions.Value);
     }

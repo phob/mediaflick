@@ -1,11 +1,10 @@
 using Microsoft.Extensions.Logging;
-
 using PlexLocalScan.Core.Media;
 using PlexLocalScan.Core.Tables;
-using PlexLocalScan.FileTracking.Services;
-using PlexLocalScan.Shared.Interfaces;
+using PlexLocalScan.Shared.DbContext.Interfaces;
+using PlexLocalScan.Shared.MediaDetection.Interfaces;
 
-namespace PlexLocalScan.Shared.Services;
+namespace PlexLocalScan.Shared.MediaDetection.Services;
 
 public class MediaDetectionService(
     ILogger<MediaDetectionService> logger,

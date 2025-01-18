@@ -1,7 +1,7 @@
 using PlexLocalScan.Core.Media;
 using PlexLocalScan.Core.Tables;
 
-namespace PlexLocalScan.FileTracking.Services;
+namespace PlexLocalScan.Shared.DbContext.Interfaces;
 
 public interface IContextService
 {

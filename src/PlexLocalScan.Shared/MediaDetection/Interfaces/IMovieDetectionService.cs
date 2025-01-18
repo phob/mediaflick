@@ -1,6 +1,6 @@
 using PlexLocalScan.Core.Media;
 
-namespace PlexLocalScan.Shared.Interfaces;
+namespace PlexLocalScan.Shared.MediaDetection.Interfaces;
 
 public interface IMovieDetectionService
 {

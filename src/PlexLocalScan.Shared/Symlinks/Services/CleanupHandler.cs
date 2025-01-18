@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using PlexLocalScan.Core.Helper;
 using PlexLocalScan.Data.Data;
-using PlexLocalScan.Shared.Interfaces;
+using PlexLocalScan.Shared.Symlinks.Interfaces;
 
 namespace PlexLocalScan.Shared.Symlinks.Services;
 

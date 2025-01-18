@@ -1,6 +1,6 @@
 ﻿using System.Text.RegularExpressions;
 
-namespace PlexLocalScan.Shared.Services;
+namespace PlexLocalScan.Shared.MediaDetection.Options;
 
 
 internal static partial class RegexTv

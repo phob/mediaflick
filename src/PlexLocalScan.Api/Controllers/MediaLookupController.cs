@@ -1,7 +1,4 @@
-using PlexLocalScan.Shared.Interfaces;
-using PlexLocalScan.Core.Media;
-using PlexLocalScan.Core.Series;
-using PlexLocalScan.Shared.Services;
+using PlexLocalScan.Shared.TmDbMediaSearch.Interfaces;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -12,7 +9,7 @@ namespace PlexLocalScan.Api.Controllers;
 /// </summary>
 internal static class MediaLookupEndpoints
 {
-    private static readonly JsonSerializerOptions _jsonOptions = new()
+    private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = false,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
@@ -31,7 +28,7 @@ internal static class MediaLookupEndpoints
 
         logger.LogInformation("Searching for movies with title: {Title}", title);
         var results = await mediaLookupService.SearchMovieTmdbIdsAsync(title);
-        var json = JsonSerializer.Serialize(results, _jsonOptions);
+        var json = JsonSerializer.Serialize(results, JsonOptions);
         return Results.Text(json, "application/json");
     }
 
@@ -47,7 +44,7 @@ internal static class MediaLookupEndpoints
 
         logger.LogInformation("Searching for TV shows with title: {Title}", title);
         var results = await mediaLookupService.SearchTvShowTmdbIdsAsync(title);
-        var json = JsonSerializer.Serialize(results, _jsonOptions);
+        var json = JsonSerializer.Serialize(results, JsonOptions);
         return Results.Text(json, "application/json");
     }
 
@@ -64,7 +61,7 @@ internal static class MediaLookupEndpoints
             return TypedResults.NotFound();
         }
 
-        var json = JsonSerializer.Serialize(movieInfo, _jsonOptions);
+        var json = JsonSerializer.Serialize(movieInfo, JsonOptions);
         return Results.Text(json, "application/json");
     }
 
@@ -81,7 +78,7 @@ internal static class MediaLookupEndpoints
             return TypedResults.NotFound();
         }
 
-        var json = JsonSerializer.Serialize(tvShowInfo, _jsonOptions);
+        var json = JsonSerializer.Serialize(tvShowInfo, JsonOptions);
         return Results.Text(json, "application/json");
     }
 
@@ -99,7 +96,7 @@ internal static class MediaLookupEndpoints
             return TypedResults.NotFound();
         }
 
-        var json = JsonSerializer.Serialize(tvSeasonInfo, _jsonOptions);
+        var json = JsonSerializer.Serialize(tvSeasonInfo, JsonOptions);
         return Results.Text(json, "application/json");
     }
 
@@ -119,7 +116,7 @@ internal static class MediaLookupEndpoints
             return TypedResults.NotFound();
         }
 
-        var json = JsonSerializer.Serialize(tvEpisodeInfo, _jsonOptions);
+        var json = JsonSerializer.Serialize(tvEpisodeInfo, JsonOptions);
         return Results.Text(json, "application/json");
     }
 } 

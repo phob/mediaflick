@@ -1,9 +1,9 @@
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using PlexLocalScan.Shared.Configuration.Options;
 using System.Collections.Concurrent;
-using PlexLocalScan.Shared.Options;
 
 namespace PlexLocalScan.Shared.Services;
 

@@ -4,7 +4,7 @@ using PlexLocalScan.Core.Media;
 using PlexLocalScan.Core.Series;
 using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Data.Data;
-using PlexLocalScan.Shared.Interfaces;
+using PlexLocalScan.Shared.TmDbMediaSearch.Interfaces;
 
 namespace PlexLocalScan.Shared.TmDbMediaSearch.Services;
 

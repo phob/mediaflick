@@ -1,24 +1,34 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using PlexLocalScan.Abstractions;
+using PlexLocalScan.Api.Config;
+using PlexLocalScan.Api.Endpoints;
 using PlexLocalScan.Data.Data;
-using PlexLocalScan.FileTracking.Services;
-using PlexLocalScan.Shared.Options;
+using PlexLocalScan.Shared.Configuration.Options;
+using PlexLocalScan.Shared.MediaDetection.Interfaces;
+using PlexLocalScan.Shared.MediaDetection.Services;
+using PlexLocalScan.Shared.Plex.Interfaces;
+using PlexLocalScan.Shared.Plex.Services;
 using PlexLocalScan.Shared.Services;
-using PlexLocalScan.Shared.Interfaces;
+using PlexLocalScan.Shared.Symlinks.Interfaces;
+using PlexLocalScan.Shared.Symlinks.Services;
+using PlexLocalScan.Shared.TmDbMediaSearch.Interfaces;
+using PlexLocalScan.Shared.TmDbMediaSearch.Services;
 using PlexLocalScan.SignalR.Hubs;
 using PlexLocalScan.SignalR.Services;
 using Scalar.AspNetCore;
 using Serilog;
 using System.Text.Json.Serialization;
-using PlexLocalScan.Api.Config;
-using PlexLocalScan.Api.Endpoints;
+
+using PlexLocalScan.Shared.DbContext.Interfaces;
+using PlexLocalScan.Shared.DbContext.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure CORS
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
             .WithOrigins("http://localhost:3000")
+            .WithOrigins("http://localhost:5000")
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials()));
@@ -86,13 +96,12 @@ services.AddOptions()
     .AddScoped<ITmDbClientWrapper>(sp =>
     {
         var tmdbOptions = sp.GetRequiredService<IOptionsSnapshot<TmDbOptions>>();
-        return new TMDbClientWrapper(tmdbOptions.Value.ApiKey);
+        return new TmDbClientWrapper(tmdbOptions.Value.ApiKey);
     })
     .AddScoped<IMovieDetectionService, MovieDetectionService>()
     .AddScoped<ITvShowDetectionService, TvShowDetectionService>()
     .AddScoped<IMediaDetectionService, MediaDetectionService>()
     .AddScoped<IMediaSearchService, MediaSearchService>()
-    .AddScoped<IFileSystemService, FileSystemService>()
     .AddScoped<ICleanupHandler, CleanupHandler>()
     .AddScoped<ISymlinkRecreationService, SymlinkRecreationService>()
     .AddScoped<IContextService, ContextService>()

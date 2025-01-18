@@ -1,15 +1,16 @@
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Caching.Memory;
-using System.Globalization;
-using System.Text.RegularExpressions;
 using PlexLocalScan.Core.Media;
 using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Shared.Configuration.Options;
-using PlexLocalScan.Shared.Interfaces;
-using static PlexLocalScan.Shared.Services.RegexMovie;
+using PlexLocalScan.Shared.MediaDetection.Interfaces;
+using PlexLocalScan.Shared.TmDbMediaSearch.Interfaces;
+using System.Globalization;
+using System.Text.RegularExpressions;
+using static PlexLocalScan.Shared.MediaDetection.Options.RegexMovie;
 
-namespace PlexLocalScan.Shared.Services;
+namespace PlexLocalScan.Shared.MediaDetection.Services;
 
 public class MovieDetectionService(
     ILogger<MovieDetectionService> logger,

@@ -1,11 +1,14 @@
-using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Data.Data;
-using PlexLocalScan.FileTracking.Services;
-using PlexLocalScan.Shared.Interfaces;
-using PlexLocalScan.Shared.Options;
+using PlexLocalScan.Shared.Configuration.Options;
+using PlexLocalScan.Shared.MediaDetection.Interfaces;
+using PlexLocalScan.Shared.Plex.Interfaces;
+using PlexLocalScan.Shared.Symlinks.Interfaces;
+using System.Collections.Concurrent;
+
+using PlexLocalScan.Shared.DbContext.Interfaces;
 
 namespace PlexLocalScan.Shared.Services;
 

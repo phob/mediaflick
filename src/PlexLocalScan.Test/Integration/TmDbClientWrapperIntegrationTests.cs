@@ -1,15 +1,16 @@
 ﻿using PlexLocalScan.Shared.Services;
+using PlexLocalScan.Shared.TmDbMediaSearch.Services;
 
 namespace PlexLocalScan.Test.Integration;
 
 public sealed class TmDbClientWrapperIntegrationTests : IDisposable
 {
-    private readonly TMDbClientWrapper _client;
+    private readonly TmDbClientWrapper _client;
 
     public TmDbClientWrapperIntegrationTests()
     {
         const string apiKey = "fc03d062b72e55cdc9ce9e7c0960544f"; // Replace with a valid TMDb API key
-        _client = new TMDbClientWrapper(apiKey);
+        _client = new TmDbClientWrapper(apiKey);
     }
 
     public void Dispose() => Dispose(true);

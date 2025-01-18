@@ -6,8 +6,8 @@ WORKDIR /src
 COPY src/ .
 
 # Restore dependencies
-RUN dotnet restore "PlexLocalScan.Api/PlexLocalScan.Api.csproj"
-RUN dotnet publish "PlexLocalScan.Api/PlexLocalScan.Api.csproj" -c Release -o /app/publish
+RUN dotnet restore "PlexLocalScan.Api/PlexLocalScan.Api.csproj" && \
+dotnet publish "PlexLocalScan.Api/PlexLocalScan.Api.csproj" -c Release -o /app/publish
 
 # Frontend Build Stage
 FROM node:20-slim AS frontend-build
@@ -18,7 +18,7 @@ WORKDIR /mediaflick
 
 # Copy frontend files
 COPY mediaflick/package*.json mediaflick/pnpm-lock.yaml ./
-RUN pnpm install
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 COPY mediaflick .
 RUN pnpm run build
@@ -33,11 +33,8 @@ ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
 # Create necessary directories
-RUN mkdir -p config/logs
-RUN mkdir -p /mnt/zurg/tvseries
-RUN mkdir -p /mnt/zurg/movies
-RUN mkdir -p /mnt/organized/tvseries
-RUN mkdir -p /mnt/organized/movies
+RUN mkdir -p config/logs && mkdir -p /mnt/zurg/tvseries && mkdir -p /mnt/zurg/movies \
+&& mkdir -p /mnt/organized/tvseries && mkdir -p /mnt/organized/movies
 
 # Copy the published backend app
 COPY --from=backend-build /app/publish .
@@ -49,7 +46,7 @@ COPY --from=frontend-build /mediaflick/next.config.* ./
 COPY --from=frontend-build /mediaflick/pnpm-lock.yaml ./
 
 # Install production dependencies for frontend
-RUN pnpm install --production
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile
 
 # Set environment variable for timezone and globalization
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false

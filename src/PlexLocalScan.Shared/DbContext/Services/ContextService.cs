@@ -5,7 +5,7 @@ using PlexLocalScan.Abstractions;
 using PlexLocalScan.Core.Media;
 using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Data.Data;
-using PlexLocalScan.FileTracking.Services;
+using PlexLocalScan.Shared.DbContext.Interfaces;
 
 namespace PlexLocalScan.Shared.DbContext.Services;
 

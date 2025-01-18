@@ -1,8 +1,8 @@
 ﻿using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Mvc;
 using PlexLocalScan.Api.Controllers;
-using PlexLocalScan.Shared.Options;
 using PlexLocalScan.Api.Config;
+using PlexLocalScan.Shared.Configuration.Options;
 
 namespace PlexLocalScan.Api.Routing;
 
@@ -56,7 +56,7 @@ internal static class ConfigRouting
 
         group.MapGet("tmdb", 
                 (IOptionsSnapshot<TmDbOptions> tmdbOptions) => 
-                    ConfigController.GetTMDbConfig(tmdbOptions))
+                    ConfigController.GetTmDbConfig(tmdbOptions))
             .WithName("GetTMDbConfig")
             .WithDescription("Gets TMDb configuration settings")
             .Produces<TmDbOptions>(StatusCodes.Status200OK);

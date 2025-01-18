@@ -1,20 +1,16 @@
+using PlexLocalScan.Shared.TmDbMediaSearch.Interfaces;
+using TMDbLib.Client;
 using TMDbLib.Objects.General;
+using TMDbLib.Objects.Movies;
 using TMDbLib.Objects.Search;
 using TMDbLib.Objects.TvShows;
-using TMDbLib.Objects.Movies;
-using TMDbLib.Client;
-using PlexLocalScan.Shared.Interfaces;
-using PlexLocalScan.Shared.MediaDetection.Interfaces;
-using System;
 
-namespace PlexLocalScan.Shared.Services;
+namespace PlexLocalScan.Shared.TmDbMediaSearch.Services;
 
-public sealed class TMDbClientWrapper(string apiKey) : ITmDbClientWrapper, IDisposable
+public sealed class TmDbClientWrapper(string apiKey) : ITmDbClientWrapper, IDisposable
 {
-    private readonly TMDbClient _client = new(apiKey);
-#pragma warning disable S1075 // URIs should not be hardcoded
+    private readonly TMDbClient _client = new TMDbClient(apiKey);
     private const string BaseImageUrl = "https://image.tmdb.org/t/p/";
-#pragma warning restore S1075 // URIs should not be hardcoded
     private bool _disposed;
     private static readonly string[] ValidImageSizes = ["w92", "w154", "w185", "w342", "w500", "w780", "original"];
 
@@ -39,7 +35,7 @@ public sealed class TMDbClientWrapper(string apiKey) : ITmDbClientWrapper, IDisp
         _disposed = true;
     }
 
-    ~TMDbClientWrapper() => Dispose(false);
+    ~TmDbClientWrapper() => Dispose(false);
 
     public Task<string?> GetImageUrl(string path, string size)
     {

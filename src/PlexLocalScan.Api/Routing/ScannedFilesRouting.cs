@@ -5,8 +5,8 @@ using PlexLocalScan.Api.Controllers;
 using PlexLocalScan.Api.Models;
 using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Data.Data;
-using PlexLocalScan.Shared.Interfaces;
-using PlexLocalScan.Shared.Options;
+using PlexLocalScan.Shared.Configuration.Options;
+using PlexLocalScan.Shared.Symlinks.Interfaces;
 
 namespace PlexLocalScan.Api.Routing;
 

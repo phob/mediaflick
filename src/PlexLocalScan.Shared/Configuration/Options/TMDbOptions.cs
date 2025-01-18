@@ -1,4 +1,4 @@
-namespace PlexLocalScan.Shared.Options;
+namespace PlexLocalScan.Shared.Configuration.Options;
 
 public class TmDbOptions
 {

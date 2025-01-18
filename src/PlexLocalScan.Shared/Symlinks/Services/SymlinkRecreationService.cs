@@ -4,11 +4,12 @@ using Microsoft.Extensions.Options;
 using PlexLocalScan.Core.Media;
 using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Data.Data;
-using PlexLocalScan.FileTracking.Services;
 using PlexLocalScan.Shared.Configuration.Options;
-using PlexLocalScan.Shared.Interfaces;
+using PlexLocalScan.Shared.DbContext.Interfaces;
+using PlexLocalScan.Shared.MediaDetection.Interfaces;
+using PlexLocalScan.Shared.Symlinks.Interfaces;
 
-namespace PlexLocalScan.Shared.MediaDetection.Services;
+namespace PlexLocalScan.Shared.Symlinks.Services;
 
 public class SymlinkRecreationService(
     ILogger<SymlinkRecreationService> logger,

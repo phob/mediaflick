@@ -1,4 +1,4 @@
-namespace PlexLocalScan.Shared.Interfaces;
+namespace PlexLocalScan.Shared.Plex.Interfaces;
 
 public interface IPlexHandler
 {

@@ -3,7 +3,7 @@ using TMDbLib.Objects.Movies;
 using TMDbLib.Objects.Search;
 using TMDbLib.Objects.TvShows;
 
-namespace PlexLocalScan.Shared.Interfaces;
+namespace PlexLocalScan.Shared.TmDbMediaSearch.Interfaces;
 
 public interface ITmDbClientWrapper
 {
