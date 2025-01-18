@@ -1,11 +1,10 @@
-using Microsoft.Extensions.Logging;
-using PlexLocalScan.Shared.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using PlexLocalScan.Data.Data;
+using Microsoft.Extensions.Logging;
 using PlexLocalScan.Core.Helper;
-using PlexLocalScan.Core.Tables;
+using PlexLocalScan.Data.Data;
+using PlexLocalScan.Shared.Interfaces;
 
-namespace PlexLocalScan.Shared.Services;
+namespace PlexLocalScan.Shared.Symlinks.Services;
 
 public class CleanupHandler(
     ILogger<CleanupHandler> logger,

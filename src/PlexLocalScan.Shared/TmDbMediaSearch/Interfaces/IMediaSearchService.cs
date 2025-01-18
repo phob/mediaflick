@@ -1,8 +1,8 @@
 ﻿using PlexLocalScan.Core.Media;
 using PlexLocalScan.Core.Series;
-using PlexLocalScan.Shared.Services;
+using PlexLocalScan.Shared.TmDbMediaSearch.Services;
 
-namespace PlexLocalScan.Shared.Interfaces;
+namespace PlexLocalScan.Shared.TmDbMediaSearch.Interfaces;
 
 public interface IMediaSearchService
 {

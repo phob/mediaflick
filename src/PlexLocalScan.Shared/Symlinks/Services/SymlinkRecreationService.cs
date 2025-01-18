@@ -1,14 +1,14 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.EntityFrameworkCore;
 using PlexLocalScan.Core.Media;
 using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Data.Data;
 using PlexLocalScan.FileTracking.Services;
+using PlexLocalScan.Shared.Configuration.Options;
 using PlexLocalScan.Shared.Interfaces;
-using PlexLocalScan.Shared.Options;
 
-namespace PlexLocalScan.Shared.Services;
+namespace PlexLocalScan.Shared.MediaDetection.Services;
 
 public class SymlinkRecreationService(
     ILogger<SymlinkRecreationService> logger,

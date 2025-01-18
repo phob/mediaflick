@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
 
-namespace PlexLocalScan.Shared.Options;
+namespace PlexLocalScan.Shared.Configuration.Options;
 
 public class PlexOptions
 {

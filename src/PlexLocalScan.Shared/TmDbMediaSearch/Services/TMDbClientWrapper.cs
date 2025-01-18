@@ -4,6 +4,7 @@ using TMDbLib.Objects.TvShows;
 using TMDbLib.Objects.Movies;
 using TMDbLib.Client;
 using PlexLocalScan.Shared.Interfaces;
+using PlexLocalScan.Shared.MediaDetection.Interfaces;
 using System;
 
 namespace PlexLocalScan.Shared.Services;

@@ -5,8 +5,8 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using PlexLocalScan.Core.Media;
 using PlexLocalScan.Core.Tables;
+using PlexLocalScan.Shared.Configuration.Options;
 using PlexLocalScan.Shared.Interfaces;
-using PlexLocalScan.Shared.Options;
 using static PlexLocalScan.Shared.Services.RegexMovie;
 
 namespace PlexLocalScan.Shared.Services;

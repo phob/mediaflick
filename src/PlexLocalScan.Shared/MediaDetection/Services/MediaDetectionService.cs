@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+
 using PlexLocalScan.Core.Media;
 using PlexLocalScan.Core.Tables;
 using PlexLocalScan.FileTracking.Services;
@@ -10,14 +11,13 @@ public class MediaDetectionService(
     ILogger<MediaDetectionService> logger,
     IMovieDetectionService movieDetectionService,
     ITvShowDetectionService tvShowDetectionService,
-    IContextService contextService,
-    IFileSystemService fileSystemService)
+    IContextService contextService)
     : IMediaDetectionService
 {
     public async Task<MediaInfo?> DetectMediaAsync(string filePath, MediaType mediaType)
     {
         var mediaInfo = new MediaInfo { MediaType = mediaType };
-        var fileName = fileSystemService.GetFileName(filePath);
+        var fileName = Path.GetFileName(filePath);
         logger.LogDebug("Attempting to detect media info for: {FileName}", fileName);
 
         try
@@ -51,10 +51,10 @@ public class MediaDetectionService(
 
     private static bool IsValidMediaInfo(MediaInfo mediaInfo)
     {
-        var hasBasicInfo = new[] { mediaInfo }.Any(m => 
-            !string.IsNullOrWhiteSpace(m.Title) && 
-            m.Year > 0 && 
-            m.TmdbId > 0 && 
+        var hasBasicInfo = new[] { mediaInfo }.Any(m =>
+            !string.IsNullOrWhiteSpace(m.Title) &&
+            m.Year > 0 &&
+            m.TmdbId > 0 &&
             m.ImdbId != null);
 
         if (!hasBasicInfo)
@@ -69,4 +69,4 @@ public class MediaDetectionService(
             _ => false
         };
     }
-} 
+}

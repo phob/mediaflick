@@ -4,10 +4,10 @@ using Microsoft.Extensions.Caching.Memory;
 using System.Text.RegularExpressions;
 using PlexLocalScan.Core.Media;
 using PlexLocalScan.Core.Tables;
+using PlexLocalScan.Shared.Configuration.Options;
 using PlexLocalScan.Shared.Interfaces;
 using static PlexLocalScan.Shared.Services.RegexTv;
 using TMDbLib.Objects.Search;
-using PlexLocalScan.Shared.Options;
 using System.Globalization;
 
 namespace PlexLocalScan.Shared.Services;

@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
-using PlexLocalScan.Shared.Options;
+using PlexLocalScan.Shared.Configuration.Options;
 using System.Web;
 using PlexLocalScan.Shared.Interfaces;
 

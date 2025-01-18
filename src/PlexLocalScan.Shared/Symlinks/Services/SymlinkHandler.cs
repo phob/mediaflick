@@ -1,11 +1,11 @@
 using Microsoft.Extensions.Logging;
+using PlexLocalScan.Core.Helper;
 using PlexLocalScan.Core.Media;
 using PlexLocalScan.Core.Tables;
-using PlexLocalScan.Core.Helper;
 using PlexLocalScan.FileTracking.Services;
 using PlexLocalScan.Shared.Interfaces;
 
-namespace PlexLocalScan.Shared.Services;
+namespace PlexLocalScan.Shared.MediaDetection.Services;
 
 public class SymlinkHandler(
     ILogger<SymlinkHandler> logger,

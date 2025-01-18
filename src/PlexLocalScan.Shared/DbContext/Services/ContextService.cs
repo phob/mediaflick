@@ -1,11 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+
 using PlexLocalScan.Abstractions;
 using PlexLocalScan.Core.Media;
 using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Data.Data;
+using PlexLocalScan.FileTracking.Services;
 
-namespace PlexLocalScan.FileTracking.Services;
+namespace PlexLocalScan.Shared.DbContext.Services;
 
 public class ContextService(
     PlexScanContext dbContext,

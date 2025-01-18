@@ -1,6 +1,6 @@
 using PlexLocalScan.Core.Media;
 
-namespace PlexLocalScan.Shared.Services;
+namespace PlexLocalScan.Shared.MediaDetection.Services;
 
 public static class PathFormatHelper
 {

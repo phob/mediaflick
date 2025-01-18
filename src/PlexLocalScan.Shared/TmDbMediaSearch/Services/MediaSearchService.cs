@@ -1,12 +1,12 @@
-using PlexLocalScan.Shared.Interfaces;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using PlexLocalScan.Core.Media;
 using PlexLocalScan.Core.Series;
 using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Data.Data;
-using Microsoft.Extensions.Caching.Memory;
+using PlexLocalScan.Shared.Interfaces;
 
-namespace PlexLocalScan.Shared.Services;
+namespace PlexLocalScan.Shared.TmDbMediaSearch.Services;
 
 public record MediaSearchResult(int TmdbId, string Title, int? Year, string? PosterPath);
 
