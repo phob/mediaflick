@@ -57,28 +57,18 @@ export const mediaApi = {
     sortOrder?: string
     ids?: number[]
   }) => {
-    const queryParams = new URLSearchParams({
-      searchTerm: params.searchTerm || "",
-      status: (params.status || "").toString(),
-      mediaType: (params.mediaType || "").toString(),
-      page: (params.page || 1).toString(),
-      pageSize: (params.pageSize || 10).toString(),
-      sortBy: (params.sortBy || "createdAt").toString(),
-      sortOrder: (params.sortOrder || "desc").toString(),
-    })
-
-    // If IDs are provided, use POST method with IDs in body, otherwise use GET
-    if (params.ids && params.ids.length > 0) {
-      return fetchApi<PagedResult<ScannedFile>>(`/scannedfiles?${queryParams.toString()}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(params.ids),
-      })
+    const searchParams = new URLSearchParams();
+    if (params.searchTerm) searchParams.set("searchTerm", params.searchTerm);
+    if (params.status) searchParams.set("status", params.status.toString());
+    if (params.mediaType) searchParams.set("mediaType", params.mediaType.toString());
+    if (params.page) searchParams.set("page", params.page.toString());
+    if (params.pageSize) searchParams.set("pageSize", params.pageSize.toString());
+    if (params.sortBy) searchParams.set("sortBy", params.sortBy);
+    if (params.sortOrder) searchParams.set("sortOrder", params.sortOrder);
+    if (params.ids?.length) {
+      params.ids.forEach(id => searchParams.append("ids", id.toString()));
     }
-
-    return fetchApi<PagedResult<ScannedFile>>(`/scannedfiles?${queryParams.toString()}`)
+    return fetchApi<PagedResult<ScannedFile>>(`/scannedfiles?${searchParams.toString()}`);
   },
 
   getScannedFile: (id: number) => fetchApi<ScannedFile>(`/scannedfiles/${id}`),

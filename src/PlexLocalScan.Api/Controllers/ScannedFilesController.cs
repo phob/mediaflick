@@ -323,8 +323,8 @@ internal static class ScannedFilesController
     }
 
     internal static async Task<IResult> RecreateSymlinks(
-        ISymlinkRecreationService symlinkRecreationService = null!,
-        ILogger<Program> logger = null!)
+        ISymlinkRecreationService symlinkRecreationService,
+        ILogger<Program> logger)
     {
         logger.LogInformation("Starting recreation of all symlinks");
         var successCount = await symlinkRecreationService.RecreateAllSymlinksAsync();

@@ -10,11 +10,11 @@ import { mediaApi } from "@/lib/api/endpoints"
 import { MediaType, ScannedFile } from "@/lib/api/types"
 
 interface EditModalProps {
-  isOpen: boolean
-  onClose: () => void
-  selectedRows: Row[]
-  onSave: (updatedRows: Row[]) => void
-  initialMediaType: MediaType.Movies | MediaType.TvShows
+  readonly isOpen: boolean
+  readonly onClose: () => void
+  readonly selectedRows: Row[]
+  readonly onSave: (updatedRows: Row[]) => void
+  readonly initialMediaType: MediaType.Movies | MediaType.TvShows
 }
 
 interface EditableRow extends Row {
@@ -53,21 +53,7 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave, initialMediaT
         })
 
         // Transform ScannedFiles to EditableRows
-        const transformedRows = result.items.map((file: ScannedFile): EditableRow => {
-          return {
-            key: file.id,
-            sourceFile: file.sourceFile,
-            destFile: file.destFile || "",
-            tmdbId: file.tmdbId || 0,
-            imdbId: file.imdbId || "",
-            mediaType: file.mediaType,
-            status: file.status,
-            createdAt: file.createdAt,
-            updatedAt: file.updatedAt,
-            seasonNumber: file.seasonNumber,
-            episodeNumber: file.episodeNumber,
-          }
-        })
+        const transformedRows = result.items.map(transformScannedFileToEditableRow)
 
         setEditableRows(transformedRows)
       } catch (error) {
@@ -96,8 +82,33 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave, initialMediaT
   }
 
   const handleSave = () => {
-    onSave(editableRows)
+    onSave([...editableRows])
   }
+
+  const handleClearRows = () => {
+    setEditableRows((prev) =>
+      prev.map((row) => ({
+        ...row,
+        tmdbId: 0,
+        seasonNumber: undefined,
+        episodeNumber: undefined,
+      }))
+    )
+  }
+
+  const transformScannedFileToEditableRow = (file: ScannedFile): EditableRow => ({
+    key: file.id,
+    sourceFile: file.sourceFile,
+    destFile: file.destFile ?? "",
+    tmdbId: file.tmdbId ?? 0,
+    imdbId: file.imdbId ?? "",
+    mediaType: file.mediaType,
+    status: file.status,
+    createdAt: file.createdAt,
+    updatedAt: file.updatedAt,
+    seasonNumber: file.seasonNumber,
+    episodeNumber: file.episodeNumber,
+  })
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="5xl" scrollBehavior="inside">
@@ -139,19 +150,7 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave, initialMediaT
               <Button color="danger" onPress={onClose}>
                 Cancel
               </Button>
-              <Button
-                color="default"
-                onPress={() => {
-                  setEditableRows((prev) =>
-                    prev.map((row) => ({
-                      ...row,
-                      tmdbId: 0,
-                      seasonNumber: undefined,
-                      episodeNumber: undefined,
-                    }))
-                  )
-                }}
-              >
+              <Button color="default" onPress={handleClearRows}>
                 Clear
               </Button>
               <Button color="primary" onPress={handleSave} isDisabled={loading}>

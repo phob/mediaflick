@@ -22,8 +22,7 @@ import { format } from "date-fns"
 import { Edit, Search, Trash2 } from "lucide-react"
 
 import { EditModal } from "@/components/scanned-files-table/edit-modal"
-import { Row } from "@/components/scanned-files-table/types"
-import { mediaTypeOptions, statusOptions } from "@/components/scanned-files-table/types"
+import { mediaTypeOptions, statusOptions, Row } from "@/components/scanned-files-table/types"
 import { mediaApi } from "@/lib/api/endpoints"
 import { signalr } from "@/lib/api/signalr"
 import { MediaStatus, MediaType, PagedResult, PlexConfig, ScannedFile } from "@/lib/api/types"
@@ -31,14 +30,14 @@ import { getFileName, stripFolderPrefix } from "@/lib/files-folders"
 import { formatEpisodeNumber, getMediaTypeLabel, getStatusClass, getStatusLabel } from "@/lib/format-helper"
 
 interface ScannedFilesTableProps {
-  page?: number
-  pageSize?: number
-  sortBy?: string
-  sortOrder?: string
-  onPageChange?: (page: number) => void
-  onPageSizeChange?: (pageSize: number) => void
-  onSortByChange?: (sortBy: string) => void
-  onSortOrderChange?: (sortOrder: string) => void
+  readonly page?: number
+  readonly pageSize?: number
+  readonly sortBy?: string
+  readonly sortOrder?: string
+  readonly onPageChange?: (page: number) => void
+  readonly onPageSizeChange?: (pageSize: number) => void
+  readonly onSortByChange?: (sortBy: string) => void
+  readonly onSortOrderChange?: (sortOrder: string) => void
 }
 
 const DynamicTable = dynamic(
@@ -140,8 +139,8 @@ export function ScannedFilesTable({
           </div>
         ),
         genres: file.genres?.join(", "),
-        tmdbId: file.tmdbId || 0,
-        imdbId: file.imdbId || "-",
+        tmdbId: file.tmdbId ?? 0,
+        imdbId: file.imdbId ?? "-",
         mediaType: getMediaTypeLabel(file.mediaType),
         episode: formatEpisodeNumber(file.seasonNumber, file.episodeNumber),
         status: (
@@ -244,9 +243,9 @@ export function ScannedFilesTable({
         <div className="flex items-center justify-between">
           <span className="text-small text-default-400">Total {filteredItems.length} files</span>
           <label className="flex items-center text-small text-default-400">
-            Rows per page:
-            <select
-              className="bg-transparent text-small text-default-400 outline-none"
+            Rows per page:{' '}
+            <select 
+              className="bg-transparent text-small text-default-400 outline-none" 
               onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
             >
               <option value="50">50</option>

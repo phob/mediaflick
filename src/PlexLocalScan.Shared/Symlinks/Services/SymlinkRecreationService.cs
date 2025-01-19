@@ -134,11 +134,13 @@ public class SymlinkRecreationService(
             // Group files by TMDb ID to check for duplicates
             var movieGroups = filesToUpdate
                 .Where(f => f is {MediaType: MediaType.Movies, TmdbId: not null})
-                .GroupBy(f => f.TmdbId!.Value);
+                .GroupBy(f => f.TmdbId!.Value)
+                .ToList();
 
             var tvShowGroups = filesToUpdate
                 .Where(f => f is {MediaType: MediaType.TvShows, TmdbId: not null, SeasonNumber: not null, EpisodeNumber: not null})
-                .GroupBy(f => new { TmdbId = f.TmdbId!.Value, Season = f.SeasonNumber!.Value, Episode = f.EpisodeNumber!.Value });
+                .GroupBy(f => new { TmdbId = f.TmdbId!.Value, Season = f.SeasonNumber!.Value, Episode = f.EpisodeNumber!.Value })
+                .ToList();
 
             // Process movies - only keep the first file for each TMDb ID
             foreach (var movieGroup in movieGroups)

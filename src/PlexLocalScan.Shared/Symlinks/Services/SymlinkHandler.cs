@@ -28,7 +28,7 @@ public class SymlinkHandler(
             }
 
             (var targetPath, var targetFileName) = GetTargetPath(mediaInfo, destinationFolder, extension);
-            return await CreateSymlinkWithStructureAsync(sourceFile, targetPath, targetFileName);
+            return await CreateSymlinkWithStructureAsync(sourceFile, targetPath, targetFileName, mediaType);
         }
         catch (Exception ex)
         {
@@ -38,6 +38,43 @@ public class SymlinkHandler(
         }
     }
 
+    private async Task<bool> CreateSymlinkWithStructureAsync(string sourcePath, string targetPath, string targetFileName, MediaType mediaType)
+    {
+        try
+        {
+            var emptyMediaInfo = new MediaInfo
+            {
+                MediaType = mediaType
+            };
+            Directory.CreateDirectory(targetPath);
+
+            var fullTargetPath = Path.Combine(targetPath, targetFileName);
+
+            if (File.Exists(fullTargetPath))
+            {
+                if (SymlinkHelper.IsSymlink(fullTargetPath))
+                {
+                    logger.LogDebug("Symlink already exists: {TargetPath}", fullTargetPath);
+                    await contextService.UpdateStatusAsync(sourcePath, fullTargetPath, emptyMediaInfo, FileStatus.Duplicate);
+                    return false;
+                }
+                File.Delete(fullTargetPath);
+            }
+
+            if(await SymlinkHelper.CreateFileLinkAsync(sourcePath, fullTargetPath))
+            {
+                await contextService.UpdateStatusAsync(sourcePath, fullTargetPath, emptyMediaInfo, FileStatus.Duplicate);
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to create symlink structure from {Source} to {Target}", 
+                sourcePath, Path.Combine(targetPath, targetFileName));
+            return false;
+        }
+    }
     private async Task<bool> CreateFallbackSymlinkAsync(string sourceFile, string destinationFolder, MediaType mediaType)
     {
         try
@@ -99,39 +136,5 @@ public class SymlinkHandler(
         }
     }
 
-    private async Task<bool> CreateSymlinkWithStructureAsync(string sourcePath, string targetPath, string targetFileName)
-    {
-        try
-        {
-            var emptyMediaInfo = new MediaInfo();
-            Directory.CreateDirectory(targetPath);
-
-            var fullTargetPath = Path.Combine(targetPath, targetFileName);
-
-            if (File.Exists(fullTargetPath))
-            {
-                if (SymlinkHelper.IsSymlink(fullTargetPath))
-                {
-                    logger.LogDebug("Symlink already exists: {TargetPath}", fullTargetPath);
-                    await contextService.UpdateStatusAsync(sourcePath, fullTargetPath, emptyMediaInfo, FileStatus.Duplicate);
-                    return false;
-                }
-                File.Delete(fullTargetPath);
-            }
-
-            if(await SymlinkHelper.CreateFileLinkAsync(sourcePath, fullTargetPath))
-            {
-                await contextService.UpdateStatusAsync(sourcePath, fullTargetPath, emptyMediaInfo, FileStatus.Duplicate);
-            }
-
-            return true;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to create symlink structure from {Source} to {Target}", 
-                sourcePath, Path.Combine(targetPath, targetFileName));
-            return false;
-        }
-    }
 
 } 
