@@ -1,10 +1,13 @@
 "use client"
 
+import { Suspense } from "react"
 import { useCallback, useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 
 import { Input, Pagination, Select, SelectItem, Spinner } from "@nextui-org/react"
 
 import { MediaCard, type UniqueMediaEntry } from "@/components/media-info/media-card"
+import { MediaInfoContent as MediaInfoView } from "@/components/media-info/media-info-content"
 import { mediaApi } from "@/lib/api/endpoints"
 import type { MediaType } from "@/lib/api/types"
 import { MediaType as MediaTypeEnum } from "@/lib/api/types"
@@ -14,7 +17,18 @@ interface TmdbEntry {
   title: string
 }
 
-export default function MediaInfo() {
+function MediaInfoContent() {
+  const searchParams = useSearchParams()
+  const selectedId = searchParams.get('id')
+  const type = searchParams.get('type') as MediaType || MediaTypeEnum.Movies
+  
+  if (selectedId) {
+    return <MediaInfoView id={selectedId} type={type} />
+  }
+  return <MediaGrid />
+}
+
+function MediaGrid() {
   const [searchTerm, setSearchTerm] = useState("")
   const [mediaType, setMediaType] = useState<MediaType>(MediaTypeEnum.Movies)
   const [loading, setLoading] = useState(true)
@@ -108,7 +122,12 @@ export default function MediaInfo() {
         <>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {currentPageItems.map((media) => (
-              <MediaCard key={media.tmdbId} media={media} mediaType={mediaType} />
+              <MediaCard 
+                key={media.tmdbId} 
+                media={media} 
+                mediaType={mediaType}
+                href={`/mediainfo?id=${media.tmdbId}&type=${mediaType}`}
+              />
             ))}
           </div>
           {totalPages > 1 && (
@@ -119,5 +138,13 @@ export default function MediaInfo() {
         </>
       )}
     </div>
+  )
+}
+
+export default function MediaInfoPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center"><Spinner size="lg" /></div>}>
+      <MediaInfoContent />
+    </Suspense>
   )
 }

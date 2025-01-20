@@ -1,34 +1,34 @@
 "use client"
 
-import { useParams, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
 
 import { Spinner } from "@nextui-org/react"
 
-import { MediaBackdrop } from "@/components/media-info/media-backdrop"
-import { MediaDetails } from "@/components/media-info/media-details"
-import { SeasonList } from "@/components/media-info/season-list"
+import { MediaBackdrop } from "./media-backdrop"
+import { MediaDetails } from "./media-details"
+import { SeasonList } from "./season-list"
 import { mediaApi } from "@/lib/api/endpoints"
 import type { MediaInfo } from "@/lib/api/types"
 import { MediaType } from "@/lib/api/types"
 
-export default function MediaInfoPage() {
-  const { id } = useParams()
-  const searchParams = useSearchParams()
-  const mediaType = searchParams.get("type") as MediaType
+interface MediaInfoContentProps {
+  id: string
+  type: MediaType
+}
+
+export function MediaInfoContent({ id, type }: MediaInfoContentProps) {
   const [mediaInfo, setMediaInfo] = useState<MediaInfo | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const loadMediaInfo = async () => {
-      if (!id || !mediaType) return
+      if (!id || !type) return
 
       try {
         setLoading(true)
         const info =
-          mediaType === MediaType.Movies ? await mediaApi.getMovie(Number(id)) : await mediaApi.getTvShow(Number(id))
+          type === MediaType.Movies ? await mediaApi.getMovie(Number(id)) : await mediaApi.getTvShow(Number(id))
         setMediaInfo(info)
-        console.log(info)
       } catch (error) {
         console.error("Failed to load media info:", error)
       } finally {
@@ -37,7 +37,7 @@ export default function MediaInfoPage() {
     }
 
     loadMediaInfo()
-  }, [id, mediaType])
+  }, [id, type])
 
   if (loading) {
     return (
@@ -64,4 +64,4 @@ export default function MediaInfoPage() {
       </div>
     </div>
   )
-}
+} 

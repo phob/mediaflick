@@ -40,13 +40,14 @@ RUN mkdir -p config/logs && mkdir -p /mnt/zurg/tvseries && mkdir -p /mnt/zurg/mo
 COPY --from=backend-build /app/publish .
 
 # Copy the built frontend app
-COPY --from=frontend-build /mediaflick/.next ./.next
-COPY --from=frontend-build /mediaflick/package*.json ./
-COPY --from=frontend-build /mediaflick/next.config.* ./
-COPY --from=frontend-build /mediaflick/pnpm-lock.yaml ./
+COPY --from=frontend-build /mediaflick/.next/standalone ./
+COPY --from=frontend-build /mediaflick/.next/static ./.next/static
+#COPY --from=frontend-build /mediaflick/package*.json ./
+#COPY --from=frontend-build /mediaflick/next.config.* ./
+#COPY --from=frontend-build /mediaflick/pnpm-lock.yaml ./
 
 # Install production dependencies for frontend
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile
+# RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile
 
 # Set environment variable for timezone and globalization
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
