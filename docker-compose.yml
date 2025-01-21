@@ -1,6 +1,7 @@
 services:
   mediaflick-plexlocalscan-api:
     build: .
+    user: pho
     container_name: mediaflick-plexlocalscan-api
     ports:
       - "3000:3000"

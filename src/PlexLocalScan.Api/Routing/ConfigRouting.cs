@@ -1,4 +1,4 @@
-﻿﻿using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Mvc;
 using PlexLocalScan.Api.Config;
 using PlexLocalScan.Shared.Configuration.Options;
@@ -30,7 +30,7 @@ internal static class ConfigRouting
                 })
             .WithName("GetConfiguration")
             .WithDescription("Gets all configuration settings")
-            .Produces<CombinedConfig>(StatusCodes.Status200OK);
+            .Produces<CombinedConfig>();
 
         group.MapPut("/", async Task<IResult> (
             [FromBody] CombinedConfig config,
@@ -41,11 +41,11 @@ internal static class ConfigRouting
                 return Results.BadRequest(errors);
 
             await configService.UpdateConfigAsync(config);
-            return Results.Ok();
+            return Results.Ok(config);
         })
             .WithName("UpdateConfiguration")
             .WithDescription("Updates all configuration settings")
-            .Produces(StatusCodes.Status200OK)
+            .Produces<CombinedConfig>()
             .Produces<List<string>>(StatusCodes.Status400BadRequest);
     }
 
@@ -60,8 +60,6 @@ internal static class ConfigRouting
         var errors = new List<string>();
         
         // Validate Plex config
-        if (config.Plex is null) errors.Add("Plex configuration cannot be null");
-        else
         {
             if (string.IsNullOrEmpty(config.Plex.Host)) errors.Add("Plex host is required");
             if (config.Plex.Port <= 0) errors.Add("Plex port must be greater than 0");
@@ -75,12 +73,10 @@ internal static class ConfigRouting
         }
 
         // Validate TMDb config
-        if (config.TmDb is null) errors.Add("TMDb configuration cannot be null");
-        else if (string.IsNullOrEmpty(config.TmDb.ApiKey)) errors.Add("TMDb API key is required");
+        if (string.IsNullOrEmpty(config.TmDb.ApiKey)) errors.Add("TMDb API key is required");
 
         // Validate MediaDetection config
-        if (config.MediaDetection is null) errors.Add("Media detection configuration cannot be null");
-        else if (config.MediaDetection.CacheDuration <= 0) errors.Add("Media detection cache duration must be greater than zero");
+        if (config.MediaDetection.CacheDuration <= 0) errors.Add("Media detection cache duration must be greater than zero");
 
         return errors;
     }

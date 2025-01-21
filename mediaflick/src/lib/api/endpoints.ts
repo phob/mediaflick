@@ -17,17 +17,26 @@ export const mediaApi = {
   // Configuration
   getAllConfigurations: () => fetchApi("/config"),
 
+  getPlexConfig: async () => {
+    const config = await fetchApi<ConfigurationPayload>("/config")
+    return config.plex
+  },
+
+  getTmdbConfig: async () => {
+    const config = await fetchApi<ConfigurationPayload>("/config")
+    return config.tmDb
+  },
+
+  getMediaDetectionConfig: async () => {
+    const config = await fetchApi<ConfigurationPayload>("/config")
+    return config.mediaDetection
+  },
+
   setAllConfigurations: (config: ConfigurationPayload) =>
     fetchApi("/config", {
       method: "PUT",
       body: JSON.stringify(config),
     }),
-
-  getPlexConfig: () => fetchApi("/config/plex"),
-
-  getTMDbConfig: () => fetchApi("/config/tmdb"),
-
-  getMediaDetectionConfig: () => fetchApi("/config/media-detection"),
 
   // Media Lookup
   searchMovies: (title: string) =>

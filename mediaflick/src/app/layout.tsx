@@ -25,7 +25,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className={clsx("min-h-screen bg-background font-sans antialiased", fontSans.variable)}>
         <Providers>
           <div className="fixed left-0 right-0 top-0 z-[100]">
-            <div className="container mx-auto">
+            <div className="mx-auto">
               <div className="backdrop-blur-md motion-translate-y-in-[-100%] motion-blur-in-md motion-opacity-in-0">
                 <HeadBar />
               </div>
