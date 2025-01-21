@@ -2,7 +2,7 @@
 
 import HeadButton from "@/components/head-bar/head-button"
 
-import { navigationItems } from "../../config/nav-config"
+import { navigationItems, settingsItems } from "../../config/nav-config"
 
 export default function HeadBar() {
   return (
@@ -15,11 +15,18 @@ export default function HeadBar() {
           </div>
           <div className="flex gap-2">
             {navigationItems.map((item) => (
-              <HeadButton key={item.href} icon={item.icon} label={item.label} href={item.href} />
+              <HeadButton key={item.href} {...item} />
             ))}
           </div>
         </div>
-        <div className="flex flex-1 justify-end"></div>
+        <div className="flex flex-1 justify-end">
+          {settingsItems.map((item) => (
+            <HeadButton 
+              key={item.label} 
+              {...item}
+            />
+          ))}
+        </div>
       </div>
     </header>
   )

@@ -5,8 +5,8 @@ using PlexLocalScan.Api.Controllers;
 using PlexLocalScan.Api.Models;
 using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Data.Data;
-using PlexLocalScan.Shared.Interfaces;
-using PlexLocalScan.Shared.Options;
+using PlexLocalScan.Shared.Configuration.Options;
+using PlexLocalScan.Shared.Symlinks.Interfaces;
 
 namespace PlexLocalScan.Api.Routing;
 
@@ -29,7 +29,7 @@ internal static class ScannedFilesRouting
 
     private static void MapScannedFilesMainEndpoints(RouteGroupBuilder group)
     {
-        var getScannedFilesHandler = async (
+        var getScannedFilesHandler = static async (
             [FromServices] PlexScanContext context,
             [FromServices] ILogger<Program> logger,
             [FromQuery] FileStatus? status = null,
@@ -56,16 +56,16 @@ internal static class ScannedFilesRouting
             .WithDescription("Retrieves a paged list of scanned files with optional filtering and sorting")
             .Produces<PagedResult<ScannedFileDto>>();
 
-        group.MapGet("{id:int}", 
-            async (int id, [FromServices] PlexScanContext context, [FromServices] ILogger<Program> logger) => 
+        group.MapGet("{id:int}",
+            static async (int id, [FromServices] PlexScanContext context, [FromServices] ILogger<Program> logger) => 
                 await ScannedFilesController.GetScannedFile(id, context, logger))
             .WithName("GetScannedFile")
             .WithDescription("Retrieves a specific scanned file by its ID")
             .Produces<ScannedFileDto>()
             .Produces(StatusCodes.Status404NotFound);
 
-        group.MapGet("tmdb-ids-and-titles", 
-            async (
+        group.MapGet("tmdb-ids-and-titles",
+            static async (
                 [FromQuery] MediaType? mediaType,
                 [FromQuery] string? searchTerm,
                 [FromServices] PlexScanContext context = null!,
@@ -84,8 +84,8 @@ internal static class ScannedFilesRouting
     }
 
     private static void MapScannedFilesStatsEndpoints(RouteGroupBuilder group) => 
-        group.MapGet("stats", 
-            async ([FromServices] PlexScanContext context, [FromServices] ILogger<Program> logger) => 
+        group.MapGet("stats",
+            static async ([FromServices] PlexScanContext context, [FromServices] ILogger<Program> logger) => 
                 await ScannedFilesController.GetStats(context, logger))
             .WithName("GetScannedFilesStats")
             .WithDescription("Retrieves statistics about scanned files, including counts by status and media type")
@@ -93,8 +93,8 @@ internal static class ScannedFilesRouting
 
     private static void MapScannedFilesUpdateEndpoints(RouteGroupBuilder group)
     {
-        group.MapPatch("{id}", 
-            async (int id, [FromBody] UpdateScannedFileRequest request, [FromServices] PlexScanContext context, [FromServices] ILogger<Program> logger) => 
+        group.MapPatch("{id}",
+            static async (int id, [FromBody] UpdateScannedFileRequest request, [FromServices] PlexScanContext context, [FromServices] ILogger<Program> logger) => 
                 await ScannedFilesController.UpdateScannedFile(id, request, context, logger))
             .WithName("UpdateScannedFile")
             .WithDescription("Updates the TMDb ID, season number, and episode number for a scanned file")
@@ -102,8 +102,8 @@ internal static class ScannedFilesRouting
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status400BadRequest);
 
-        group.MapPatch("{id}/recreate-symlink", 
-            async (int id, [FromServices] PlexScanContext context, [FromServices] ISymlinkRecreationService symlinkRecreationService, [FromServices] ILogger<Program> logger) => 
+        group.MapPatch("{id}/recreate-symlink",
+            static async (int id, [FromServices] PlexScanContext context, [FromServices] ISymlinkRecreationService symlinkRecreationService, [FromServices] ILogger<Program> logger) => 
                 await ScannedFilesController.RecreateSymlink(id, context, symlinkRecreationService, logger))
             .WithName("RecreateSymlink")
             .WithDescription("Recreates the symlink for a scanned file")
@@ -111,8 +111,8 @@ internal static class ScannedFilesRouting
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status400BadRequest);
 
-        group.MapPost("recreate-symlinks", 
-            async ([FromServices] ISymlinkRecreationService symlinkRecreationService, [FromServices] ILogger<Program> logger) => 
+        group.MapPost("recreate-symlinks",
+            static async ([FromServices] ISymlinkRecreationService symlinkRecreationService, [FromServices] ILogger<Program> logger) => 
                 await ScannedFilesController.RecreateSymlinks(symlinkRecreationService, logger))
             .WithName("RecreateAllSymlinks")
             .WithDescription("Recreates all symlinks")
@@ -120,8 +120,8 @@ internal static class ScannedFilesRouting
     }
 
     private static void MapScannedFilesDeleteEndpoints(RouteGroupBuilder group) => 
-        group.MapDelete("batch", 
-            async ([FromBody] int[]? ids, [FromServices] PlexScanContext context, [FromServices] ICleanupHandler cleanupHandler, [FromServices] IOptions<PlexOptions> plexOptions, [FromServices] INotificationService notificationService, [FromServices] ILogger<Program> logger) => 
+        group.MapDelete("batch",
+            static async ([FromBody] int[]? ids, [FromServices] PlexScanContext context, [FromServices] ICleanupHandler cleanupHandler, [FromServices] IOptionsSnapshot<PlexOptions> plexOptions, [FromServices] INotificationService notificationService, [FromServices] ILogger<Program> logger) => 
                 await ScannedFilesController.DeleteScannedFiles(ids, context, cleanupHandler, plexOptions, notificationService, logger))
             .WithName("DeleteScannedFiles")
             .WithDescription("Deletes multiple scanned files by their IDs")

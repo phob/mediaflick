@@ -70,19 +70,19 @@ export function MediaSearch({ mediaType, onMediaSelect, className, ...props }: M
       {...props}
     >
       {(item: MediaSearchResult) => (
-        <AutocompleteItem key={item.tmdbId} textValue={item.title}>
+        <AutocompleteItem key={item.TmdbId} textValue={item.Title}>
           <div className="flex items-center gap-2">
-            {item.posterPath && (
+            {item.PosterPath && (
               <Image
-                src={getTMDBImageUrl(item.posterPath, "w92") || ""}
-                alt={item.title}
+                src={getTMDBImageUrl(item.PosterPath, "w92") || ""}
+                alt={item.Title}
                 width={92}
                 height={138}
                 className="rounded object-cover"
               />
             )}
             <div>
-              {item.title} {item.year ? `(${item.year})` : ""}
+              {item.Title} {item.Year ? `(${item.Year})` : ""}
             </div>
           </div>
         </AutocompleteItem>

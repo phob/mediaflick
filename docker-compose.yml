@@ -1,13 +1,17 @@
 services:
-  plexlocalscan-api:
+  mediaflick-plexlocalscan-api:
     build: .
-    container_name: plexlocalscan-api
+    user: pho
+    container_name: mediaflick-plexlocalscan-api
     ports:
       - "3000:3000"
+      - "5000:5000"
     volumes:
-      - D:\Test2:/mnt/zurg/tvseries
-      - D:\TestSymlink:/mnt/organized/tvseries
-      - D:\config:/app/config
+      - /mnt/zurg/tvseries:/mnt/zurg/tvseries
+      - /mnt/zurg/movies:/mnt/zurg/movies
+      - /mnt/organized/tvseries:/mnt/organized/tvseries
+      - /mnt/organized/movies:/mnt/organized/movies
+      - /opt/mediaflick:/app/config
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5000

@@ -25,5 +25,5 @@ export const stripFolderPrefix = (path: string, mediaType: MediaType, plexConfig
 }
 
 export const getFileName = (filePath: string) => {
-  return filePath.split(/[\\/]/).pop() || filePath
+  return filePath.split(/[\\/]/).pop() ?? filePath
 }

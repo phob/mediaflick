@@ -4,6 +4,7 @@ out/
 .vs/
 .vscode/
 *.user
+*.md
 # dependencies
 node_modules
 .pnp

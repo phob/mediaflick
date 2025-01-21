@@ -9,10 +9,10 @@ updates:
     directory: "/mediaflick" # Location of package manifests
     schedule:
       interval: "daily"
-    target-branch: "working"
+    target-branch: "main"
   - package-ecosystem: "nuget" # See documentation for possible values
     directory: "/src" # Location of package manifests
     schedule:
       interval: "daily"
-    target-branch: "working"
+    target-branch: "main"
 

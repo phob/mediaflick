@@ -3,9 +3,9 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using PlexLocalScan.Core.Media;
-using PlexLocalScan.Shared.Interfaces;
-using PlexLocalScan.Shared.Options;
-using PlexLocalScan.Shared.Services;
+using PlexLocalScan.Shared.Configuration.Options;
+using PlexLocalScan.Shared.MediaDetection.Services;
+using PlexLocalScan.Shared.TmDbMediaSearch.Interfaces;
 using TMDbLib.Objects.TvShows;
 using TMDbLib.Objects.Search;
 using TMDbLib.Objects.General;
@@ -56,7 +56,8 @@ public class TvDetectionServiceTests
         _tmDbClient = Substitute.For<ITmDbClientWrapper>();
         _cache = Substitute.For<IMemoryCache>();
         var logger = Substitute.For<ILogger<TvShowDetectionService>>();
-        var options = Options.Create(new MediaDetectionOptions { CacheDuration = TimeSpan.FromMinutes(30) });
+        var options = Substitute.For<IOptionsSnapshot<MediaDetectionOptions>>();
+        options.Value.Returns(new MediaDetectionOptions { CacheDuration = 60 * 30 });
 
         _sut = new TvShowDetectionService(logger, _tmDbClient, _cache, options);
     }

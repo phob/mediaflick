@@ -38,7 +38,7 @@ public class ScannedFileDto
         return enumerable.Length != 0 ? string.Join(GenreSeparator, enumerable) : null;
     }
 
-    public static ScannedFileDto FromScannedFile(ScannedFile file) => new ScannedFileDto
+    public static ScannedFileDto FromScannedFile(ScannedFile file) => new()
     {
         Id = file.Id,
         SourceFile = file.SourceFile,

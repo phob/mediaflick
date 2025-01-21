@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Options;
 using PlexLocalScan.Api.Controllers;
-using PlexLocalScan.Shared.Interfaces;
-using PlexLocalScan.Shared.Options;
+using PlexLocalScan.Shared.Configuration.Options;
+using PlexLocalScan.Shared.Symlinks.Interfaces;
 
 namespace PlexLocalScan.Api.Routing;
 
@@ -17,7 +17,7 @@ internal static class SymlinkRouting
             .WithDescription("Manages symlink cleanup");
 
         group.MapPost("cleanup", 
-                async (ICleanupHandler cleanupHandler, IOptions<PlexOptions> plexOptions, ILogger<Program> logger) => 
+                async (ICleanupHandler cleanupHandler, IOptionsSnapshot<PlexOptions> plexOptions, ILogger<Program> logger) => 
                     await SymlinkController.CleanupDeadSymlinks(cleanupHandler, plexOptions, logger))
             .WithName("CleanupDeadSymlinks")
             .WithDescription("Cleans up dead symlinks and empty folders in the destination folder")

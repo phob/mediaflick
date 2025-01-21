@@ -16,6 +16,7 @@ export interface UniqueMediaEntry {
 export interface MediaCardProps {
   media: UniqueMediaEntry
   mediaType: MediaType
+  href?: string
 }
 
 const getStatusColor = (status: string) => {
@@ -42,7 +43,7 @@ const getImageUrlSync = (path: string) => {
   return `https://image.tmdb.org/t/p/w500${path}`
 }
 
-export function MediaCard({ media, mediaType }: MediaCardProps) {
+export function MediaCard({ media, mediaType, href }: MediaCardProps) {
   const router = useRouter()
 
   return (
@@ -50,8 +51,8 @@ export function MediaCard({ media, mediaType }: MediaCardProps) {
       key={media.tmdbId}
       className="group relative h-[400px] overflow-hidden border-[1px] border-transparent ring-1 ring-white/10 transition-transform duration-200 [background:linear-gradient(theme(colors.background),theme(colors.background))_padding-box,linear-gradient(to_bottom_right,rgba(255,255,255,0.2),transparent_50%)_border-box] [box-shadow:inset_-1px_-1px_1px_rgba(0,0,0,0.1),inset_1px_1px_1px_rgba(255,255,255,0.1)] before:absolute before:inset-0 before:z-10 before:bg-gradient-to-br before:from-black/10 before:via-transparent before:to-black/30 after:absolute after:inset-0 after:bg-gradient-to-tr after:from-white/5 after:via-transparent after:to-white/10 hover:scale-[1.02] hover:shadow-xl"
       isBlurred
-      isPressable
-      onPress={() => router.push(`/mediainfo/${media.tmdbId}?type=${mediaType}`)}
+      isPressable={!!href}
+      onPress={() => href && router.push(href)}
       aria-label={`${media.mediaInfo?.Title || media.title}${media.mediaInfo?.Year ? ` (${media.mediaInfo.Year})` : ""} - Click to view details`}
       role="article"
     >

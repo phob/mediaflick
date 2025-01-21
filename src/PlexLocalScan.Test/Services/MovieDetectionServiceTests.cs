@@ -3,9 +3,9 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Caching.Memory;
 using NSubstitute;
 using PlexLocalScan.Core.Media;
-using PlexLocalScan.Shared.Interfaces;
-using PlexLocalScan.Shared.Options;
-using PlexLocalScan.Shared.Services;
+using PlexLocalScan.Shared.Configuration.Options;
+using PlexLocalScan.Shared.MediaDetection.Services;
+using PlexLocalScan.Shared.TmDbMediaSearch.Interfaces;
 using TMDbLib.Objects.General;
 using TMDbLib.Objects.Search;
 using MediaType = PlexLocalScan.Core.Tables.MediaType;
@@ -35,7 +35,8 @@ public class MovieDetectionServiceTests
         var logger = Substitute.For<ILogger<MovieDetectionService>>();
         _tmdbClient = Substitute.For<ITmDbClientWrapper>();
         _cache = Substitute.For<IMemoryCache>();
-        var options = Options.Create(new MediaDetectionOptions { CacheDuration = TimeSpan.FromMinutes(30) });
+        var options = Substitute.For<IOptionsSnapshot<MediaDetectionOptions>>();
+        options.Value.Returns(new MediaDetectionOptions { CacheDuration = 60 * 30 });
 
         // Setup cache mock to accept any Set operations
         var cacheEntry = Substitute.For<ICacheEntry>();

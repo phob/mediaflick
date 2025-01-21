@@ -1,15 +1,14 @@
-// Types
 export interface MediaSearchResult {
-  title: string
-  year?: number
-  genres: string[]
-  tmdbId: number
-  posterPath: string
-  backdropPath: string
-  overview: string
-  releaseDate: string
-  runtime: number
-  rating: number
+  Title: string
+  Year?: number
+  Genres: string[]
+  TmdbId: number
+  PosterPath: string
+  BackdropPath: string
+  Overview: string
+  ReleaseDate: string
+  Runtime: number
+  Rating: number
 }
 
 export interface MediaInfo {
@@ -132,14 +131,17 @@ export interface TMDbConfig {
 }
 
 export interface MediaDetectionConfig {
-  moviePattern: string
-  tvShowPattern: string
-  titleCleanupPattern: string
-  cacheDuration: string
+  cacheDuration: number
 }
 
 export interface FolderMappingConfig {
   sourceFolder: string
   destinationFolder: string
   mediaType: MediaType
+}
+
+export interface ConfigurationPayload {
+  plex: PlexConfig
+  tmDb: TMDbConfig
+  mediaDetection: MediaDetectionConfig
 }
