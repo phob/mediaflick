@@ -35,7 +35,7 @@ public sealed class TmDbClientWrapper(string apiKey) : ITmDbClientWrapper, IDisp
         _disposed = true;
     }
 
-    ~TmDbClientWrapper() => Dispose(false);
+    ~TMDbClientWrapper() => Dispose(false);
 
     public Task<string?> GetImageUrl(string path, string size)
     {

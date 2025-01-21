@@ -36,7 +36,7 @@ internal static class ConfigurationHelper
                 },
                 MediaDetection = new
                 {
-                    CacheDurationSeconds = 3600
+                    CacheDuration = 3600
                 }
             };
 

@@ -63,7 +63,7 @@ public class SymlinkHandler(
 
             if(await SymlinkHelper.CreateFileLinkAsync(sourcePath, fullTargetPath))
             {
-                await contextService.UpdateStatusAsync(sourcePath, fullTargetPath, emptyMediaInfo, FileStatus.Duplicate);
+                await contextService.UpdateStatusAsync(sourcePath, fullTargetPath, emptyMediaInfo, FileStatus.Success);
             }
 
             return true;
