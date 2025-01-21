@@ -9,7 +9,7 @@ namespace PlexLocalScan.Shared.TmDbMediaSearch.Services;
 
 public sealed class TmDbClientWrapper(string apiKey) : ITmDbClientWrapper, IDisposable
 {
-    private readonly TMDbClient _client = new TMDbClient(apiKey);
+    private readonly TMDbClient _client = new(apiKey);
     private const string BaseImageUrl = "https://image.tmdb.org/t/p/";
     private bool _disposed;
     private static readonly string[] ValidImageSizes = ["w92", "w154", "w185", "w342", "w500", "w780", "original"];
@@ -35,7 +35,7 @@ public sealed class TmDbClientWrapper(string apiKey) : ITmDbClientWrapper, IDisp
         _disposed = true;
     }
 
-    ~TMDbClientWrapper() => Dispose(false);
+    ~TmDbClientWrapper() => Dispose(false);
 
     public Task<string?> GetImageUrl(string path, string size)
     {

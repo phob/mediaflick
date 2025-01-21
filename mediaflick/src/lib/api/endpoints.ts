@@ -9,12 +9,19 @@ import {
   ScannedFile,
   ScannedFileStats,
   UpdateScannedFileRequest,
+  ConfigurationPayload,
 } from "@/lib/api/types"
 
 // API Methods
 export const mediaApi = {
   // Configuration
   getAllConfigurations: () => fetchApi("/config"),
+
+  setAllConfigurations: (config: ConfigurationPayload) =>
+    fetchApi("/config", {
+      method: "PUT",
+      body: JSON.stringify(config),
+    }),
 
   getPlexConfig: () => fetchApi("/config/plex"),
 

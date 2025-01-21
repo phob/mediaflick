@@ -4,8 +4,8 @@ namespace PlexLocalScan.Shared.Configuration.Options;
 
 public class FolderMappingOptions
 {
-    public string SourceFolder { get; set; } = string.Empty;
-    public string DestinationFolder { get; set; } = string.Empty;
-    public MediaType MediaType { get; set; }
+    public string SourceFolder { get; set; } = "/mnt/zurg/movies";
+    public string DestinationFolder { get; set; } = "/mnt/organized/movies";
+    public MediaType MediaType { get; set; } = MediaType.Movies;
 }
 

@@ -1,4 +1,3 @@
-// Types
 export interface MediaSearchResult {
   Title: string
   Year?: number
@@ -132,14 +131,17 @@ export interface TMDbConfig {
 }
 
 export interface MediaDetectionConfig {
-  moviePattern: string
-  tvShowPattern: string
-  titleCleanupPattern: string
-  cacheDuration: string
+  cacheDuration: number
 }
 
 export interface FolderMappingConfig {
   sourceFolder: string
   destinationFolder: string
   mediaType: MediaType
+}
+
+export interface ConfigurationPayload {
+  plex: PlexConfig
+  tmDb: TMDbConfig
+  mediaDetection: MediaDetectionConfig
 }

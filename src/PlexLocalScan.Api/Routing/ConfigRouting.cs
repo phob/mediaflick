@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using PlexLocalScan.Api.Config;
 using PlexLocalScan.Shared.Configuration.Options;
+using PlexLocalScan.Core.Tables;
 
 namespace PlexLocalScan.Api.Routing;
 
@@ -16,146 +17,72 @@ internal static class ConfigRouting
             .WithOpenApi()
             .WithDescription("Manages configuration settings for the application");
 
-        group.MapPut("/", async Task<IResult> (
-            [FromBody] CombinedConfig config,
-            YamlConfigurationService configService) =>
-        {
-            var errors = new List<string>();
-            
-            errors.AddIfNotNull(ValidatePlexConfig(config.Plex));
-            if (string.IsNullOrEmpty(config.TMDb?.ApiKey))
-                errors.Add("TMDb API key is required");
-            if (config.MediaDetection?.CacheDuration <= 0)
-                errors.Add("Media detection cache duration must be greater than zero");
-
-            if (errors.Count > 0)
-                return Results.BadRequest(errors);
-
-            await Task.WhenAll(
-                configService.UpdateConfigAsync("Plex", config.Plex),
-                configService.UpdateConfigAsync("TMDb", config.TMDb),
-                configService.UpdateConfigAsync("MediaDetection", config.MediaDetection));
-            return Results.Ok();
-        })
-            .WithName("UpdateAllConfigurations")
-            .WithDescription("Updates all configuration settings atomically")
-            .Produces(StatusCodes.Status200OK)
-            .Produces<List<string>>(StatusCodes.Status400BadRequest);
-;
-
         group.MapGet("/", 
                 (IOptionsSnapshot<PlexOptions> plexOptions, 
                  IOptionsSnapshot<TmDbOptions> tmdbOptions,
                  IOptionsSnapshot<MediaDetectionOptions> mediaDetectionOptions) => 
                 {
-                    var config = new
-                    {
-                        Plex = plexOptions.Value,
-                        TMDb = tmdbOptions.Value,
-                        MediaDetection = mediaDetectionOptions.Value
-                    };
+                    var config = new CombinedConfig(
+                        plexOptions.Value,
+                        tmdbOptions.Value,
+                        mediaDetectionOptions.Value
+                    );
                     return Results.Ok(config);
                 })
-            .WithName("GetAllConfigurations")
+            .WithName("GetConfiguration")
             .WithDescription("Gets all configuration settings")
-            .Produces<object>(StatusCodes.Status200OK);
+            .Produces<CombinedConfig>(StatusCodes.Status200OK);
 
-        group.MapGet("plex", 
-                (IOptionsSnapshot<PlexOptions> plexOptions) => Results.Ok(plexOptions.Value))
-            .WithName("GetPlexConfig")
-            .WithDescription("Gets Plex configuration settings")
-            .Produces<PlexOptions>(StatusCodes.Status200OK);
-
-        group.MapPut("plex", async Task<IResult> ([FromBody] PlexOptions config, YamlConfigurationService configService) =>
-            {
-                var validationError = ValidatePlexConfig(config);
-            
-    if (validationError is not null)
-                    return Results.BadRequest(validationError);
-
-                await configService.UpdateConfigAsync("Plex", config);
-                return Results.Ok();
-           } )
-            .WithName("SetPlexConfig")
-            .WithDescription("Updates Plex configuration settings")
-            .Produces(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status400BadRequest);
-
-        group.MapGet("tmdb", 
-                (IOptionsSnapshot<TmDbOptions> tmdbOptions) => Results.Ok(tmdbOptions.Value))
-            .WithName("GetTMDbConfig")
-            .WithDescription("Gets TMDb configuration settings")
-            .Produces<TmDbOptions>(StatusCodes.Status200OK);
-
-        group.MapPut("tmdb", async Task<IResult> ([FromBody] TmDbOptions config, YamlConfigurationService configService) =>
+        group.MapPut("/", async Task<IResult> (
+            [FromBody] CombinedConfig config,
+            YamlConfigurationService configService) =>
         {
-            if (config is null || string.IsNullOrEmpty(config.ApiKey))
-                return ValidationError("TMDb API key is required");
+            var errors = ValidateConfig(config);
+            if (errors.Count > 0)
+                return Results.BadRequest(errors);
 
-            await configService.UpdateConfigAsync("TMDb", config);
+            await configService.UpdateConfigAsync(config);
             return Results.Ok();
         })
-  
-            .WithName("SetTMDbConfig")
-            .WithDescription("Updates TMDb configuration settings")
+            .WithName("UpdateConfiguration")
+            .WithDescription("Updates all configuration settings")
             .Produces(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status400BadRequest);
-
-        group.MapGet("media-detection", 
-                (IOptionsSnapshot<MediaDetectionOptions> mediaDetectionOptions) => Results.Ok(mediaDetectionOptions.Value))
-            .WithName("GetMediaDetectionConfig")
-            .WithDescription("Gets media detection configuration settings")
-            .Produces<MediaDetectionOptions>(StatusCodes.Status200OK);
-
-        group.MapPut("media-detection", async Task<IResult> ([FromBody] MediaDetectionOptions config, YamlConfigurationService configService) =>
-        {
-            if (config is null)
-                return ValidationError("Configuration cannot be null");
-
-            return config.CacheDuration <= 0 
-                ? ValidationError("Cache duration must be greater than zero") 
-                : await UpdateConfigAsync(configService, "MediaDetection", config);
-        })
-            .WithName("SetMediaDetectionConfig")
-            .WithDescription("Updates media detection configuration settings")
-            .Produces(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status400BadRequest);
+            .Produces<List<string>>(StatusCodes.Status400BadRequest);
     }
 
     private sealed record CombinedConfig(
         PlexOptions Plex,
-        TmDbOptions TMDb,
+        TmDbOptions TmDb,
         MediaDetectionOptions MediaDetection
     );
 
-
-    private static async Task<IResult> UpdateConfigAsync(YamlConfigurationService service, string section, object config)
+    private static List<string> ValidateConfig(CombinedConfig config)
     {
-        await service.UpdateConfigAsync(section, config);
-        return Results.Ok();
-    }
-
-    private static IResult ValidationError(string message) => Results.BadRequest(message);
-
-    private static string? ValidatePlexConfig(PlexOptions? config)
-    {
-        if (config is null) return "Configuration cannot be null";
-        if (string.IsNullOrEmpty(config.Host)) return "Host is required";
-        if (config.Port <= 0) return "Port must be greater than 0";
-        if (config.FolderMappings?.Any() != true) return "At least one folder mapping is required";
+        var errors = new List<string>();
         
-        var hasInvalidMappings = config.FolderMappings.Any(m => 
-            string.IsNullOrEmpty(m.SourceFolder) || 
-            string.IsNullOrEmpty(m.DestinationFolder));
+        // Validate Plex config
+        if (config.Plex is null) errors.Add("Plex configuration cannot be null");
+        else
+        {
+            if (string.IsNullOrEmpty(config.Plex.Host)) errors.Add("Plex host is required");
+            if (config.Plex.Port <= 0) errors.Add("Plex port must be greater than 0");
+            if (config.Plex.FolderMappings.Count == 0) errors.Add("At least one Plex folder mapping is required");
             
-        return hasInvalidMappings 
-            ? "All folder mappings require both source and destination paths" 
-            : null;
-    }
+            var hasInvalidMappings = config.Plex.FolderMappings.Any(m => 
+                string.IsNullOrEmpty(m.SourceFolder) || 
+                string.IsNullOrEmpty(m.DestinationFolder));
+                
+            if (hasInvalidMappings) errors.Add("All Plex folder mappings require both source and destination paths");
+        }
 
-    private static void AddIfNotNull(this List<string> list, string? value)
-    {
-        if (value is not null)
-            list.Add(value);
+        // Validate TMDb config
+        if (config.TmDb is null) errors.Add("TMDb configuration cannot be null");
+        else if (string.IsNullOrEmpty(config.TmDb.ApiKey)) errors.Add("TMDb API key is required");
+
+        // Validate MediaDetection config
+        if (config.MediaDetection is null) errors.Add("Media detection configuration cannot be null");
+        else if (config.MediaDetection.CacheDuration <= 0) errors.Add("Media detection cache duration must be greater than zero");
+
+        return errors;
     }
 }
