@@ -2,7 +2,6 @@
 using Microsoft.AspNetCore.Mvc;
 using PlexLocalScan.Api.Config;
 using PlexLocalScan.Shared.Configuration.Options;
-using PlexLocalScan.Core.Tables;
 
 namespace PlexLocalScan.Api.Routing;
 
