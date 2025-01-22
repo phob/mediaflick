@@ -1,7 +1,7 @@
 "use client"
 
-import { Suspense } from "react"
-import { useCallback, useEffect, useState } from "react"
+
+import { useCallback, useEffect, useState, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 
 import { Input, Pagination, Select, SelectItem, Spinner } from "@nextui-org/react"
