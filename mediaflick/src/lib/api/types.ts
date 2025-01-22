@@ -123,7 +123,6 @@ export interface PlexConfig {
   folderMappings: FolderMappingConfig[]
   pollingInterval: number
   processNewFolderDelay: number
-  apiEndpoint: string
 }
 
 export interface TMDbConfig {
