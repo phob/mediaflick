@@ -451,7 +451,7 @@ export function ScannedFilesTable({
     const fetchConfig = async () => {
       try {
         const config = await mediaApi.getPlexConfig()
-        setPlexConfig(config as PlexConfig)
+        setPlexConfig(config)
       } catch (err) {
         console.error("Failed to fetch Plex config:", err)
       }
