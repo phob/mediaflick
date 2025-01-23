@@ -10,6 +10,8 @@ import {
   ScannedFileStats,
   UpdateScannedFileRequest,
   ConfigurationPayload,
+  LogResponse,
+  LogLevel,
 } from "@/lib/api/types"
 
 // API Methods
@@ -131,4 +133,21 @@ export const mediaApi = {
     fetchApi<{ message: string }>("/symlink/cleanup", {
       method: "POST",
     }),
+
+  // Logs
+  getLogs: (params: {
+    minLevel?: LogLevel
+    searchTerm?: string
+    from?: Date
+    to?: Date
+    limit?: number
+  } = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.minLevel) searchParams.set("minLevel", params.minLevel);
+    if (params.searchTerm) searchParams.set("searchTerm", params.searchTerm);
+    if (params.from) searchParams.set("from", params.from.toISOString());
+    if (params.to) searchParams.set("to", params.to.toISOString());
+    if (params.limit) searchParams.set("limit", params.limit.toString());
+    return fetchApi<LogResponse>(`/logs?${searchParams.toString()}`);
+  },
 }

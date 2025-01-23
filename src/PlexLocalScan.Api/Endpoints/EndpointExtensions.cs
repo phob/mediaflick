@@ -24,6 +24,9 @@ internal static class EndpointExtensions
         // Symlink endpoints
         app.MapSymlinkEndpoints();
 
+        // Logging endpoints
+        app.MapLoggingEndpoints();
+
         return app;
     }
 } 
