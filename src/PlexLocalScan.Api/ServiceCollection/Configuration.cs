@@ -1,6 +1,8 @@
 using PlexLocalScan.Api.Config;
+using PlexLocalScan.Api.Routing;
 using Serilog;
 using Serilog.Events;
+using Serilog.Formatting.Json;
 
 namespace PlexLocalScan.Api.ServiceCollection;
 
@@ -23,6 +25,10 @@ public static class Configuration
             .AddEnvironmentVariables()
             .AddCommandLine(args: []);
 
+        // Ensure logs directory exists
+        var logsPath = Path.Combine(AppContext.BaseDirectory, "logs");
+        Directory.CreateDirectory(logsPath);
+
         // Configure Serilog
         builder.Host.UseSerilog((context, services, configuration) => configuration
             .ReadFrom.Configuration(context.Configuration)
@@ -31,6 +37,11 @@ public static class Configuration
             .Enrich.WithMachineName()
             .Enrich.WithThreadId()
             .WriteTo.Console()
+            .WriteTo.File(new JsonFormatter(renderMessage: true),
+                Path.Combine(logsPath, "log.json"),
+                rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 7,
+                fileSizeLimitBytes: 10 * 1024 * 1024) // 10MB
             .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
             .MinimumLevel.Override("System", LogEventLevel.Warning));
 

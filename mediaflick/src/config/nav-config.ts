@@ -1,4 +1,4 @@
-import { BookHeart, Home, Library, Settings } from "lucide-react";
+import { BookHeart, Home, Library, Settings, Bug } from "lucide-react";
 
 export const navigationItems = [
   {
@@ -15,6 +15,11 @@ export const navigationItems = [
     icon: BookHeart,
     label: "Files",
     href: "/medialibrary",
+  },
+  {
+    icon: Bug,
+    label: "Logs",
+    href: "/logs",
   },
 ]
 

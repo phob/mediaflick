@@ -144,3 +144,17 @@ export interface ConfigurationPayload {
   tmDb: TMDbConfig
   mediaDetection: MediaDetectionConfig
 }
+
+export type LogLevel = 'Verbose' | 'Debug' | 'Information' | 'Warning' | 'Error' | 'Fatal';
+
+export interface LogEntry {
+  Timestamp: string
+  Level: LogLevel
+  RenderedMessage: string
+  Exception?: string
+  Properties: Record<string, string>
+}
+
+export interface LogResponse {
+    logs: LogEntry[];
+}

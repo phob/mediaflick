@@ -19,6 +19,7 @@
     <PackageVersion Include="Serilog.Enrichers.Environment" Version="3.0.1" />
     <PackageVersion Include="Serilog.Enrichers.Thread" Version="4.0.0" />
     <PackageVersion Include="Serilog.Settings.Configuration" Version="9.0.0" />
+    <PackageVersion Include="Serilog.Sinks.InMemory" Version="0.11.0" />
     <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.5.0.109200" />
     <PackageVersion Include="TMDbLib" Version="2.2.0" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4">
