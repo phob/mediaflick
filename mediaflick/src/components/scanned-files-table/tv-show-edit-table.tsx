@@ -1,6 +1,15 @@
 import React from "react"
 
-import { Input, Spinner, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow } from "@nextui-org/react"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Input } from "@/components/ui/input"
+import { Loader2 } from "lucide-react"
 
 import type { Row } from "@/components/scanned-files-table/types"
 import { getFileName } from "@/lib/files-folders"
@@ -30,58 +39,54 @@ export function TvShowEditTable({ loading, editableRows, onRowsChange }: TvShowE
     onRowsChange(newRows)
   }
 
-  return loading ? (
-    <div className="flex justify-center p-4">
-      <Spinner size="lg" label="Loading files..." />
-    </div>
-  ) : (
-    <Table aria-label="Selected TV show files table">
-      <TableHeader>
-        <TableColumn key="sourceFile">Source File</TableColumn>
-        <TableColumn key="tmdbId">TMDB ID</TableColumn>
-        <TableColumn key="season">Season</TableColumn>
-        <TableColumn key="episode">Episode</TableColumn>
-        <TableColumn key="status">Status</TableColumn>
-      </TableHeader>
-      <TableBody items={editableRows}>
-        {(item) => (
-          <TableRow key={item.key}>
-            <TableCell>{getFileName(item.sourceFile as string)}</TableCell>
-            <TableCell>{item.tmdbId}</TableCell>
-            <TableCell>
-              <Input
-                type="number"
-                size="sm"
-                value={item.seasonNumber?.toString() ?? ""}
-                onChange={(e) => {
-                  const index = editableRows.findIndex((row) => row.key === item.key)
-                  if (index !== -1) {
-                    handleSeasonChange(index, e.target.value)
-                  }
-                }}
-                className="w-20"
-                min={1}
-              />
-            </TableCell>
-            <TableCell>
-              <Input
-                type="number"
-                size="sm"
-                value={item.episodeNumber?.toString() ?? ""}
-                onChange={(e) => {
-                  const index = editableRows.findIndex((row) => row.key === item.key)
-                  if (index !== -1) {
-                    handleEpisodeChange(index, e.target.value)
-                  }
-                }}
-                className="w-20"
-                min={1}
-              />
-            </TableCell>
-            <TableCell>{item.status}</TableCell>
+  if (loading) {
+    return (
+      <div className="flex justify-center p-4">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Source File</TableHead>
+            <TableHead>TMDB ID</TableHead>
+            <TableHead>Season</TableHead>
+            <TableHead>Episode</TableHead>
+            <TableHead>Status</TableHead>
           </TableRow>
-        )}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {editableRows.map((item, index) => (
+            <TableRow key={item.key}>
+              <TableCell>{getFileName(item.sourceFile as string)}</TableCell>
+              <TableCell>{item.tmdbId}</TableCell>
+              <TableCell>
+                <Input
+                  type="number"
+                  className="w-20"
+                  value={item.seasonNumber?.toString() ?? ""}
+                  onChange={(e) => handleSeasonChange(index, e.target.value)}
+                  min={1}
+                />
+              </TableCell>
+              <TableCell>
+                <Input
+                  type="number"
+                  className="w-20"
+                  value={item.episodeNumber?.toString() ?? ""}
+                  onChange={(e) => handleEpisodeChange(index, e.target.value)}
+                  min={1}
+                />
+              </TableCell>
+              <TableCell>{item.status}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   )
 }

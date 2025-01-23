@@ -31,7 +31,6 @@ public static class Middleware
         }));
 
         // Add middleware in the correct order
-        app.UseHttpsRedirection();
         app.UseRouting();
 
         // Map endpoints

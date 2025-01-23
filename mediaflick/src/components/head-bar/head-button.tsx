@@ -1,4 +1,4 @@
-import { Button } from "@nextui-org/react"
+import { Button } from "@/components/ui/button"
 import { LucideIcon } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
@@ -25,6 +25,9 @@ const HeadButton = ({ icon: Icon, href, label, className, isSettings }: HeadButt
   return (
     <>
       <Button
+        asChild={Boolean(href && !isSettings)}
+        variant="ghost"
+        onClick={handleClick}
         title={label}
         className={cn(
           "flex items-center gap-2",
@@ -45,12 +48,18 @@ const HeadButton = ({ icon: Icon, href, label, className, isSettings }: HeadButt
           className
         )}
         aria-label={label}
-        startContent={<Icon className="w-5 h-5 relative z-10" />}
-        as={href && !isSettings ? Link : 'button'}
-        href={href && !isSettings ? href : undefined}
-        onPress={handleClick}
       >
-        <span className="relative z-10">{label}</span>
+        {href && !isSettings ? (
+          <Link href={href} className="flex items-center gap-2">
+            <Icon className="w-5 h-5 relative z-10" />
+            <span className="relative z-10">{label}</span>
+          </Link>
+        ) : (
+          <>
+            <Icon className="w-5 h-5 relative z-10" />
+            <span className="relative z-10">{label}</span>
+          </>
+        )}
       </Button>
 
       {isSettings && (

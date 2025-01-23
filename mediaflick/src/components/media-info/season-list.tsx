@@ -1,8 +1,16 @@
 import Image from "next/image"
+import Link from "next/link"
 import { useEffect, useState } from "react"
-
-import { Accordion, AccordionItem, Button, Card, CardBody, Link, Spinner } from "@nextui-org/react"
-import { Calendar, CheckCircle2, Film, Info, XCircle } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
+import { Loader2, Calendar, CheckCircle2, Film, Info, XCircle } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 import { mediaApi } from "@/lib/api/endpoints"
 import type { MediaInfo, SeasonInfo } from "@/lib/api/types"
@@ -85,7 +93,7 @@ export function SeasonList({ tmdbId, mediaInfo }: SeasonListProps) {
   if (loading && seasons.length === 0) {
     return (
       <div className="flex justify-center p-8">
-        <Spinner />
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     )
   }
@@ -104,23 +112,12 @@ export function SeasonList({ tmdbId, mediaInfo }: SeasonListProps) {
         {seasons.map((season) => (
           <Card
             key={season.SeasonNumber}
-            className="motion-safe:animate-fadeIn bg-content1 transition-transform"
+            className="motion-safe:animate-fadeIn bg-card transition-transform"
           >
-            <CardBody>
-              <Accordion
-                variant="shadow"
-                className="px-0"
-                motionProps={{
-                  variants: {
-                    enter: { y: 0, opacity: 1 },
-                    exit: { y: -10, opacity: 0 },
-                  },
-                }}
-              >
-                <AccordionItem
-                  key={season.SeasonNumber}
-                  aria-label={`Season ${season.SeasonNumber}`}
-                  title={
+            <CardContent className="p-0">
+              <Accordion type="single" collapsible>
+                <AccordionItem value={`season-${season.SeasonNumber}`}>
+                  <AccordionTrigger className="px-6 py-4 hover:no-underline">
                     <div className="flex items-center gap-4">
                       {season.PosterPath && (
                         <div className="relative h-36 w-24 overflow-hidden rounded-xl shadow-lg transition-transform hover:scale-105">
@@ -135,15 +132,15 @@ export function SeasonList({ tmdbId, mediaInfo }: SeasonListProps) {
                       )}
                       <div className="flex-1 space-y-2">
                         <h3 className="text-xl font-semibold text-foreground">{season.Name}</h3>
-                        <div className="flex items-center gap-4 text-small text-default-500">
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Film className="h-4 w-4" />
                             <span>
                               {season.Episodes.length} Episodes{" "}
                               {season.Episodes.filter((e) => e.IsScanned).length >= season.Episodes.length ? (
-                                <CheckCircle2 className="inline h-4 w-4 text-success" />
+                                <CheckCircle2 className="inline h-4 w-4 text-primary" />
                               ) : (
-                                <XCircle className="inline h-4 w-4 text-danger" />
+                                <XCircle className="inline h-4 w-4 text-destructive" />
                               )}
                             </span>
                           </div>
@@ -154,74 +151,79 @@ export function SeasonList({ tmdbId, mediaInfo }: SeasonListProps) {
                             </div>
                           )}
                         </div>
-                        <p className="line-clamp-2 text-small text-default-500">
+                        <p className="line-clamp-2 text-sm text-muted-foreground">
                           {season.Overview || "No overview available"}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
                         <Button
-                          variant="flat"
-                          color="primary"
+                          variant="outline"
                           size="sm"
                           className="min-w-[80px]"
-                          as={Link}
-                          href={`https://debridmediamanager.com/show/${mediaInfo.ImdbId}/${season.SeasonNumber}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          startContent={<Info className="h-4 w-4" />}
+                          asChild
                         >
-                          DMM
+                          <Link
+                            href={`https://debridmediamanager.com/show/${mediaInfo.ImdbId}/${season.SeasonNumber}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <Info className="mr-2 h-4 w-4" />
+                            DMM
+                          </Link>
                         </Button>
                       </div>
                     </div>
-                  }
-                >
-                  <div className="grid gap-4 px-2 py-4 md:grid-cols-2 lg:grid-cols-1">
-                    {season.Episodes.map((episode) => (
-                      <Card
-                        key={episode.EpisodeNumber}
-                        className="border-none bg-content2/40 transition-all hover:bg-content2/60"
-                      >
-                        <CardBody className="flex flex-row gap-4">
-                          {episode.StillPath && (
-                            <div className="relative h-24 w-40 overflow-hidden rounded-xl shadow-md transition-transform hover:scale-105">
-                              <Image
-                                src={`https://image.tmdb.org/t/p/w300${episode.StillPath}`}
-                                alt={episode.Name}
-                                fill
-                                sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                                className="object-cover"
-                              />
-                            </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="grid gap-4 px-6 py-4 md:grid-cols-2 lg:grid-cols-1">
+                      {season.Episodes.map((episode) => (
+                        <Card
+                          key={episode.EpisodeNumber}
+                          className={cn(
+                            "border-none bg-accent/20 transition-all hover:bg-accent/40"
                           )}
-                          <div className="flex-1 space-y-2">
-                            <div className="flex items-center gap-2">
-                              <h4 className="text-medium font-semibold">
-                                {episode.EpisodeNumber}. {episode.Name}
-                              </h4>
-                              {episode.IsScanned ? (
-                                <CheckCircle2 className="h-4 w-4 text-success" />
-                              ) : (
-                                <XCircle className="h-4 w-4 text-danger" />
-                              )}
-                            </div>
-                            {episode.AirDate && (
-                              <div className="flex items-center gap-1 text-small text-default-500">
-                                <Calendar className="h-4 w-4" />
-                                <span>{new Date(episode.AirDate).toLocaleDateString()}</span>
+                        >
+                          <CardContent className="flex flex-row gap-4 p-4">
+                            {episode.StillPath && (
+                              <div className="relative h-24 w-40 overflow-hidden rounded-xl shadow-md transition-transform hover:scale-105">
+                                <Image
+                                  src={`https://image.tmdb.org/t/p/w300${episode.StillPath}`}
+                                  alt={episode.Name}
+                                  fill
+                                  sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                                  className="object-cover"
+                                />
                               </div>
                             )}
-                            <p className="line-clamp-2 text-small text-default-500">
-                              {episode.Overview || "No overview available"}
-                            </p>
-                          </div>
-                        </CardBody>
-                      </Card>
-                    ))}
-                  </div>
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-medium font-semibold">
+                                  {episode.EpisodeNumber}. {episode.Name}
+                                </h4>
+                                {episode.IsScanned ? (
+                                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                                ) : (
+                                  <XCircle className="h-4 w-4 text-destructive" />
+                                )}
+                              </div>
+                              {episode.AirDate && (
+                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                  <Calendar className="h-4 w-4" />
+                                  <span>{new Date(episode.AirDate).toLocaleDateString()}</span>
+                                </div>
+                              )}
+                              <p className="line-clamp-2 text-sm text-muted-foreground">
+                                {episode.Overview || "No overview available"}
+                              </p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </AccordionContent>
                 </AccordionItem>
               </Accordion>
-            </CardBody>
+            </CardContent>
           </Card>
         ))}
       </div>

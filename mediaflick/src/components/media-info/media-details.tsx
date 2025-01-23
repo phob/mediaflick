@@ -1,6 +1,8 @@
 import Image from "next/image"
-
-import { Card, CardBody, Chip, Link } from "@nextui-org/react"
+import Link from "next/link"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Calendar, Film, Heart, Info, Link2, PlayCircle, Star, Tag, Tv } from "lucide-react"
 
 import type { MediaInfo } from "@/lib/api/types"
@@ -29,7 +31,7 @@ export function MediaDetails({ mediaInfo }: MediaDetailsProps) {
 
       {/* Details */}
       <Card className="motion-safe:animate-fadeIn border-none bg-background/60 backdrop-blur-sm backdrop-saturate-150">
-        <CardBody className="space-y-6">
+        <CardContent className="space-y-6 p-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               {mediaInfo.MediaType === MediaType.Movies ? (
@@ -40,7 +42,7 @@ export function MediaDetails({ mediaInfo }: MediaDetailsProps) {
               <h1 className="text-3xl font-bold">{mediaInfo.Title}</h1>
             </div>
             {mediaInfo.Year && (
-              <div className="flex items-center gap-2 text-default-500">
+              <div className="flex items-center gap-2 text-muted-foreground">
                 <Calendar className="h-4 w-4" />
                 <p>({mediaInfo.Year})</p>
               </div>
@@ -55,9 +57,9 @@ export function MediaDetails({ mediaInfo }: MediaDetailsProps) {
               </div>
               <div className="flex flex-wrap gap-2">
                 {mediaInfo.Genres.map((genre) => (
-                  <Chip key={genre} variant="flat" className="transition-transform hover:scale-105">
+                  <Badge key={genre} variant="secondary" className="transition-transform hover:scale-105">
                     {genre}
-                  </Chip>
+                  </Badge>
                 ))}
               </div>
             </div>
@@ -70,32 +72,40 @@ export function MediaDetails({ mediaInfo }: MediaDetailsProps) {
                 <h3 className="text-medium font-semibold">External Links</h3>
               </div>
               <div className="flex gap-2">
-                <Chip
-                  as={Link}
-                  variant="flat"
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="transition-transform hover:scale-105"
-                  href={
-                    mediaInfo.MediaType === MediaType.Movies
-                      ? `https://debridmediamanager.com/movie/${mediaInfo.ImdbId}`
-                      : `https://debridmediamanager.com/show/${mediaInfo.ImdbId}/1`
-                  }
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  startContent={<Info className="h-4 w-4" />}
+                  asChild
                 >
-                  DMM
-                </Chip>
-                <Chip
-                  as={Link}
-                  variant="flat"
+                  <Link
+                    href={
+                      mediaInfo.MediaType === MediaType.Movies
+                        ? `https://debridmediamanager.com/movie/${mediaInfo.ImdbId}`
+                        : `https://debridmediamanager.com/show/${mediaInfo.ImdbId}/1`
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Info className="mr-2 h-4 w-4" />
+                    DMM
+                  </Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="transition-transform hover:scale-105"
-                  href={`https://www.imdb.com/title/${mediaInfo.ImdbId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  startContent={<Star className="h-4 w-4" />}
+                  asChild
                 >
-                  IMDb
-                </Chip>
+                  <Link
+                    href={`https://www.imdb.com/title/${mediaInfo.ImdbId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Star className="mr-2 h-4 w-4" />
+                    IMDb
+                  </Link>
+                </Button>
               </div>
             </div>
           )}
@@ -106,7 +116,7 @@ export function MediaDetails({ mediaInfo }: MediaDetailsProps) {
                 <Heart className="h-5 w-5" />
                 <h2 className="text-medium font-semibold">Overview</h2>
               </div>
-              <p className="leading-relaxed text-default-500">{mediaInfo.Overview}</p>
+              <p className="leading-relaxed text-muted-foreground">{mediaInfo.Overview}</p>
             </div>
           )}
 
@@ -117,11 +127,14 @@ export function MediaDetails({ mediaInfo }: MediaDetailsProps) {
                 <h2 className="text-medium font-semibold">Status</h2>
               </div>
               <div className="flex flex-col gap-2">
-                <Chip variant="flat" color={mediaInfo.Status === "Ended" ? "default" : "success"} className="w-fit">
+                <Badge 
+                  variant={mediaInfo.Status === "Ended" ? "default" : "secondary"}
+                  className="w-fit"
+                >
                   {mediaInfo.Status}
-                </Chip>
+                </Badge>
                 {mediaInfo.EpisodeCount && (
-                  <div className="flex items-center gap-2 text-default-500">
+                  <div className="flex items-center gap-2 text-muted-foreground">
                     <Film className="h-4 w-4" />
                     <p>
                       Total Episodes: {mediaInfo.EpisodeCountScanned ?? 0} / {mediaInfo.EpisodeCount}
@@ -131,7 +144,7 @@ export function MediaDetails({ mediaInfo }: MediaDetailsProps) {
               </div>
             </div>
           )}
-        </CardBody>
+        </CardContent>
       </Card>
     </div>
   )

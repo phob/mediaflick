@@ -36,7 +36,7 @@ public static class Configuration
             .Enrich.FromLogContext()
             .Enrich.WithMachineName()
             .Enrich.WithThreadId()
-            .WriteTo.Console()
+            .MinimumLevel.Debug()
             .WriteTo.File(new JsonFormatter(renderMessage: true),
                 Path.Combine(logsPath, "log.json"),
                 rollingInterval: RollingInterval.Day,

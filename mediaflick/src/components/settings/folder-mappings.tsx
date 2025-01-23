@@ -1,4 +1,18 @@
-import { Input, Select, SelectItem, Button, Tooltip } from "@nextui-org/react"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { ConfigurationPayload, MediaType, FolderMappingConfig } from "@/lib/api/types"
 import { SectionTitle } from "./section-title"
 import { Trash2, FolderPlus } from "lucide-react"
@@ -56,7 +70,7 @@ const FolderMappings = ({ config, onConfigChange }: FolderMappingsProps) => {
             className="flex gap-2 items-center p-2 rounded-lg bg-gray-900/50 border border-gray-800 transition-colors hover:border-gray-700"
           >
             <Input
-              label="Source Folder"
+              placeholder="Source Folder"
               value={mapping.sourceFolder}
               onChange={(e) => {
                 const newMappings = [...config.plex.folderMappings]
@@ -66,16 +80,10 @@ const FolderMappings = ({ config, onConfigChange }: FolderMappingsProps) => {
                   plex: { ...config.plex, folderMappings: newMappings }
                 })
               }}
-              variant="bordered"
-              classNames={{
-                label: "text-gray-400",
-                input: "text-gray-300",
-                inputWrapper: "border-gray-800 hover:border-gray-700 group-data-[focus=true]:border-primary",
-                base: "flex-1",
-              }}
+              className="flex-1 bg-transparent border-gray-800 hover:border-gray-700 focus:border-primary text-gray-300"
             />
             <Input
-              label="Destination Folder"
+              placeholder="Destination Folder"
               value={mapping.destinationFolder}
               onChange={(e) => {
                 const newMappings = [...config.plex.folderMappings]
@@ -85,111 +93,97 @@ const FolderMappings = ({ config, onConfigChange }: FolderMappingsProps) => {
                   plex: { ...config.plex, folderMappings: newMappings }
                 })
               }}
-              variant="bordered"
-              classNames={{
-                label: "text-gray-400",
-                input: "text-gray-300",
-                inputWrapper: "border-gray-800 hover:border-gray-700 group-data-[focus=true]:border-primary",
-                base: "flex-1",
-              }}
+              className="flex-1 bg-transparent border-gray-800 hover:border-gray-700 focus:border-primary text-gray-300"
             />
             <Select
-              label="Media Type"
-              selectedKeys={[mapping.mediaType]}
-              onChange={(e) => {
+              value={mapping.mediaType}
+              onValueChange={(value) => {
                 const newMappings = [...config.plex.folderMappings]
-                newMappings[index] = { ...mapping, mediaType: e.target.value as MediaType }
+                newMappings[index] = { ...mapping, mediaType: value as MediaType }
                 onConfigChange({
                   ...config,
                   plex: { ...config.plex, folderMappings: newMappings }
                 })
               }}
-              variant="bordered"
-              classNames={{
-                label: "text-gray-400",
-                value: "text-gray-300",
-                trigger: "border-gray-800 hover:border-gray-700 data-[open=true]:border-primary",
-                base: "w-[200px]",
-              }}
             >
-              {Object.values(MediaType).map((type) => (
-                <SelectItem key={type} value={type}>
-                  {type}
-                </SelectItem>
-              ))}
+              <SelectTrigger className="w-[200px] bg-transparent border-gray-800 hover:border-gray-700 focus:border-primary text-gray-300">
+                <SelectValue placeholder="Media Type" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.values(MediaType).map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
-            <Tooltip content="Delete mapping">
-              <Button
-                isIconOnly
-                color="danger"
-                variant="light"
-                onPress={() => handleDeleteMapping(index)}
-                className="self-end mb-2"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </Tooltip>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDeleteMapping(index)}
+                    className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Delete mapping</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         ))}
 
         {/* Add New Mapping */}
         <div className="flex gap-2 items-center p-2 rounded-lg bg-gray-900/30 border border-dashed border-gray-800 transition-colors hover:border-gray-700">
           <Input
-            label="New Source Folder"
-            placeholder="Path to source folder"
+            placeholder="New Source Folder"
             value={newMapping.sourceFolder}
             onChange={(e) => setNewMapping(prev => ({ ...prev, sourceFolder: e.target.value }))}
-            variant="bordered"
-            classNames={{
-              label: "text-gray-400",
-              input: "text-gray-300",
-              inputWrapper: "border-gray-800 hover:border-gray-700 group-data-[focus=true]:border-primary",
-              base: "flex-1",
-            }}
+            className="flex-1 bg-transparent border-gray-800 hover:border-gray-700 focus:border-primary text-gray-300"
           />
           <Input
-            label="New Destination Folder"
-            placeholder="Path to destination folder"
+            placeholder="New Destination Folder"
             value={newMapping.destinationFolder}
             onChange={(e) => setNewMapping(prev => ({ ...prev, destinationFolder: e.target.value }))}
-            variant="bordered"
-            classNames={{
-              label: "text-gray-400",
-              input: "text-gray-300",
-              inputWrapper: "border-gray-800 hover:border-gray-700 group-data-[focus=true]:border-primary",
-              base: "flex-1",
-            }}
+            className="flex-1 bg-transparent border-gray-800 hover:border-gray-700 focus:border-primary text-gray-300"
           />
           <Select
-            label="Media Type"
-            selectedKeys={[newMapping.mediaType]}
-            onChange={(e) => setNewMapping(prev => ({ ...prev, mediaType: e.target.value as MediaType }))}
-            variant="bordered"
-            classNames={{
-              label: "text-gray-400",
-              value: "text-gray-300",
-              trigger: "border-gray-800 hover:border-gray-700 data-[open=true]:border-primary",
-              base: "w-[200px]",
-            }}
+            value={newMapping.mediaType}
+            onValueChange={(value) => setNewMapping(prev => ({ ...prev, mediaType: value as MediaType }))}
           >
-            {Object.values(MediaType).map((type) => (
-              <SelectItem key={type} value={type}>
-                {type}
-              </SelectItem>
-            ))}
+            <SelectTrigger className="w-[200px] bg-transparent border-gray-800 hover:border-gray-700 focus:border-primary text-gray-300">
+              <SelectValue placeholder="Media Type" />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.values(MediaType).map((type) => (
+                <SelectItem key={type} value={type}>
+                  {type}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
-          <Tooltip content="Add new mapping">
-            <Button
-              isIconOnly
-              color="primary"
-              variant="light"
-              onPress={handleAddMapping}
-              isDisabled={!newMapping.sourceFolder || !newMapping.destinationFolder}
-              className="self-end mb-2"
-            >
-              <FolderPlus className="w-5 h-5" />
-            </Button>
-          </Tooltip>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleAddMapping}
+                  disabled={!newMapping.sourceFolder || !newMapping.destinationFolder}
+                  className="text-primary hover:text-primary/90 hover:bg-primary/10"
+                >
+                  <FolderPlus className="w-5 h-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Add new mapping</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
     </section>
