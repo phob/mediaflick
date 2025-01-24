@@ -1,5 +1,6 @@
 // tailwind.config.ts
 import tailwindMotion from "tailwindcss-motion"
+import tailwindcssAnimate from "tailwindcss-animate"
 /** @type {import('tailwindcss').Config} */
 module.exports = {
     darkMode: ["class"],
@@ -89,6 +90,6 @@ module.exports = {
   },
   plugins: [
     tailwindMotion,
-    "tailwindcss-animate"
+    tailwindcssAnimate
 ],
 }
