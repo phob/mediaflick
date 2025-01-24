@@ -42,12 +42,27 @@ function MediaInfoContent() {
 }
 
 function MediaGrid() {
+  const searchParams = useSearchParams()
   const [searchTerm, setSearchTerm] = useState("")
-  const [mediaType, setMediaType] = useState<MediaType>(MediaTypeEnum.Movies)
+  const [mediaType, setMediaType] = useState<MediaType>(
+    (searchParams.get('mediaType') as MediaType) || MediaTypeEnum.Movies
+  )
   const [loading, setLoading] = useState(true)
   const [uniqueMedia, setUniqueMedia] = useState<UniqueMediaEntry[]>([])
   const [page, setPage] = useState(1)
   const pageSize = 20
+
+  // Save mediaType to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('selectedMediaType', mediaType)
+  }, [mediaType])
+
+  const handleMediaTypeChange = (value: MediaType) => {
+    setMediaType(value)
+    const params = new URLSearchParams(searchParams)
+    params.set('mediaType', value)
+    window.history.pushState(null, '', `?${params.toString()}`)
+  }
 
   const loadUniqueMedia = useCallback(async () => {
     try {
@@ -113,7 +128,7 @@ function MediaGrid() {
         />
         <Select
           value={mediaType}
-          onValueChange={(value) => setMediaType(value as MediaType)}
+          onValueChange={(value) => handleMediaTypeChange(value as MediaType)}
         >
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Media Type" />

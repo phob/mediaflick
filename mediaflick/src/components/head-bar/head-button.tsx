@@ -27,6 +27,13 @@ const HeadButtonLink = ({ href, label, icon: Icon, className }: { href: string; 
       } else if (searchParams.toString()) {
         setLinkHref(`${href}?${searchParams.toString()}`)
       }
+    } else if (href === "/mediainfo") {
+      const savedMediaType = localStorage.getItem('selectedMediaType')
+      if (savedMediaType) {
+        setLinkHref(`${href}?mediaType=${savedMediaType}`)
+      }
+    } else {
+      setLinkHref(href)
     }
   }, [href, searchParams])
 
