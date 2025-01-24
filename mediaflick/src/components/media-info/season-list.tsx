@@ -24,7 +24,7 @@ interface SeasonListProps {
   mediaInfo: MediaInfo
 }
 
-export function SeasonList({ tmdbId, mediaInfo }: SeasonListProps) {
+export function SeasonList({ tmdbId, mediaInfo }: Readonly<SeasonListProps>) {
   const [loading, setLoading] = useState(false)
   const [seasons, setSeasons] = useState<SeasonInfo[]>([])
 

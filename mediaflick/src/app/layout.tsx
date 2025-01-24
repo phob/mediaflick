@@ -25,7 +25,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<RootLayoutProps>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={clsx("min-h-screen bg-background font-sans antialiased", fontSans.variable)}>
+      <body 
+        className={clsx(
+          "min-h-screen bg-background font-sans antialiased relative",
+          fontSans.variable
+        )}
+      >
+        <div className="fixed inset-0 -z-10 bg-[url('/noise.jpg')] bg-repeat pointer-events-none" />
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

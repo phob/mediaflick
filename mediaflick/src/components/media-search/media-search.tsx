@@ -28,7 +28,7 @@ interface MediaSearchProps {
   label?: string
 }
 
-export function MediaSearch({ mediaType, onMediaSelect, className, label = "Search Media" }: MediaSearchProps) {
+export function MediaSearch({ mediaType, onMediaSelect, className, label = "Search Media" }: Readonly<MediaSearchProps>) {
   const [open, setOpen] = useState(false)
   const [searchResults, setSearchResults] = useState<MediaSearchResult[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
@@ -67,7 +67,8 @@ export function MediaSearch({ mediaType, onMediaSelect, className, label = "Sear
         <PopoverTrigger asChild>
           <Button 
             variant="outline" 
-            role="combobox" 
+            type="button"
+            aria-haspopup="listbox"
             aria-expanded={open}
             className="w-full justify-between"
           >
@@ -102,7 +103,7 @@ export function MediaSearch({ mediaType, onMediaSelect, className, label = "Sear
                         {item.PosterPath && (
                           <div className="relative h-[69px] w-[46px] shrink-0">
                             <Image
-                              src={getTMDBImageUrl(item.PosterPath, "w92") || ""}
+                              src={getTMDBImageUrl(item.PosterPath, "w92") ?? ""}
                               alt={item.Title}
                               fill
                               sizes="46px"

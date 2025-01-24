@@ -16,8 +16,9 @@ const TMDbConfig = ({ config, onConfigChange }: TMDbConfigProps) => {
       />
       <div className="rounded-lg bg-black/20 p-4 border border-gray-800">
         <div className="space-y-2">
-          <label className="text-sm text-gray-400">API Key</label>
+          <label htmlFor="tmdb-api-key" className="text-sm text-gray-400">API Key</label>
           <Input
+            id="tmdb-api-key"
             type="password"
             value={config.tmDb.apiKey}
             onChange={(e) => onConfigChange({

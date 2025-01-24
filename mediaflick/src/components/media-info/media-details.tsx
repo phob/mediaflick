@@ -12,7 +12,7 @@ interface MediaDetailsProps {
   mediaInfo: MediaInfo
 }
 
-export function MediaDetails({ mediaInfo }: MediaDetailsProps) {
+export function MediaDetails({ mediaInfo }: Readonly<MediaDetailsProps>) {
   return (
     <div className="container mx-auto grid grid-cols-1 gap-8 md:grid-cols-[300px_1fr]">
       {/* Poster */}
@@ -41,12 +41,12 @@ export function MediaDetails({ mediaInfo }: MediaDetailsProps) {
               )}
               <h1 className="text-3xl font-bold">{mediaInfo.Title}</h1>
             </div>
-            {mediaInfo.Year && (
+            {mediaInfo.Year ? (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Calendar className="h-4 w-4" />
                 <p>({mediaInfo.Year})</p>
               </div>
-            )}
+            ) : null}
           </div>
 
           {mediaInfo.Genres && mediaInfo.Genres.length > 0 && (

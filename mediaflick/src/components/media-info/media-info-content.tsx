@@ -15,7 +15,7 @@ interface MediaInfoContentProps {
   type: MediaType
 }
 
-export function MediaInfoContent({ id, type }: MediaInfoContentProps) {
+export function MediaInfoContent({ id, type }: Readonly<MediaInfoContentProps>) {
   const [mediaInfo, setMediaInfo] = useState<MediaInfo | null>(null)
   const [loading, setLoading] = useState(true)
 

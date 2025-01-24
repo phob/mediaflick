@@ -66,7 +66,7 @@ const FolderMappings = ({ config, onConfigChange }: FolderMappingsProps) => {
       <div className="space-y-3 rounded-lg bg-black/20 p-4 border border-gray-800">
         {config.plex.folderMappings.map((mapping, index) => (
           <div 
-            key={index} 
+            key={`${mapping.sourceFolder}-${mapping.destinationFolder}`}
             className="flex gap-2 items-center p-2 rounded-lg bg-gray-900/50 border border-gray-800 transition-colors hover:border-gray-700"
           >
             <Input

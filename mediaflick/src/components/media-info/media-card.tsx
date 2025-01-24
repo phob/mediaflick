@@ -46,7 +46,7 @@ const getImageUrlSync = (path: string) => {
   return `https://image.tmdb.org/t/p/w500${path}`
 }
 
-export function MediaCard({ media, mediaType, href }: MediaCardProps) {
+export function MediaCard({ media, mediaType, href }: Readonly<MediaCardProps>) {
   const router = useRouter()
 
   const handleClick = () => {
@@ -119,7 +119,11 @@ export function MediaCard({ media, mediaType, href }: MediaCardProps) {
           "after:absolute after:inset-0 after:bg-gradient-to-tr after:from-white/5 after:via-transparent after:to-white/10",
           "hover:scale-[1.02] hover:shadow-xl"
         )}
-        aria-label={`${media.mediaInfo?.Title || media.title}${media.mediaInfo?.Year ? ` (${media.mediaInfo.Year})` : ""} - Click to view details`}
+        aria-label={[
+          media.mediaInfo?.Title ?? media.title,
+          media.mediaInfo?.Year ? `(${media.mediaInfo.Year})` : null,
+          "- Click to view details"
+        ].filter(Boolean).join(" ")}
       >
         {media.mediaInfo?.PosterPath && (
           <div className="absolute inset-0">
@@ -144,7 +148,7 @@ export function MediaCard({ media, mediaType, href }: MediaCardProps) {
             </Badge>
           )}
           <h4 className="text-xl font-medium text-white [text-shadow:0_2px_4px_rgba(0,0,0,0.8)] hover:text-white">
-            {media.mediaInfo?.Title || media.title}
+            {media.mediaInfo?.Title ?? media.title}
           </h4>
           <p className="text-tiny text-white/80 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
             {media.mediaInfo?.Year && `(${media.mediaInfo.Year})`}

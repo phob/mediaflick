@@ -21,7 +21,7 @@ interface MovieEditTableProps {
   onRowsChange: (rows: Row[]) => void
 }
 
-export function MovieEditTable({ loading, editableRows, onRowsChange }: MovieEditTableProps) {
+export function MovieEditTable({ loading, editableRows, onRowsChange }: Readonly<MovieEditTableProps>) {
   const handleMediaSelect = (index: number, tmdbId: number) => {
     const newRows = [...editableRows]
     newRows[index] = {

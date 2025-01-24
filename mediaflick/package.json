@@ -10,6 +10,8 @@
     "scripts": {
         "dev": "next dev --turbopack",
         "build": "next build",
+        "builddist": "next build && cp -r .next/standalone ./dist && cp -r .next/static ./dist/.next/static && cp -r public ./dist/public",
+        "dist": "node dist/server.js",
         "start": "next start",
         "lint": "next lint",
         "format": "prettier --write src/"

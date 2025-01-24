@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { LucideIcon } from "lucide-react"
 import Link from "next/link"
+import { Suspense } from "react"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
 import SettingsModal from "../settings/settings-modal"
@@ -11,6 +12,27 @@ type HeadButtonProps = {
   label: string
   className?: string
   isSettings?: boolean
+}
+
+// Component that uses useSearchParams
+const HeadButtonLink = ({ href, label, icon: Icon }: { href: string; label: string; icon: LucideIcon }) => {
+  const getHref = () => {
+    if (href === "/medialibrary") {
+      // Try to get saved state first
+      const savedState = typeof window !== 'undefined' ? localStorage.getItem('mediaLibraryState') : null
+      if (savedState) {
+        return `${href}?${savedState}`
+      }
+    }
+    return href
+  }
+
+  return (
+    <Link href={getHref()} className="flex items-center gap-2">
+      <Icon className="w-5 h-5 relative z-10" />
+      <span className="relative z-10">{label}</span>
+    </Link>
+  )
 }
 
 const HeadButton = ({ icon: Icon, href, label, className, isSettings }: HeadButtonProps) => {
@@ -50,10 +72,9 @@ const HeadButton = ({ icon: Icon, href, label, className, isSettings }: HeadButt
         aria-label={label}
       >
         {href && !isSettings ? (
-          <Link href={href} className="flex items-center gap-2">
-            <Icon className="w-5 h-5 relative z-10" />
-            <span className="relative z-10">{label}</span>
-          </Link>
+          <Suspense>
+            <HeadButtonLink href={href} label={label} icon={Icon} />
+          </Suspense>
         ) : (
           <>
             <Icon className="w-5 h-5 relative z-10" />

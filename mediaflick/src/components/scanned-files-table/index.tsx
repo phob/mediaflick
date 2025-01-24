@@ -36,15 +36,29 @@ import { MediaStatus, MediaType, PagedResult, PlexConfig, ScannedFile } from "@/
 import { getFileName, stripFolderPrefix } from "@/lib/files-folders"
 import { formatEpisodeNumber, getMediaTypeLabel, getStatusClass, getStatusLabel } from "@/lib/format-helper"
 import { Separator } from "../ui/separator"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 
 interface ScannedFilesTableProps {
   readonly page?: number
   readonly pageSize?: number
   readonly sortBy?: string
   readonly sortOrder?: string
+  readonly initialStatus?: MediaStatus
+  readonly initialMediaType?: MediaType
+  readonly initialSearch?: string
+  readonly onPageChange?: (page: number) => void
   readonly onPageSizeChange?: (pageSize: number) => void
   readonly onSortByChange?: (sortBy: string) => void
   readonly onSortOrderChange?: (sortOrder: string) => void
+  readonly onStatusChange?: (status: MediaStatus) => void
+  readonly onMediaTypeChange?: (mediaType: MediaType) => void
+  readonly onSearchChange?: (search: string) => void
 }
 
 export function ScannedFilesTable({
@@ -52,16 +66,23 @@ export function ScannedFilesTable({
   pageSize = 10,
   sortBy = "createdAt",
   sortOrder = "desc",
+  initialStatus = MediaStatus.Success,
+  initialMediaType = MediaType.TvShows,
+  initialSearch = "",
+  onPageChange,
   onPageSizeChange,
   onSortByChange,
   onSortOrderChange,
+  onStatusChange,
+  onMediaTypeChange,
+  onSearchChange,
 }: ScannedFilesTableProps) {
   const [data, setData] = useState<PagedResult<ScannedFile> | null>(null)
   const [loading, setLoading] = useState(true)
   const [plexConfig, setPlexConfig] = useState<PlexConfig | null>(null)
-  const [filterValue, setFilterValue] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string>(MediaStatus.Success)
-  const [mediaTypeFilter, setMediaTypeFilter] = useState<string>(MediaType.TvShows)
+  const [filterValue, setFilterValue] = useState(initialSearch)
+  const [statusFilter, setStatusFilter] = useState<MediaStatus>(initialStatus)
+  const [mediaTypeFilter, setMediaTypeFilter] = useState<MediaType>(initialMediaType)
   const [selectedKeys, setSelectedKeys] = useState<Set<number>>(new Set())
   const [newEntries, setNewEntries] = useState<Set<number>>(new Set())
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -85,7 +106,7 @@ export function ScannedFilesTable({
       filteredData = filteredData.filter(
         (item) =>
           item.sourceFile.toLowerCase().includes(filterValue.toLowerCase()) ||
-          (item.destFile && item.destFile.toLowerCase().includes(filterValue.toLowerCase()))
+          item.destFile?.toLowerCase()?.includes(filterValue.toLowerCase())
       )
     }
 
@@ -162,8 +183,8 @@ export function ScannedFilesTable({
         sortBy,
         sortOrder,
         searchTerm: filterValue,
-        status: statusFilter as MediaStatus,
-        mediaType: mediaTypeFilter as MediaType,
+        status: statusFilter,
+        mediaType: mediaTypeFilter,
       })
 
       setData(result)
@@ -238,6 +259,7 @@ export function ScannedFilesTable({
               onChange={(e) => {
                 setFilterValue(e.target.value)
                 setSelectedKeys(new Set())
+                onSearchChange?.(e.target.value)
               }}
             />
           </div>
@@ -245,8 +267,9 @@ export function ScannedFilesTable({
             <Select
               value={statusFilter}
               onValueChange={(value) => {
-                setStatusFilter(value)
+                setStatusFilter(value as MediaStatus)
                 setSelectedKeys(new Set())
+                onStatusChange?.(value as MediaStatus)
               }}
             >
               <SelectTrigger className="w-36">
@@ -263,8 +286,9 @@ export function ScannedFilesTable({
             <Select
               value={mediaTypeFilter}
               onValueChange={(value) => {
-                setMediaTypeFilter(value)
+                setMediaTypeFilter(value as MediaType)
                 setSelectedKeys(new Set())
+                onMediaTypeChange?.(value as MediaType)
               }}
             >
               <SelectTrigger className="w-36">
@@ -308,6 +332,9 @@ export function ScannedFilesTable({
     handleDeleteSelected,
     handleEditSelected,
     pageSize,
+    onStatusChange,
+    onMediaTypeChange,
+    onSearchChange,
   ])
 
   const handleSort = React.useCallback(
@@ -478,8 +505,8 @@ export function ScannedFilesTable({
           sortBy,
           sortOrder,
           searchTerm: filterValue,
-          status: statusFilter as MediaStatus,
-          mediaType: mediaTypeFilter as MediaType,
+          status: statusFilter,
+          mediaType: mediaTypeFilter,
         })
         setData(result)
       } catch (error) {
@@ -492,145 +519,128 @@ export function ScannedFilesTable({
     fetchData()
   }, [page, pageSize, sortBy, sortOrder, filterValue, statusFilter, mediaTypeFilter])
 
-  // Handle real-time updates from SignalR
-  useEffect(() => {
-    const shouldIncludeFile = (file: ScannedFile): boolean => {
-      if (!statusFilter || !mediaTypeFilter) {
-        return false
-      }
+  // Move sortItems before handlers
+  const sortItems = React.useCallback((items: ScannedFile[], sortBy: string, sortOrder: string): ScannedFile[] => {
+    return [...items].sort((a, b) => {
+      const aValue = a[sortBy as keyof ScannedFile]
+      const bValue = b[sortBy as keyof ScannedFile]
+      if (aValue === bValue) return 0
+      if (aValue === null || aValue === undefined) return 1
+      if (bValue === null || bValue === undefined) return -1
+      const comparison = aValue < bValue ? -1 : 1
+      return sortOrder === "asc" ? comparison : -comparison
+    })
+  }, [])
 
+  // SignalR handler functions
+  const handleFileAdded = React.useCallback((file: ScannedFile, pageSize: number) => {
+    setNewEntries((prev) => new Set([...prev, file.id]))
+    setData((prevData) => {
+      if (!prevData) return null
+      const newItems = sortItems([file, ...prevData.items], sortBy, sortOrder).slice(0, pageSize)
+      const newTotalItems = prevData.totalItems + 1
+      return {
+        ...prevData,
+        items: newItems,
+        totalItems: newTotalItems,
+        totalPages: Math.ceil(newTotalItems / pageSize),
+      }
+    })
+  }, [sortBy, sortOrder, sortItems])
+
+  const handleExistingFileUpdate = React.useCallback((
+    prevData: PagedResult<ScannedFile>,
+    file: ScannedFile,
+    itemIndex: number,
+    matchesFilters: boolean,
+    pageSize: number
+  ) => {
+    if (!matchesFilters) {
+      const filteredItems = prevData.items.filter((_, index) => index !== itemIndex)
+      return {
+        ...prevData,
+        items: filteredItems,
+        totalItems: prevData.totalItems - 1,
+        totalPages: Math.ceil((prevData.totalItems - 1) / pageSize),
+      }
+    }
+    const updatedItems = sortItems([file, ...prevData.items.filter((_, index) => index !== itemIndex)], sortBy, sortOrder).slice(0, pageSize)
+    return { ...prevData, items: updatedItems }
+  }, [sortItems, sortBy, sortOrder])
+
+  const handleNewFileUpdate = React.useCallback((
+    prevData: PagedResult<ScannedFile>,
+    file: ScannedFile,
+    pageSize: number
+  ) => {
+    setNewEntries((prev) => new Set([...prev, file.id]))
+    const newItems = sortItems([file, ...prevData.items], sortBy, sortOrder).slice(0, pageSize)
+    return {
+      ...prevData,
+      items: newItems,
+      totalItems: prevData.totalItems + 1,
+      totalPages: Math.ceil((prevData.totalItems + 1) / pageSize),
+    }
+  }, [sortItems, sortBy, sortOrder])
+
+  const handleFileUpdated = React.useCallback((file: ScannedFile, pageSize: number, shouldIncludeFile: (file: ScannedFile) => boolean) => {
+    setData((prevData) => {
+      if (!prevData?.items) return null
+      const itemIndex = prevData.items.findIndex((item) => item.id === file.id)
+      const matchesFilters = shouldIncludeFile(file)
+
+      if (itemIndex !== -1) {
+        return handleExistingFileUpdate(prevData, file, itemIndex, matchesFilters, pageSize)
+      }
+      if (matchesFilters) {
+        return handleNewFileUpdate(prevData, file, pageSize)
+      }
+      return prevData
+    })
+  }, [handleExistingFileUpdate, handleNewFileUpdate])
+
+  const handleFileRemoved = React.useCallback((file: ScannedFile, pageSize: number) => {
+    setData((prevData) => {
+      if (!prevData?.items) return null
+      const itemIndex = prevData.items.findIndex((item) => item.id === file.id)
+      if (itemIndex === -1) return prevData
+      const filteredItems = prevData.items.filter((_, index) => index !== itemIndex)
+      const newTotalItems = Math.max(0, prevData.totalItems - 1)
+      return {
+        ...prevData,
+        items: filteredItems,
+        totalItems: newTotalItems,
+        totalPages: Math.max(1, Math.ceil(newTotalItems / pageSize)),
+      }
+    })
+  }, [])
+
+  // Effect for SignalR subscriptions
+  useEffect(() => {
+    if (!data || !statusFilter || !mediaTypeFilter) return
+
+    const shouldIncludeFile = (file: ScannedFile): boolean => {
       const statusMatch = file.status === statusFilter
       const mediaTypeMatch = file.mediaType === mediaTypeFilter
-      const searchMatch =
-        !filterValue ||
+      const searchMatch = !filterValue ||
         file.sourceFile.toLowerCase().includes(filterValue.toLowerCase()) ||
         (file.destFile?.toLowerCase() || "").includes(filterValue.toLowerCase())
-
       return statusMatch && mediaTypeMatch && searchMatch
     }
 
-    // Add a sorting function
-    const sortItems = (items: ScannedFile[]): ScannedFile[] => {
-      return [...items].sort((a, b) => {
-        const aValue = a[sortBy as keyof ScannedFile]
-        const bValue = b[sortBy as keyof ScannedFile]
+    const unsubscribeAdd = signalr.subscribe("OnFileAdded", 
+      (file) => handleFileAdded(file, pageSize))
+    const unsubscribeUpdate = signalr.subscribe("OnFileUpdated", 
+      (file) => handleFileUpdated(file, pageSize, shouldIncludeFile))
+    const unsubscribeRemove = signalr.subscribe("OnFileRemoved", 
+      (file) => handleFileRemoved(file, pageSize))
 
-        if (aValue === bValue) return 0
-        if (aValue === null || aValue === undefined) return 1
-        if (bValue === null || bValue === undefined) return -1
-
-        const comparison = aValue < bValue ? -1 : 1
-        return sortOrder === "asc" ? comparison : -comparison
-      })
-    }
-
-    const handleFileAdded = (file: ScannedFile): void => {
-      // Set new entry animation first
-      setNewEntries((prev) => new Set([...prev, file.id]))
-
-      setData((prevData): PagedResult<ScannedFile> | null => {
-        if (!prevData) return null
-
-        const newItems = sortItems([file, ...prevData.items]).slice(0, pageSize)
-        const newTotalItems = prevData.totalItems + 1
-
-        return {
-          ...prevData,
-          items: newItems,
-          totalItems: newTotalItems,
-          totalPages: Math.ceil(newTotalItems / pageSize),
-        }
-      })
-    }
-
-    const handleFileUpdated = (file: ScannedFile): void => {
-      setData((prevData): PagedResult<ScannedFile> | null => {
-        if (!prevData?.items) return null
-
-        const itemIndex = prevData.items.findIndex((item) => item.id === file.id)
-        const matchesFilters = shouldIncludeFile(file)
-
-        // File exists in current view
-        if (itemIndex !== -1) {
-          if (!matchesFilters) {
-            // Remove if it no longer matches filters
-            const filteredItems = prevData.items.filter((_, index) => index !== itemIndex)
-            const newTotalItems = prevData.totalItems - 1
-
-            return {
-              ...prevData,
-              items: filteredItems,
-              totalItems: newTotalItems,
-              totalPages: Math.ceil(newTotalItems / pageSize),
-            }
-          }
-
-          // Update and resort
-          const updatedItems = sortItems([file, ...prevData.items.filter((_, index) => index !== itemIndex)]).slice(
-            0,
-            pageSize
-          )
-
-          return {
-            ...prevData,
-            items: updatedItems,
-          }
-        }
-
-        // File doesn't exist in current view but matches filters - add it
-        if (matchesFilters) {
-          // Set new entry animation for files that are newly added to view
-          setNewEntries((prev) => new Set([...prev, file.id]))
-
-          const newItems = sortItems([file, ...prevData.items]).slice(0, pageSize)
-          const newTotalItems = prevData.totalItems + 1
-
-          return {
-            ...prevData,
-            items: newItems,
-            totalItems: newTotalItems,
-            totalPages: Math.ceil(newTotalItems / pageSize),
-          }
-        }
-
-        return prevData
-      })
-    }
-
-    const handleFileRemoved = (file: ScannedFile): void => {
-      setData((prevData): PagedResult<ScannedFile> | null => {
-        if (!prevData?.items) return null
-
-        const itemIndex = prevData.items.findIndex((item) => item.id === file.id)
-        if (itemIndex === -1) return prevData
-
-        const filteredItems = prevData.items.filter((_, index) => index !== itemIndex)
-        const newTotalItems = Math.max(0, prevData.totalItems - 1)
-
-        return {
-          ...prevData,
-          items: filteredItems,
-          totalItems: newTotalItems,
-          totalPages: Math.max(1, Math.ceil(newTotalItems / pageSize)),
-        }
-      })
-    }
-
-    // Only set up subscriptions if we have data and filters are properly initialized
-    if (!data || !statusFilter || !mediaTypeFilter) return
-
-    // Subscribe to SignalR events
-    const unsubscribeAdd = signalr.subscribe("OnFileAdded", handleFileAdded)
-    const unsubscribeUpdate = signalr.subscribe("OnFileUpdated", handleFileUpdated)
-    const unsubscribeRemove = signalr.subscribe("OnFileRemoved", handleFileRemoved)
-
-    // Cleanup subscriptions
     return () => {
       unsubscribeAdd()
       unsubscribeUpdate()
       unsubscribeRemove()
     }
-  }, [data, pageSize, statusFilter, mediaTypeFilter, filterValue, sortBy, sortOrder])
+  }, [data, pageSize, statusFilter, mediaTypeFilter, filterValue, handleFileAdded, handleFileUpdated, handleFileRemoved])
 
   return (
     <>
@@ -638,6 +648,31 @@ export function ScannedFilesTable({
       <div className="h-[calc(100vh-200px)] min-h-[400px] overflow-auto">
         {tableComponent}
       </div>
+      {data && data.totalPages > 1 && (
+        <div className="mt-4 flex justify-center">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={() => onPageChange?.(Math.max(1, page - 1))}
+                  aria-disabled={page === 1}
+                />
+              </PaginationItem>
+              <PaginationItem>
+                <span className="px-4">
+                  Page {page} of {data.totalPages}
+                </span>
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationNext 
+                  onClick={() => onPageChange?.(Math.min(data.totalPages, page + 1))}
+                  aria-disabled={page === data.totalPages}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
       <EditModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}

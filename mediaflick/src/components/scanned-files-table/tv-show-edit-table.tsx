@@ -20,7 +20,7 @@ interface TvShowEditTableProps {
   onRowsChange: (rows: Row[]) => void
 }
 
-export function TvShowEditTable({ loading, editableRows, onRowsChange }: TvShowEditTableProps) {
+export function TvShowEditTable({ loading, editableRows, onRowsChange }: Readonly<TvShowEditTableProps>) {
   const handleSeasonChange = (index: number, value: string) => {
     const newRows = [...editableRows]
     newRows[index] = {

@@ -17,8 +17,9 @@ const PlexConfig = ({ config, onConfigChange }: PlexConfigProps) => {
       <div className="space-y-4 rounded-lg bg-black/20 p-4 border border-gray-800">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-sm text-gray-400">Host</label>
+            <label htmlFor="plex-host" className="text-sm text-gray-400">Host</label>
             <Input
+              id="plex-host"
               placeholder="e.g. http://localhost"
               value={config.plex.host}
               onChange={(e) => onConfigChange({
@@ -29,8 +30,9 @@ const PlexConfig = ({ config, onConfigChange }: PlexConfigProps) => {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm text-gray-400">Port</label>
+            <label htmlFor="plex-port" className="text-sm text-gray-400">Port</label>
             <Input
+              id="plex-port"
               type="number"
               placeholder="32400"
               value={config.plex.port.toString()}
@@ -43,8 +45,9 @@ const PlexConfig = ({ config, onConfigChange }: PlexConfigProps) => {
           </div>
         </div>
         <div className="space-y-2">
-          <label className="text-sm text-gray-400">Plex Token</label>
+          <label htmlFor="plex-token" className="text-sm text-gray-400">Plex Token</label>
           <Input
+            id="plex-token"
             type="password"
             value={config.plex.plexToken}
             onChange={(e) => onConfigChange({
@@ -56,9 +59,10 @@ const PlexConfig = ({ config, onConfigChange }: PlexConfigProps) => {
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-sm text-gray-400">Polling Interval</label>
+            <label htmlFor="plex-polling-interval" className="text-sm text-gray-400">Polling Interval</label>
             <div className="relative">
               <Input
+                id="plex-polling-interval"
                 type="number"
                 value={config.plex.pollingInterval.toString()}
                 onChange={(e) => onConfigChange({
@@ -71,9 +75,10 @@ const PlexConfig = ({ config, onConfigChange }: PlexConfigProps) => {
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-sm text-gray-400">Process New Folder Delay</label>
+            <label htmlFor="plex-process-delay" className="text-sm text-gray-400">Process New Folder Delay</label>
             <div className="relative">
               <Input
+                id="plex-process-delay"
                 type="number"
                 value={config.plex.processNewFolderDelay.toString()}
                 onChange={(e) => onConfigChange({
