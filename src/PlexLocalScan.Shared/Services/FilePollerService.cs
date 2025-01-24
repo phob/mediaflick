@@ -29,7 +29,7 @@ public class FilePollerService(
         }
         while (!stoppingToken.IsCancellationRequested)
         {
-            logger.LogInformation("PollingInterval: {PollingInterval}", options.CurrentValue.PollingInterval);
+            logger.LogDebug("PollingInterval: {PollingInterval}", options.CurrentValue.PollingInterval);
             try
             {
                 if (tmDbOptions.CurrentValue.ApiKey == "your-tmdb-api-key")

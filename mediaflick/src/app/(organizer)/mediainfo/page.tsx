@@ -1,10 +1,23 @@
 "use client"
 
-
 import { useCallback, useEffect, useState, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
-
-import { Input, Pagination, Select, SelectItem, Spinner } from "@nextui-org/react"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Loader2 } from "lucide-react"
+import { 
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 
 import { MediaCard, type UniqueMediaEntry } from "@/components/media-info/media-card"
 import { MediaInfoContent as MediaInfoView } from "@/components/media-info/media-info-content"
@@ -29,12 +42,27 @@ function MediaInfoContent() {
 }
 
 function MediaGrid() {
+  const searchParams = useSearchParams()
   const [searchTerm, setSearchTerm] = useState("")
-  const [mediaType, setMediaType] = useState<MediaType>(MediaTypeEnum.Movies)
+  const [mediaType, setMediaType] = useState<MediaType>(
+    (searchParams.get('mediaType') as MediaType) || MediaTypeEnum.Movies
+  )
   const [loading, setLoading] = useState(true)
   const [uniqueMedia, setUniqueMedia] = useState<UniqueMediaEntry[]>([])
   const [page, setPage] = useState(1)
   const pageSize = 20
+
+  // Save mediaType to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('selectedMediaType', mediaType)
+  }, [mediaType])
+
+  const handleMediaTypeChange = (value: MediaType) => {
+    setMediaType(value)
+    const params = new URLSearchParams(searchParams)
+    params.set('mediaType', value)
+    window.history.pushState(null, '', `?${params.toString()}`)
+  }
 
   const loadUniqueMedia = useCallback(async () => {
     try {
@@ -93,30 +121,28 @@ function MediaGrid() {
     <div className="container mx-auto space-y-4 p-4">
       <div className="mb-4 flex gap-4">
         <Input
-          label="Search"
           placeholder="Search for movies or TV shows..."
           value={searchTerm}
-          onValueChange={setSearchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
           className="max-w-xs"
         />
         <Select
-          label="Media Type"
-          selectedKeys={[mediaType]}
-          className="max-w-xs"
-          onChange={(e) => setMediaType(e.target.value as MediaType)}
+          value={mediaType}
+          onValueChange={(value) => handleMediaTypeChange(value as MediaType)}
         >
-          <SelectItem key={MediaTypeEnum.Movies} value={MediaTypeEnum.Movies}>
-            Movies
-          </SelectItem>
-          <SelectItem key={MediaTypeEnum.TvShows} value={MediaTypeEnum.TvShows}>
-            TV Shows
-          </SelectItem>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Media Type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={MediaTypeEnum.Movies}>Movies</SelectItem>
+            <SelectItem value={MediaTypeEnum.TvShows}>TV Shows</SelectItem>
+          </SelectContent>
         </Select>
       </div>
 
       {loading ? (
         <div className="flex justify-center">
-          <Spinner size="lg" />
+          <Loader2 className="h-8 w-8 animate-spin" />
         </div>
       ) : (
         <>
@@ -132,7 +158,27 @@ function MediaGrid() {
           </div>
           {totalPages > 1 && (
             <div className="mt-4 flex justify-center">
-              <Pagination total={totalPages} page={page} onChange={setPage} />
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      aria-disabled={page === 1}
+                    />
+                  </PaginationItem>
+                  <PaginationItem>
+                    <span className="px-4">
+                      Page {page} of {totalPages}
+                    </span>
+                  </PaginationItem>
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      aria-disabled={page === totalPages}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
           )}
         </>
@@ -143,7 +189,7 @@ function MediaGrid() {
 
 export default function MediaInfoPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center"><Spinner size="lg" /></div>}>
+    <Suspense fallback={<div className="flex justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
       <MediaInfoContent />
     </Suspense>
   )

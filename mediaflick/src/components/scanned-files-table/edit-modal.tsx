@@ -1,6 +1,20 @@
 import React, { useEffect, useState } from "react"
 
-import { Button, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem } from "@nextui-org/react"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 import { MediaSearch } from "@/components/media-search/media-search"
 import { MovieEditTable } from "@/components/scanned-files-table/movie-edit-table"
@@ -66,8 +80,8 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave, initialMediaT
     fetchSelectedFiles()
   }, [isOpen, selectedRows])
 
-  const handleMediaTypeChange = (type: MediaType.Movies | MediaType.TvShows) => {
-    setSelectedMediaType(type)
+  const handleMediaTypeChange = (type: string) => {
+    setSelectedMediaType(type as MediaType.Movies | MediaType.TvShows)
   }
 
   const handleMediaSelect = (tmdbId: number) => {
@@ -111,55 +125,55 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave, initialMediaT
   })
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="5xl" scrollBehavior="inside">
-      <ModalContent>
-        {(onClose) => (
-          <>
-            <ModalHeader className="flex flex-col gap-1">Edit Selected Files</ModalHeader>
-            <ModalBody>
-              <div className="mb-4 flex items-center gap-4">
-                {selectedMediaType === MediaType.TvShows ? (
-                  <MediaSearch className="flex-1" mediaType={selectedMediaType} onMediaSelect={handleMediaSelect} />
-                ) : (
-                  <div className="flex-1">
-                    <p>Movies are searched by their respective Table row.</p>
-                  </div>
-                )}
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-5xl">
+        <DialogHeader>
+          <DialogTitle>Edit Selected Files</DialogTitle>
+        </DialogHeader>
+        <div className="mb-4 flex items-center gap-4">
+          {selectedMediaType === MediaType.TvShows ? (
+            <MediaSearch className="flex-1" mediaType={selectedMediaType} onMediaSelect={handleMediaSelect} />
+          ) : (
+            <div className="flex-1">
+              <p>Movies are searched by their respective Table row.</p>
+            </div>
+          )}
 
-                <Select
-                  label="Media Type"
-                  className="w-36"
-                  selectedKeys={new Set([selectedMediaType])}
-                  onChange={(e) => handleMediaTypeChange(e.target.value as MediaType.Movies | MediaType.TvShows)}
-                  size="sm"
-                >
-                  {mediaTypeOptions.map((type) => (
-                    <SelectItem key={type.uid} value={type.uid}>
-                      {type.name}
-                    </SelectItem>
-                  ))}
-                </Select>
-              </div>
-              {selectedMediaType === MediaType.Movies ? (
-                <MovieEditTable loading={loading} editableRows={editableRows} onRowsChange={setEditableRows} />
-              ) : (
-                <TvShowEditTable loading={loading} editableRows={editableRows} onRowsChange={setEditableRows} />
-              )}
-            </ModalBody>
-            <ModalFooter>
-              <Button color="danger" onPress={onClose}>
-                Cancel
-              </Button>
-              <Button color="default" onPress={handleClearRows}>
-                Clear
-              </Button>
-              <Button color="primary" onPress={handleSave} isDisabled={loading}>
-                Save Changes
-              </Button>
-            </ModalFooter>
-          </>
-        )}
-      </ModalContent>
-    </Modal>
+          <Select
+            value={selectedMediaType}
+            onValueChange={handleMediaTypeChange}
+          >
+            <SelectTrigger className="w-36">
+              <SelectValue placeholder="Media Type" />
+            </SelectTrigger>
+            <SelectContent>
+              {mediaTypeOptions.map((type) => (
+                <SelectItem key={type.uid} value={type.uid}>
+                  {type.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="max-h-[60vh] overflow-y-auto">
+          {selectedMediaType === MediaType.Movies ? (
+            <MovieEditTable loading={loading} editableRows={editableRows} onRowsChange={setEditableRows} />
+          ) : (
+            <TvShowEditTable loading={loading} editableRows={editableRows} onRowsChange={setEditableRows} />
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="destructive" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="outline" onClick={handleClearRows}>
+            Clear
+          </Button>
+          <Button onClick={handleSave} disabled={loading}>
+            Save Changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

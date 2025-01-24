@@ -1,25 +1,32 @@
-import dynamic from "next/dynamic"
 import React, { useCallback, useEffect, useState } from "react"
 
 import {
-  Button,
-  Input,
-  Pagination,
-  Select,
-  SelectItem,
-  Spinner,
   Table,
   TableBody,
   TableCell,
-  TableColumn,
+  TableHead,
   TableHeader,
   TableRow,
+} from "@/components/ui/table"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   Tooltip,
-  getKeyValue,
-} from "@nextui-org/react"
-import type { Selection, SortDescriptor } from "@nextui-org/react"
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { Loader2, Edit, Search, Trash2 } from "lucide-react"
 import { format } from "date-fns"
-import { Edit, Search, Trash2 } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 import { EditModal } from "@/components/scanned-files-table/edit-modal"
 import { mediaTypeOptions, statusOptions, Row } from "@/components/scanned-files-table/types"
@@ -28,43 +35,55 @@ import { signalr } from "@/lib/api/signalr"
 import { MediaStatus, MediaType, PagedResult, PlexConfig, ScannedFile } from "@/lib/api/types"
 import { getFileName, stripFolderPrefix } from "@/lib/files-folders"
 import { formatEpisodeNumber, getMediaTypeLabel, getStatusClass, getStatusLabel } from "@/lib/format-helper"
+import { Separator } from "../ui/separator"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 
 interface ScannedFilesTableProps {
   readonly page?: number
   readonly pageSize?: number
   readonly sortBy?: string
   readonly sortOrder?: string
+  readonly initialStatus?: MediaStatus
+  readonly initialMediaType?: MediaType
+  readonly initialSearch?: string
   readonly onPageChange?: (page: number) => void
   readonly onPageSizeChange?: (pageSize: number) => void
   readonly onSortByChange?: (sortBy: string) => void
   readonly onSortOrderChange?: (sortOrder: string) => void
+  readonly onStatusChange?: (status: MediaStatus) => void
+  readonly onMediaTypeChange?: (mediaType: MediaType) => void
+  readonly onSearchChange?: (search: string) => void
 }
-
-const DynamicTable = dynamic(
-  () =>
-    Promise.resolve(({ children, ...props }: React.ComponentProps<typeof Table>) => (
-      <Table {...props}>{children}</Table>
-    )),
-  { ssr: false }
-)
 
 export function ScannedFilesTable({
   page = 1,
   pageSize = 10,
   sortBy = "createdAt",
   sortOrder = "desc",
+  initialStatus = MediaStatus.Success,
+  initialMediaType = MediaType.TvShows,
+  initialSearch = "",
   onPageChange,
   onPageSizeChange,
   onSortByChange,
   onSortOrderChange,
+  onStatusChange,
+  onMediaTypeChange,
+  onSearchChange,
 }: ScannedFilesTableProps) {
   const [data, setData] = useState<PagedResult<ScannedFile> | null>(null)
   const [loading, setLoading] = useState(true)
   const [plexConfig, setPlexConfig] = useState<PlexConfig | null>(null)
-  const [filterValue, setFilterValue] = useState("")
-  const [statusFilter, setStatusFilter] = useState<Selection>(new Set([MediaStatus.Success]))
-  const [mediaTypeFilter, setMediaTypeFilter] = useState<Selection>(new Set([MediaType.TvShows]))
-  const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set())
+  const [filterValue, setFilterValue] = useState(initialSearch)
+  const [statusFilter, setStatusFilter] = useState<MediaStatus>(initialStatus)
+  const [mediaTypeFilter, setMediaTypeFilter] = useState<MediaType>(initialMediaType)
+  const [selectedKeys, setSelectedKeys] = useState<Set<number>>(new Set())
   const [newEntries, setNewEntries] = useState<Set<number>>(new Set())
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
@@ -87,12 +106,12 @@ export function ScannedFilesTable({
       filteredData = filteredData.filter(
         (item) =>
           item.sourceFile.toLowerCase().includes(filterValue.toLowerCase()) ||
-          (item.destFile && item.destFile.toLowerCase().includes(filterValue.toLowerCase()))
+          item.destFile?.toLowerCase()?.includes(filterValue.toLowerCase())
       )
     }
 
-    if (statusFilter !== "all" && statusFilter instanceof Set && statusFilter.size > 0) {
-      filteredData = filteredData.filter((item) => statusFilter.has(MediaStatus[item.status]))
+    if (statusFilter) {
+      filteredData = filteredData.filter((item) => item.status === statusFilter)
     }
 
     return filteredData
@@ -106,33 +125,31 @@ export function ScannedFilesTable({
         key: file.id,
         sourceFile: (
           <div className="flex flex-col">
-            <Tooltip
-              content={stripFolderPrefix(file.sourceFile, file.mediaType, plexConfig)}
-              className="max-w-lg break-all"
-              placement="right-end"
-              showArrow
-              color="primary"
-              delay={300}
-              closeDelay={300}
-            >
-              <span className="cursor-help font-medium">{getFileName(file.sourceFile)}</span>
-            </Tooltip>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help font-medium">{getFileName(file.sourceFile)}</span>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="max-w-lg break-all">
+                  <p>{stripFolderPrefix(file.sourceFile, file.mediaType, plexConfig)}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         ),
         destFile: (
           <div className="flex flex-col">
             {file.destFile ? (
-              <Tooltip
-                content={stripFolderPrefix(file.destFile, file.mediaType, plexConfig)}
-                className="max-w-lg break-all"
-                placement="right-end"
-                showArrow
-                color="primary"
-                delay={300}
-                closeDelay={300}
-              >
-                <span className="cursor-help font-medium">{getFileName(file.destFile)}</span>
-              </Tooltip>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-help font-medium">{getFileName(file.destFile)}</span>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-lg break-all">
+                    <p>{stripFolderPrefix(file.destFile, file.mediaType, plexConfig)}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             ) : (
               <span>-</span>
             )}
@@ -154,19 +171,8 @@ export function ScannedFilesTable({
     )
   }, [data, filteredItems, plexConfig])
 
-  const bottomContent = React.useMemo(() => {
-    if (!data) return null
-
-    return (
-      <div className="flex w-full justify-center px-2 py-2">
-        <Pagination total={data.totalPages} page={page} onChange={onPageChange} showShadow showControls />
-      </div>
-    )
-  }, [data, page, onPageChange])
-
   const handleDeleteSelected = useCallback(async () => {
-    const selectedIds =
-      selectedKeys === "all" ? filteredItems.map((item) => item.id) : Array.from(selectedKeys).map((key) => Number(key))
+    const selectedIds = Array.from(selectedKeys)
 
     try {
       await mediaApi.deleteScannedFiles(selectedIds)
@@ -177,8 +183,8 @@ export function ScannedFilesTable({
         sortBy,
         sortOrder,
         searchTerm: filterValue,
-        status: Array.from(statusFilter)[0] as unknown as MediaStatus,
-        mediaType: Array.from(mediaTypeFilter)[0] as unknown as MediaType,
+        status: statusFilter,
+        mediaType: mediaTypeFilter,
       })
 
       setData(result)
@@ -186,24 +192,10 @@ export function ScannedFilesTable({
     } catch (error) {
       console.error("Failed to delete files:", error)
     }
-  }, [selectedKeys, page, pageSize, sortBy, sortOrder, filteredItems, filterValue, statusFilter, mediaTypeFilter])
-
-  const handleSelectionChange = useCallback((selection: Selection) => {
-    setSelectedKeys(selection)
-  }, [])
+  }, [selectedKeys, page, pageSize, sortBy, sortOrder, filterValue, statusFilter, mediaTypeFilter])
 
   const selectedRows = React.useMemo(() => {
-    let selected: Row[]
-    if (selectedKeys === "all") {
-      selected = rows
-    } else if (selectedKeys instanceof Set) {
-      const selectedKeysArray = Array.from(selectedKeys).map(Number)
-      selected = rows.filter((row) => selectedKeysArray.includes(row.key))
-    } else {
-      selected = []
-    }
-
-    return selected
+    return rows.filter((row) => selectedKeys.has(row.key))
   }, [selectedKeys, rows])
 
   const handleEditSelected = useCallback(() => {
@@ -236,99 +228,94 @@ export function ScannedFilesTable({
   }, [])
 
   const topContent = React.useMemo(() => {
-    const selectedCount = selectedKeys === "all" ? filteredItems.length : Array.from(selectedKeys).length
-
     return (
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <span className="text-small text-default-400">Total {filteredItems.length} files</span>
-          <label className="flex items-center text-small text-default-400">
-            Rows per page:{' '}
-            <select 
-              className="bg-transparent text-small text-default-400 outline-none" 
-              onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
-            >
-              <option value="50">50</option>
-              <option value="100">100</option>
-              <option value="200">200</option>
-            </select>
-          </label>
-        </div>
-        <div className="flex items-center justify-between gap-3">
-          <Input
-            isClearable
-            className="w-full sm:max-w-[44%] motion-opacity-in-0 motion-blur-in-md motion-ease-soft-spring motion-delay-200"
-            placeholder="Search files..."
-            startContent={<Search className="text-default-300" />}
-            value={filterValue}
-            onClear={() => {
-              setFilterValue("")
-              setSelectedKeys(new Set())
-            }}
-            onValueChange={(value) => {
-              setFilterValue(value)
-              setSelectedKeys(new Set())
-            }}
-          />
-          <div className="flex items-center gap-3 motion-opacity-in-0 motion-translate-x-in-100 motion-ease-soft-spring motion-delay-200">
+          <span className="text-sm text-muted-foreground">Total {filteredItems.length} files</span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Rows per page:</span>
             <Select
-              label="Status"
-              className="w-36"
-              selectedKeys={statusFilter}
-              onSelectionChange={(keys) => {
-                setStatusFilter(keys)
-                setSelectedKeys(new Set())
-              }}
-              selectionMode="single"
-              items={statusOptions}
-              size="sm"
+              value={pageSize.toString()}
+              onValueChange={(value) => onPageSizeChange?.(Number(value))}
             >
-              {(status) => (
-                <SelectItem key={status.uid} value={status.uid}>
-                  {status.name}
-                </SelectItem>
-              )}
-            </Select>
-            </div>
-            <div className="flex items-center gap-3 motion-opacity-in-0 motion-translate-x-in-100 motion-ease-soft-spring motion-delay-250">
-            <Select
-              label="Media Type"
-              className="w-36"
-              selectedKeys={mediaTypeFilter}
-              onSelectionChange={(keys) => {
-                setMediaTypeFilter(keys)
-                setSelectedKeys(new Set())
-              }}
-              selectionMode="single"
-              items={mediaTypeOptions}
-              size="sm"
-            >
-              {(type) => (
-                <SelectItem key={type.uid} value={type.uid}>
-                  {type.name}
-                </SelectItem>
-              )}
+              <SelectTrigger className="w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+                <SelectItem value="200">200</SelectItem>
+              </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center gap-3 motion-opacity-in-0 motion-translate-x-in-100 motion-ease-soft-spring motion-delay-300">
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-1 items-center gap-2">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <Input
+              className="w-full max-w-sm"
+              placeholder="Search files..."
+              value={filterValue}
+              onChange={(e) => {
+                setFilterValue(e.target.value)
+                setSelectedKeys(new Set())
+                onSearchChange?.(e.target.value)
+              }}
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => {
+                setStatusFilter(value as MediaStatus)
+                setSelectedKeys(new Set())
+                onStatusChange?.(value as MediaStatus)
+              }}
+            >
+              <SelectTrigger className="w-36">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {statusOptions.map((status) => (
+                  <SelectItem key={status.uid} value={status.uid}>
+                    {status.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={mediaTypeFilter}
+              onValueChange={(value) => {
+                setMediaTypeFilter(value as MediaType)
+                setSelectedKeys(new Set())
+                onMediaTypeChange?.(value as MediaType)
+              }}
+            >
+              <SelectTrigger className="w-36">
+                <SelectValue placeholder="Media Type" />
+              </SelectTrigger>
+              <SelectContent>
+                {mediaTypeOptions.map((type) => (
+                  <SelectItem key={type.uid} value={type.uid}>
+                    {type.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button
-              color="default"
-              endContent={<Edit className="h-4 w-4" />}
-              isDisabled={selectedCount === 0}
-              aria-label="Edit Selected"
-              onPress={handleEditSelected}
+              variant="outline"
+              disabled={selectedKeys.size === 0}
+              onClick={handleEditSelected}
             >
-                Edit Selected
-              </Button>
-            </div>
-            <div className="flex items-center gap-3  motion-opacity-in-0 motion-translate-x-in-100 motion-ease-soft-spring motion-delay-400">
-              <Button
-                color="danger"
-                endContent={<Trash2 className="h-4 w-4" />}
-                isDisabled={selectedCount === 0}
-                aria-label="Delete Selected"
-                onPress={handleDeleteSelected}
+              <Edit className="mr-2 h-4 w-4" />
+              Edit Selected
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={selectedKeys.size === 0}
+              onClick={handleDeleteSelected}
             >
+              <Trash2 className="mr-2 h-4 w-4" />
               Delete Selected
             </Button>
           </div>
@@ -344,11 +331,14 @@ export function ScannedFilesTable({
     onPageSizeChange,
     handleDeleteSelected,
     handleEditSelected,
+    pageSize,
+    onStatusChange,
+    onMediaTypeChange,
+    onSearchChange,
   ])
 
   const handleSort = React.useCallback(
-    (descriptor: SortDescriptor) => {
-      const column = String(descriptor.column)
+    (column: string) => {
       if (sortBy === column) {
         onSortOrderChange?.(sortOrder === "asc" ? "desc" : "asc")
       } else {
@@ -360,90 +350,136 @@ export function ScannedFilesTable({
   )
 
   const tableComponent = React.useMemo(() => {
+    const handleRowClick = (key: number) => {
+      const newKeys = new Set(selectedKeys)
+      if (newKeys.has(key)) {
+        newKeys.delete(key)
+      } else {
+        newKeys.add(key)
+      }
+      setSelectedKeys(newKeys)
+    }
+
     return (
-      <DynamicTable
-        isHeaderSticky
-        aria-label="Scanned files table"
-        selectionMode="multiple"
-        className="h-[calc(100vh-200px)]"
-        classNames={{
-          th: "bg-default-200",
-          td: "py-3",
-          wrapper: "min-h-[400px]",
-        }}
-        sortDescriptor={{
-          column: sortBy,
-          direction: sortOrder === "asc" ? "ascending" : "descending",
-        }}
-        onSortChange={handleSort}
-        bottomContent={bottomContent}
-        topContent={topContent}
-        topContentPlacement="outside"
-        selectedKeys={selectedKeys}
-        onSelectionChange={handleSelectionChange}
-      >
-        <TableHeader>
-          <TableColumn key="sourceFile" allowsSorting>
-            Source File
-          </TableColumn>
-          <TableColumn key="destFile" allowsSorting>
-            Destination
-          </TableColumn>
-          <TableColumn key="genres" allowsSorting>
-            Genres
-          </TableColumn>
-          <TableColumn key="mediaType" allowsSorting>
-            Media Type
-          </TableColumn>
-          <TableColumn key="tmdbId" allowsSorting>
-            TMDB ID
-          </TableColumn>
-          <TableColumn key="imdbId" allowsSorting>
-            IMDb ID
-          </TableColumn>
-          <TableColumn key="episode" allowsSorting>
-            Episode
-          </TableColumn>
-          <TableColumn key="status" allowsSorting>
-            Status
-          </TableColumn>
-          <TableColumn key="createdAt" allowsSorting>
-            Created
-          </TableColumn>
-          <TableColumn key="updatedAt" allowsSorting>
-            Updated
-          </TableColumn>
-        </TableHeader>
-        <TableBody
-          items={rows}
-          isLoading={loading}
-          loadingContent={
-            <div className="flex justify-center p-4">
-              <Spinner size="sm" label="Loading..." />
-            </div>
-          }
-        >
-          {(item) => (
-            <TableRow
-              key={item.key}
-              className={`transition-colors ${newEntries.has(item.key) ? "animate-new-row" : ""}`}
-            >
-              {(columnKey) => <TableCell>{getKeyValue(item, columnKey)}</TableCell>}
-            </TableRow>
-          )}
-        </TableBody>
-      </DynamicTable>
+      <div>
+        <Separator className="my-4" />
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={selectedKeys.size > 0 && selectedKeys.size === rows.length}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedKeys(new Set(rows.map(row => row.key)))
+                      } else {
+                        setSelectedKeys(new Set())
+                      }
+                    }}
+                    aria-label="Select all"
+                  />
+                </TableHead>
+                <TableHead onClick={() => handleSort("sourceFile")} className="cursor-pointer">
+                  Source File {sortBy === "sourceFile" && (sortOrder === "asc" ? "↑" : "↓")}
+                </TableHead>
+                <TableHead onClick={() => handleSort("destFile")} className="cursor-pointer">
+                  Destination {sortBy === "destFile" && (sortOrder === "asc" ? "↑" : "↓")}
+                </TableHead>
+                <TableHead onClick={() => handleSort("genres")} className="cursor-pointer">
+                  Genres {sortBy === "genres" && (sortOrder === "asc" ? "↑" : "↓")}
+                </TableHead>
+                <TableHead onClick={() => handleSort("mediaType")} className="cursor-pointer">
+                  Media Type {sortBy === "mediaType" && (sortOrder === "asc" ? "↑" : "↓")}
+                </TableHead>
+                <TableHead onClick={() => handleSort("tmdbId")} className="cursor-pointer">
+                  TMDB ID {sortBy === "tmdbId" && (sortOrder === "asc" ? "↑" : "↓")}
+                </TableHead>
+                <TableHead onClick={() => handleSort("imdbId")} className="cursor-pointer">
+                  IMDb ID {sortBy === "imdbId" && (sortOrder === "asc" ? "↑" : "↓")}
+                </TableHead>
+                <TableHead onClick={() => handleSort("episode")} className="cursor-pointer">
+                  Episode {sortBy === "episode" && (sortOrder === "asc" ? "↑" : "↓")}
+                </TableHead>
+                <TableHead onClick={() => handleSort("status")} className="cursor-pointer">
+                  Status {sortBy === "status" && (sortOrder === "asc" ? "↑" : "↓")}
+                </TableHead>
+                <TableHead onClick={() => handleSort("createdAt")} className="cursor-pointer">
+                  Created {sortBy === "createdAt" && (sortOrder === "asc" ? "↑" : "↓")}
+                </TableHead>
+                <TableHead onClick={() => handleSort("updatedAt")} className="cursor-pointer">
+                  Updated {sortBy === "updatedAt" && (sortOrder === "asc" ? "↑" : "↓")}
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={11} className="h-24 text-center">
+                    <Loader2 className="mx-auto h-6 w-6 animate-spin" />
+                  </TableCell>
+                </TableRow>
+              ) : (
+                rows.map((item) => (
+                  <TableRow
+                    key={item.key}
+                    className={cn(
+                      "transition-colors cursor-pointer select-none",
+                      newEntries.has(item.key) ? "animate-new-row" : "",
+                      selectedKeys.has(item.key) ? "bg-muted/50" : "",
+                      "hover:bg-muted/30"
+                    )}
+                    data-selected={selectedKeys.has(item.key)}
+                    onClick={(e) => {
+                      // Don't trigger row selection if clicking the checkbox
+                      if (e.target instanceof HTMLElement && 
+                          (e.target.closest('button') || // For checkbox
+                          e.target.closest('a'))) { // For any links
+                        return
+                      }
+                      handleRowClick(item.key)
+                    }}
+                  >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedKeys.has(item.key)}
+                        onCheckedChange={(checked) => {
+                          const newKeys = new Set(selectedKeys)
+                          if (checked) {
+                            newKeys.add(item.key)
+                          } else {
+                            newKeys.delete(item.key)
+                          }
+                          setSelectedKeys(newKeys)
+                        }}
+                        aria-label={`Select row ${item.key}`}
+                      />
+                    </TableCell>
+                    <TableCell>{item.sourceFile}</TableCell>
+                    <TableCell>{item.destFile}</TableCell>
+                    <TableCell>{item.genres}</TableCell>
+                    <TableCell>{item.mediaType}</TableCell>
+                    <TableCell>{item.tmdbId}</TableCell>
+                    <TableCell>{item.imdbId}</TableCell>
+                    <TableCell>{item.episode}</TableCell>
+                    <TableCell>{item.status}</TableCell>
+                    <TableCell>{item.createdAt}</TableCell>
+                    <TableCell>{item.updatedAt}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
     )
   }, [
     loading,
     rows,
     sortBy,
     sortOrder,
-    bottomContent,
     handleSort,
-    topContent,
     selectedKeys,
-    handleSelectionChange,
     newEntries,
   ])
 
@@ -469,8 +505,8 @@ export function ScannedFilesTable({
           sortBy,
           sortOrder,
           searchTerm: filterValue,
-          status: Array.from(statusFilter)[0] as unknown as MediaStatus,
-          mediaType: Array.from(mediaTypeFilter)[0] as unknown as MediaType,
+          status: statusFilter,
+          mediaType: mediaTypeFilter,
         })
         setData(result)
       } catch (error) {
@@ -483,160 +519,166 @@ export function ScannedFilesTable({
     fetchData()
   }, [page, pageSize, sortBy, sortOrder, filterValue, statusFilter, mediaTypeFilter])
 
-  // Handle real-time updates from SignalR
-  useEffect(() => {
-    const shouldIncludeFile = (file: ScannedFile): boolean => {
-      if (!statusFilter || !mediaTypeFilter) {
-        return false
-      }
+  // Move sortItems before handlers
+  const sortItems = React.useCallback((items: ScannedFile[], sortBy: string, sortOrder: string): ScannedFile[] => {
+    return [...items].sort((a, b) => {
+      const aValue = a[sortBy as keyof ScannedFile]
+      const bValue = b[sortBy as keyof ScannedFile]
+      if (aValue === bValue) return 0
+      if (aValue === null || aValue === undefined) return 1
+      if (bValue === null || bValue === undefined) return -1
+      const comparison = aValue < bValue ? -1 : 1
+      return sortOrder === "asc" ? comparison : -comparison
+    })
+  }, [])
 
-      const statusMatch =
-        statusFilter === "all" ||
-        (statusFilter instanceof Set && (statusFilter.size === 0 || Array.from(statusFilter).includes(file.status)))
-      const mediaTypeMatch =
-        mediaTypeFilter === "all" ||
-        (mediaTypeFilter instanceof Set &&
-          (mediaTypeFilter.size === 0 || Array.from(mediaTypeFilter).includes(file.mediaType)))
-      const searchMatch =
-        !filterValue ||
+  // SignalR handler functions
+  const handleFileAdded = React.useCallback((file: ScannedFile, pageSize: number) => {
+    setNewEntries((prev) => new Set([...prev, file.id]))
+    setData((prevData) => {
+      if (!prevData) return null
+      const newItems = sortItems([file, ...prevData.items], sortBy, sortOrder).slice(0, pageSize)
+      const newTotalItems = prevData.totalItems + 1
+      return {
+        ...prevData,
+        items: newItems,
+        totalItems: newTotalItems,
+        totalPages: Math.ceil(newTotalItems / pageSize),
+      }
+    })
+  }, [sortBy, sortOrder, sortItems])
+
+  const handleExistingFileUpdate = React.useCallback((
+    prevData: PagedResult<ScannedFile>,
+    file: ScannedFile,
+    itemIndex: number,
+    matchesFilters: boolean,
+    pageSize: number
+  ) => {
+    if (!matchesFilters) {
+      const filteredItems = prevData.items.filter((_, index) => index !== itemIndex)
+      return {
+        ...prevData,
+        items: filteredItems,
+        totalItems: prevData.totalItems - 1,
+        totalPages: Math.ceil((prevData.totalItems - 1) / pageSize),
+      }
+    }
+    const updatedItems = sortItems([file, ...prevData.items.filter((_, index) => index !== itemIndex)], sortBy, sortOrder).slice(0, pageSize)
+    return { ...prevData, items: updatedItems }
+  }, [sortItems, sortBy, sortOrder])
+
+  const handleNewFileUpdate = React.useCallback((
+    prevData: PagedResult<ScannedFile>,
+    file: ScannedFile,
+    pageSize: number
+  ) => {
+    setNewEntries((prev) => new Set([...prev, file.id]))
+    const newItems = sortItems([file, ...prevData.items], sortBy, sortOrder).slice(0, pageSize)
+    return {
+      ...prevData,
+      items: newItems,
+      totalItems: prevData.totalItems + 1,
+      totalPages: Math.ceil((prevData.totalItems + 1) / pageSize),
+    }
+  }, [sortItems, sortBy, sortOrder])
+
+  const handleFileUpdated = React.useCallback((file: ScannedFile, pageSize: number, shouldIncludeFile: (file: ScannedFile) => boolean) => {
+    setData((prevData) => {
+      if (!prevData?.items) return null
+      const itemIndex = prevData.items.findIndex((item) => item.id === file.id)
+      const matchesFilters = shouldIncludeFile(file)
+
+      if (itemIndex !== -1) {
+        return handleExistingFileUpdate(prevData, file, itemIndex, matchesFilters, pageSize)
+      }
+      if (matchesFilters) {
+        return handleNewFileUpdate(prevData, file, pageSize)
+      }
+      return prevData
+    })
+  }, [handleExistingFileUpdate, handleNewFileUpdate])
+
+  const handleFileRemoved = React.useCallback((file: ScannedFile, pageSize: number) => {
+    setData((prevData) => {
+      if (!prevData?.items) return null
+      const itemIndex = prevData.items.findIndex((item) => item.id === file.id)
+      if (itemIndex === -1) return prevData
+      const filteredItems = prevData.items.filter((_, index) => index !== itemIndex)
+      const newTotalItems = Math.max(0, prevData.totalItems - 1)
+      return {
+        ...prevData,
+        items: filteredItems,
+        totalItems: newTotalItems,
+        totalPages: Math.max(1, Math.ceil(newTotalItems / pageSize)),
+      }
+    })
+  }, [])
+
+  // Effect for SignalR subscriptions
+  useEffect(() => {
+    if (!data || !statusFilter || !mediaTypeFilter) return
+
+    const shouldIncludeFile = (file: ScannedFile): boolean => {
+      const statusMatch = file.status === statusFilter
+      const mediaTypeMatch = file.mediaType === mediaTypeFilter
+      const searchMatch = !filterValue ||
         file.sourceFile.toLowerCase().includes(filterValue.toLowerCase()) ||
         (file.destFile?.toLowerCase() || "").includes(filterValue.toLowerCase())
-
       return statusMatch && mediaTypeMatch && searchMatch
     }
 
-    // Add a sorting function
-    const sortItems = (items: ScannedFile[]): ScannedFile[] => {
-      return [...items].sort((a, b) => {
-        const aValue = a[sortBy as keyof ScannedFile]
-        const bValue = b[sortBy as keyof ScannedFile]
+    const unsubscribeAdd = signalr.subscribe("OnFileAdded", 
+      (file) => handleFileAdded(file, pageSize))
+    const unsubscribeUpdate = signalr.subscribe("OnFileUpdated", 
+      (file) => handleFileUpdated(file, pageSize, shouldIncludeFile))
+    const unsubscribeRemove = signalr.subscribe("OnFileRemoved", 
+      (file) => handleFileRemoved(file, pageSize))
 
-        if (aValue === bValue) return 0
-        if (aValue === null || aValue === undefined) return 1
-        if (bValue === null || bValue === undefined) return -1
-
-        const comparison = aValue < bValue ? -1 : 1
-        return sortOrder === "asc" ? comparison : -comparison
-      })
-    }
-
-    const handleFileAdded = (file: ScannedFile): void => {
-      // Set new entry animation first
-      setNewEntries((prev) => new Set([...prev, file.id]))
-
-      setData((prevData): PagedResult<ScannedFile> | null => {
-        if (!prevData) return null
-
-        const newItems = sortItems([file, ...prevData.items]).slice(0, pageSize)
-        const newTotalItems = prevData.totalItems + 1
-
-        return {
-          ...prevData,
-          items: newItems,
-          totalItems: newTotalItems,
-          totalPages: Math.ceil(newTotalItems / pageSize),
-        }
-      })
-    }
-
-    const handleFileUpdated = (file: ScannedFile): void => {
-      setData((prevData): PagedResult<ScannedFile> | null => {
-        if (!prevData?.items) return null
-
-        const itemIndex = prevData.items.findIndex((item) => item.id === file.id)
-        const matchesFilters = shouldIncludeFile(file)
-
-        // File exists in current view
-        if (itemIndex !== -1) {
-          if (!matchesFilters) {
-            // Remove if it no longer matches filters
-            const filteredItems = prevData.items.filter((_, index) => index !== itemIndex)
-            const newTotalItems = prevData.totalItems - 1
-
-            return {
-              ...prevData,
-              items: filteredItems,
-              totalItems: newTotalItems,
-              totalPages: Math.ceil(newTotalItems / pageSize),
-            }
-          }
-
-          // Update and resort
-          const updatedItems = sortItems([file, ...prevData.items.filter((_, index) => index !== itemIndex)]).slice(
-            0,
-            pageSize
-          )
-
-          return {
-            ...prevData,
-            items: updatedItems,
-          }
-        }
-
-        // File doesn't exist in current view but matches filters - add it
-        if (matchesFilters) {
-          // Set new entry animation for files that are newly added to view
-          setNewEntries((prev) => new Set([...prev, file.id]))
-
-          const newItems = sortItems([file, ...prevData.items]).slice(0, pageSize)
-          const newTotalItems = prevData.totalItems + 1
-
-          return {
-            ...prevData,
-            items: newItems,
-            totalItems: newTotalItems,
-            totalPages: Math.ceil(newTotalItems / pageSize),
-          }
-        }
-
-        return prevData
-      })
-    }
-
-    const handleFileRemoved = (file: ScannedFile): void => {
-      setData((prevData): PagedResult<ScannedFile> | null => {
-        if (!prevData?.items) return null
-
-        const itemIndex = prevData.items.findIndex((item) => item.id === file.id)
-        if (itemIndex === -1) return prevData
-
-        const filteredItems = prevData.items.filter((_, index) => index !== itemIndex)
-        const newTotalItems = Math.max(0, prevData.totalItems - 1)
-
-        return {
-          ...prevData,
-          items: filteredItems,
-          totalItems: newTotalItems,
-          totalPages: Math.max(1, Math.ceil(newTotalItems / pageSize)),
-        }
-      })
-    }
-
-    // Only set up subscriptions if we have data and filters are properly initialized
-    if (!data || !statusFilter || !mediaTypeFilter) return
-
-    // Subscribe to SignalR events
-    const unsubscribeAdd = signalr.subscribe("OnFileAdded", handleFileAdded)
-    const unsubscribeUpdate = signalr.subscribe("OnFileUpdated", handleFileUpdated)
-    const unsubscribeRemove = signalr.subscribe("OnFileRemoved", handleFileRemoved)
-
-    // Cleanup subscriptions
     return () => {
       unsubscribeAdd()
       unsubscribeUpdate()
       unsubscribeRemove()
     }
-  }, [data, pageSize, statusFilter, mediaTypeFilter, filterValue, sortBy, sortOrder])
+  }, [data, pageSize, statusFilter, mediaTypeFilter, filterValue, handleFileAdded, handleFileUpdated, handleFileRemoved])
 
   return (
     <>
-      {tableComponent}
+      {topContent}
+      <div className="h-[calc(100vh-200px)] min-h-[400px] overflow-auto">
+        {tableComponent}
+      </div>
+      {data && data.totalPages > 1 && (
+        <div className="mt-4 flex justify-center">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  onClick={() => onPageChange?.(Math.max(1, page - 1))}
+                  aria-disabled={page === 1}
+                />
+              </PaginationItem>
+              <PaginationItem>
+                <span className="px-4">
+                  Page {page} of {data.totalPages}
+                </span>
+              </PaginationItem>
+              <PaginationItem>
+                <PaginationNext 
+                  onClick={() => onPageChange?.(Math.min(data.totalPages, page + 1))}
+                  aria-disabled={page === data.totalPages}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
       <EditModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         selectedRows={selectedRows}
         onSave={handleSaveEdits}
-        initialMediaType={Array.from(mediaTypeFilter)[0] as MediaType.Movies | MediaType.TvShows}
+        initialMediaType={mediaTypeFilter as MediaType.Movies | MediaType.TvShows}
       />
     </>
   )

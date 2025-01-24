@@ -26,10 +26,6 @@ internal static class LoggingRouting
         {
             try
             {
-                logger.LogDebug(
-                    "Retrieving logs with parameters - MinLevel: {MinLevel}, SearchTerm: {SearchTerm}, From: {From}, To: {To}, Limit: {Limit}",
-                    minLevel, searchTerm, from, to, limit);
-
                 var logsPath = Path.Combine(AppContext.BaseDirectory, "logs");
                 var logFiles = Directory.GetFiles(logsPath, "log*.json")
                     .OrderByDescending(f => f); // Latest files first

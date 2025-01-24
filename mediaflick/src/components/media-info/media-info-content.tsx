@@ -1,8 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-
-import { Spinner } from "@nextui-org/react"
+import { Loader2 } from "lucide-react"
 
 import { MediaBackdrop } from "./media-backdrop"
 import { MediaDetails } from "./media-details"
@@ -16,7 +15,7 @@ interface MediaInfoContentProps {
   type: MediaType
 }
 
-export function MediaInfoContent({ id, type }: MediaInfoContentProps) {
+export function MediaInfoContent({ id, type }: Readonly<MediaInfoContentProps>) {
   const [mediaInfo, setMediaInfo] = useState<MediaInfo | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -42,7 +41,7 @@ export function MediaInfoContent({ id, type }: MediaInfoContentProps) {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <Spinner size="lg" />
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     )
   }

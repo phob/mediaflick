@@ -1,6 +1,14 @@
 import React from "react"
 
-import { Spinner, Table, TableBody, TableCell, TableColumn, TableHeader, TableRow } from "@nextui-org/react"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Loader2 } from "lucide-react"
 
 import { MediaSearch } from "@/components/media-search/media-search"
 import type { Row } from "@/components/scanned-files-table/types"
@@ -13,7 +21,7 @@ interface MovieEditTableProps {
   onRowsChange: (rows: Row[]) => void
 }
 
-export function MovieEditTable({ loading, editableRows, onRowsChange }: MovieEditTableProps) {
+export function MovieEditTable({ loading, editableRows, onRowsChange }: Readonly<MovieEditTableProps>) {
   const handleMediaSelect = (index: number, tmdbId: number) => {
     const newRows = [...editableRows]
     newRows[index] = {
@@ -24,42 +32,45 @@ export function MovieEditTable({ loading, editableRows, onRowsChange }: MovieEdi
     onRowsChange(newRows)
   }
 
-  return loading ? (
-    <div className="flex justify-center p-4">
-      <Spinner size="lg" label="Loading files..." />
-    </div>
-  ) : (
-    <Table aria-label="Selected movie files table">
-      <TableHeader>
-        <TableColumn key="sourceFile">Source File</TableColumn>
-        <TableColumn key="tmdbId">TMDB ID</TableColumn>
-        <TableColumn key="title" className="w-full/2">
-          Title
-        </TableColumn>
-        <TableColumn key="status">Status</TableColumn>
-      </TableHeader>
-      <TableBody items={editableRows}>
-        {(item) => (
-          <TableRow key={item.key}>
-            <TableCell>{getFileName(item.sourceFile as string)}</TableCell>
-            <TableCell>{item.tmdbId}</TableCell>
-            <TableCell>
-              <MediaSearch
-                mediaType={MediaType.Movies}
-                onMediaSelect={(tmdbId) => {
-                  const index = editableRows.findIndex((row) => row.key === item.key)
-                  if (index !== -1) {
-                    handleMediaSelect(index, tmdbId)
-                  }
-                }}
-                className="w-full"
-                label="Search Movie"
-              />
-            </TableCell>
-            <TableCell>{item.status}</TableCell>
+  if (loading) {
+    return (
+      <div className="flex justify-center p-4">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Source File</TableHead>
+            <TableHead>TMDB ID</TableHead>
+            <TableHead className="w-full/2">Title</TableHead>
+            <TableHead>Status</TableHead>
           </TableRow>
-        )}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {editableRows.map((item, index) => (
+            <TableRow key={item.key}>
+              <TableCell>{getFileName(item.sourceFile as string)}</TableCell>
+              <TableCell>{item.tmdbId}</TableCell>
+              <TableCell>
+                <div>
+                  <MediaSearch
+                    mediaType={MediaType.Movies}
+                    onMediaSelect={(tmdbId) => handleMediaSelect(index, tmdbId)}
+                    className="w-full relative"
+                    label="Search Movie"
+                  />
+                </div>
+              </TableCell>
+              <TableCell>{item.status}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   )
 }
