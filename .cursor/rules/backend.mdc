@@ -1,0 +1,76 @@
+---
+description: 
+globs: src/**/*.cs
+---
+# PlexLocalScan backend for mediaflick
+
+- is a n.NET 9 ASPCore app
+- uses Minimal API
+- uses Dependency Injection
+- uses Serilog for logging
+
+## Details
+
+### PlexLocalScan.Api
+Is the Main project that gets build.
+It's Microsoft.NET.Sdk.Web
+
+### PlexLocalScan.Shared
+This holds every background joblike symlink creation, search on the movie database TmDb using TMDBLib
+
+### PlexLocalScan.Data
+Holds the EFCore Project
+
+### PlexLocalScan.Core
+Holds Definitions about Media as Movies and TvShows
+
+## Directory Structure
+```
+src
+├── PlexLocalScan.Abstractions
+├── PlexLocalScan.Api
+│   ├── Config
+│   ├── Controllers
+│   ├── Endpoints
+│   ├── Models
+│   ├── Properties
+│   ├── Routing
+│   └── ServiceCollection
+├── PlexLocalScan.Core
+│   ├── Helper
+│   ├── Media
+│   ├── Series
+│   └── Tables
+├── PlexLocalScan.Data
+│   ├── Data
+│   └── Migrations
+├── PlexLocalScan.FileTracking
+├── PlexLocalScan.Shared
+│   ├── Configuration
+│   │   └── Options
+│   ├── DbContext
+│   │   ├── Interfaces
+│   │   └── Services
+│   ├── MediaDetection
+│   │   ├── Interfaces
+│   │   ├── Options
+│   │   └── Services
+│   ├── Plex
+│   │   ├── Interfaces
+│   │   └── Services
+│   ├── Services
+│   ├── Symlinks
+│   │   ├── Interfaces
+│   │   └── Services
+│   └── TmDbMediaSearch
+│       ├── Interfaces
+│       └── Services
+├── PlexLocalScan.SignalR
+│   ├── Hubs
+│   └── Services
+├── PlexLocalScan.Test
+│   ├── Integration
+│   └── Services
+└── components
+    └── settings
+```

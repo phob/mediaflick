@@ -1,45 +1,37 @@
 ---
 description: components
-globs: *.tsx
+globs: *.tsx, *.ts
 ---
-- Whenever you have to write a component, look first into the mediaflick/src/components folder if that component already exist or if a folder for that task already exists. If so, put the component in that folder
+# The Mediaflick Web Project
 
-### File-Layout of the mediaflick
+- is a nextjs 15 Application 
+- using pnpm
+- using shadcn
+- shadcn is already initialized with pnpm dlx shadcn@latest init
+- shadcn components installed: button card select input table
+- the command to install new components is pnpm dlx shadcn@latest and NOT pnpm dlx shadcn-ui@latest
+- using tailwindcss for styling
+- using tailwindcss-motion for animations
+- Endpoints are located in mediaflick/src/lib/api/endpoints.ts
 
-mediaflick/mediaflick
-|-- README.md
-|-- eslint.config.mjs
-|-- next.config.ts
-|-- package.json
-|-- pnpm-lock.yaml
-|-- postcss.config.mjs
-|-- src
-|   |-- app
-|   |   |-- (organizer)
-|   |   |-- favicon.ico
-|   |   |-- fonts
-|   |   |-- globals.css
-|   |   |-- layout.tsx
-|   |   |-- page.tsx
-|   |   `-- providers.tsx
-|   |-- components
-|   |   |-- head-bar
-|   |   |-- heartbeat-status.tsx
-|   |   |-- logo-module.tsx
-|   |   |-- media-info
-|   |   |-- media-search
-|   |   `-- scanned-files-table
-|   |-- config
-|   |   |-- fonts.ts
-|   |   |-- nav-config.ts
-|   |   `-- site.ts
-|   |-- hooks
-|   |   `-- use-page-title.ts
-|   |-- lib
-|   |   |-- api
-|   |   |-- files-folders.ts
-|   |   `-- format-helper.ts
-|   `-- types
-|       `-- tailwindcss-motion.d.ts
-|-- tailwind.config.ts
-`-- tsconfig.json
+## Filestructure
+```
+mediaflick
+└── src
+    ├── app
+    │   ├── (organizer)
+    │   │   ├── mediainfo
+    │   │   └── medialibrary
+    │   └── fonts
+    ├── components
+    │   ├── head-bar
+    │   ├── media-info
+    │   ├── media-search
+    │   ├── scanned-files-table
+    │   └── settings
+    ├── config
+    ├── hooks
+    ├── lib
+    │   └── api
+    └── types
+```
