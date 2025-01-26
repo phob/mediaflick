@@ -33,6 +33,7 @@ internal static class ScannedFilesRouting
             [FromServices] PlexScanContext context,
             [FromServices] ILogger<Program> logger,
             [FromQuery] FileStatus? status = null,
+            [FromQuery] int[]? ids = null,
             [FromQuery] MediaType? mediaType = null,
             [FromQuery] string? searchTerm = null,
             [FromQuery] string? sortBy = null,
@@ -48,10 +49,10 @@ internal static class ScannedFilesRouting
                 SortBy = sortBy,
                 SortOrder = sortOrder
             };
-            return await ScannedFilesController.GetScannedFiles(filter, null, page, pageSize, context, logger);
+            return await ScannedFilesController.GetScannedFiles(filter, ids, page, pageSize, context, logger);
         };
 
-        group.MapGet("/", getScannedFilesHandler as Delegate)
+        group.MapGet("/", getScannedFilesHandler)
             .WithName("GetScannedFiles")
             .WithDescription("Retrieves a paged list of scanned files with optional filtering and sorting")
             .Produces<PagedResult<ScannedFileDto>>();

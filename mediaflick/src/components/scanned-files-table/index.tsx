@@ -198,6 +198,16 @@ export function ScannedFilesTable({
     return rows.filter((row) => selectedKeys.has(row.key))
   }, [selectedKeys, rows])
 
+  const handleRowClick = useCallback((key: number) => {
+    const newKeys = new Set(selectedKeys)
+    if (newKeys.has(key)) {
+      newKeys.delete(key)
+    } else {
+      newKeys.add(key)
+    }
+    setSelectedKeys(newKeys)
+  }, [selectedKeys])
+
   const handleEditSelected = useCallback(() => {
     setIsEditModalOpen(true)
   }, [])
@@ -350,16 +360,6 @@ export function ScannedFilesTable({
   )
 
   const tableComponent = React.useMemo(() => {
-    const handleRowClick = (key: number) => {
-      const newKeys = new Set(selectedKeys)
-      if (newKeys.has(key)) {
-        newKeys.delete(key)
-      } else {
-        newKeys.add(key)
-      }
-      setSelectedKeys(newKeys)
-    }
-
     return (
       <div>
         <Separator className="my-4" />
@@ -371,11 +371,8 @@ export function ScannedFilesTable({
                   <Checkbox
                     checked={selectedKeys.size > 0 && selectedKeys.size === rows.length}
                     onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedKeys(new Set(rows.map(row => row.key)))
-                      } else {
-                        setSelectedKeys(new Set())
-                      }
+                      const newKeys = checked ? new Set<number>(rows.map(row => row.key)) : new Set<number>()
+                      setSelectedKeys(newKeys)
                     }}
                     aria-label="Select all"
                   />
@@ -481,6 +478,7 @@ export function ScannedFilesTable({
     handleSort,
     selectedKeys,
     newEntries,
+    handleRowClick,
   ])
 
   useEffect(() => {

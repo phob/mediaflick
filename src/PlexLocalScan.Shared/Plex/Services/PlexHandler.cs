@@ -59,7 +59,12 @@ public class PlexHandler(ILogger<PlexHandler> logger, IOptionsSnapshot<PlexOptio
     {
         try
         {
-            logger.LogInformation("Adding folder for scanning: {FolderPath}", folderPath);
+            if (string.IsNullOrEmpty(_options.PlexToken)){
+                logger.LogWarning("Plex token is not set, skipping folder for scanning: {FolderPath}", folderPath);
+                return;
+            }
+
+            logger.LogInformation("Adding folder to Plex: {FolderPath}", folderPath);
 
             var sectionId = await GetSectionIdForPathAsync(baseFolder);
             logger.LogDebug("Found section ID: {SectionId} for base folder: {BaseFolder}", sectionId, baseFolder);
@@ -96,12 +101,17 @@ public class PlexHandler(ILogger<PlexHandler> logger, IOptionsSnapshot<PlexOptio
     {
         try
         {
+            if (string.IsNullOrEmpty(_options.PlexToken)){
+                logger.LogWarning("Plex token is not set, skipping folder for deletion: {FolderPath}", folderPath);
+                return;
+            }
+
             logger.LogInformation("Deleting folder from Plex: {FolderPath}", folderPath);
 
             var sectionId = await GetSectionIdForPathAsync(folderPath);
             logger.LogDebug("Found section ID: {SectionId} for folder: {FolderPath}", sectionId, folderPath);
 
-            var encodedPath = HttpUtility.UrlEncode(folderPath);
+            var encodedPath = Uri.EscapeDataString(folderPath);
             var url = $"{_options.ApiEndpoint}/library/sections/{sectionId}/refresh?path={encodedPath}&X-Plex-Token={_options.PlexToken}&type=1";
             
             logger.LogDebug("Request URL: {Url}", url.Replace(_options.PlexToken, "REDACTED", StringComparison.OrdinalIgnoreCase));

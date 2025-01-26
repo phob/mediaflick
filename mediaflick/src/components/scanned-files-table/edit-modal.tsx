@@ -61,6 +61,7 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave, initialMediaT
         const selectedIds = selectedRows.map((row) => row.key)
         const result = await mediaApi.getScannedFiles({
           ids: selectedIds,
+          mediaType: selectedMediaType,
           pageSize: selectedIds.length,
           sortBy: "sourceFile",
           sortOrder: "asc",
@@ -78,7 +79,7 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave, initialMediaT
     }
 
     fetchSelectedFiles()
-  }, [isOpen, selectedRows])
+  }, [isOpen, selectedRows, selectedMediaType])
 
   const handleMediaTypeChange = (type: string) => {
     setSelectedMediaType(type as MediaType.Movies | MediaType.TvShows)
