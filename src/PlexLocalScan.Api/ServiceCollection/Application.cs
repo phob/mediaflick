@@ -17,6 +17,8 @@ using PlexLocalScan.SignalR.Services;
 using PlexLocalScan.Shared.DbContext.Interfaces;
 using PlexLocalScan.Shared.DbContext.Services;
 using System.Text.Json.Serialization;
+using Hangfire;
+using Hangfire.MemoryStorage;
 
 namespace PlexLocalScan.Api.ServiceCollection;
 
@@ -84,9 +86,29 @@ public static class Application
             var connectionString = $"Data Source={Path.Combine(AppContext.BaseDirectory, "config", "plexscan.db")}";
             options.UseSqlite(connectionString);
         });
+        // Add Hangfire services with SQLite storage
+        services.AddHangfire(config =>
+            config.UseMemoryStorage());
 
-        // Add hosted services
-        services.AddHostedService<FilePollerService>();
+        services.AddHangfireServer(options =>
+            options.ServerName = "PlexLocalScanWorker");
+
+        // Add Hangfire background job client
+        services.AddSingleton<IBackgroundJobClient, BackgroundJobClient>();
+
+        // Register FilePollerService with initialization
+        services.AddSingleton<IFilePollerService, FilePollerService>(provider =>
+        {
+            var service = new FilePollerService(
+                provider.GetRequiredService<ILogger<FilePollerService>>(),
+                provider.GetRequiredService<IOptionsMonitor<PlexOptions>>(),
+                provider.GetRequiredService<IOptionsMonitor<TmDbOptions>>(),
+                provider.GetRequiredService<IServiceScopeFactory>(),
+                provider.GetRequiredService<IBackgroundJobClient>());
+
+            service.Initialize();
+            return service;
+        });
 
         // Add additional services
         services.AddHttpClient()
