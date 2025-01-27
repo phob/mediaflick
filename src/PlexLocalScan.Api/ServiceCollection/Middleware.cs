@@ -2,6 +2,7 @@ using PlexLocalScan.Api.Endpoints;
 using PlexLocalScan.SignalR.Hubs;
 using Scalar.AspNetCore;
 using Serilog;
+using Hangfire;
 
 namespace PlexLocalScan.Api.ServiceCollection;
 
@@ -41,6 +42,8 @@ public static class Middleware
         app.MapOpenApi();
         app.MapScalarApiReference(options => options.Theme = ScalarTheme.Mars);
         app.MapGet("/", () => Results.Redirect("/scalar/v1"));
+
+        app.UseHangfireDashboard("/hangfire");
 
         return app;
     }

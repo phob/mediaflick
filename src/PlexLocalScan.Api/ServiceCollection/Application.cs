@@ -88,7 +88,11 @@ public static class Application
         });
         // Add Hangfire services with SQLite storage
         services.AddHangfire(config =>
-            config.UseMemoryStorage());
+        {
+            config.UseSimpleAssemblyNameTypeSerializer();
+            config.UseRecommendedSerializerSettings();
+            config.UseMemoryStorage();
+        });
 
         services.AddHangfireServer(options =>
             options.ServerName = "PlexLocalScanWorker");
@@ -106,7 +110,6 @@ public static class Application
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 provider.GetRequiredService<IBackgroundJobClient>());
 
-            service.Initialize();
             return service;
         });
 
