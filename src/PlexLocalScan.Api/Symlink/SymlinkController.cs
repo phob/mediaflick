@@ -1,8 +1,9 @@
 using Microsoft.Extensions.Options;
+
 using PlexLocalScan.Shared.Configuration.Options;
 using PlexLocalScan.Shared.Symlinks.Interfaces;
 
-namespace PlexLocalScan.Api.Controllers;
+namespace PlexLocalScan.Api.Symlink;
 
 /// <summary>
 /// Endpoint implementations for symlink functionality

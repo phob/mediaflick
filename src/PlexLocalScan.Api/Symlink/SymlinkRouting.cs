@@ -1,9 +1,9 @@
 ﻿using Microsoft.Extensions.Options;
-using PlexLocalScan.Api.Controllers;
+
 using PlexLocalScan.Shared.Configuration.Options;
 using PlexLocalScan.Shared.Symlinks.Interfaces;
 
-namespace PlexLocalScan.Api.Routing;
+namespace PlexLocalScan.Api.Symlink;
 
 internal static class SymlinkRouting
 {

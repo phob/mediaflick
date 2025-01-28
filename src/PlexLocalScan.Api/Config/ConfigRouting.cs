@@ -1,9 +1,9 @@
-﻿using Microsoft.Extensions.Options;
-using Microsoft.AspNetCore.Mvc;
-using PlexLocalScan.Api.Config;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
+
 using PlexLocalScan.Shared.Configuration.Options;
 
-namespace PlexLocalScan.Api.Routing;
+namespace PlexLocalScan.Api.Config;
 
 internal static class ConfigRouting
 {

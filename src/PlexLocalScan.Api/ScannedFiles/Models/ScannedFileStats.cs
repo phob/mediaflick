@@ -1,6 +1,6 @@
 using PlexLocalScan.Core.Tables;
 
-namespace PlexLocalScan.Api.Models;
+namespace PlexLocalScan.Api.ScannedFiles.Models;
 
 #pragma warning disable CA1515 // Consider making public types internal
 public sealed class ScannedFileStats

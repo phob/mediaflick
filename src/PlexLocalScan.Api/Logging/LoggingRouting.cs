@@ -1,9 +1,10 @@
-using Microsoft.AspNetCore.Mvc;
-using Serilog.Events;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace PlexLocalScan.Api.Routing;
+using Microsoft.AspNetCore.Mvc;
+
+using Serilog.Events;
+
+namespace PlexLocalScan.Api.Logging;
 
 internal static class LoggingRouting
 {

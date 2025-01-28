@@ -1,10 +1,8 @@
-﻿using PlexLocalScan.Api.Controllers;
-using PlexLocalScan.Core.Media;
+﻿using PlexLocalScan.Core.Media;
 using PlexLocalScan.Core.Series;
-using PlexLocalScan.Shared.Services;
 using PlexLocalScan.Shared.TmDbMediaSearch.Services;
 
-namespace PlexLocalScan.Api.Routing;
+namespace PlexLocalScan.Api.MediaLookup;
 
 internal static class MediaLookupRouting
 {

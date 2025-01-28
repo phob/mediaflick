@@ -24,7 +24,7 @@ namespace PlexLocalScan.Api.ServiceCollection;
 
 public static class Application
 {
-    public static IServiceCollection AddApplication(this IServiceCollection services, IConfiguration configuration)
+    public static void AddApplication(this IServiceCollection services, IConfiguration configuration)
     {
         // Add controllers with JSON options
         services.AddControllers()
@@ -45,12 +45,6 @@ public static class Application
         {
             options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
         });
-
-        // Add SignalR
-        services.AddSignalR();
-
-        // Add HeartbeatService
-        services.AddHostedService<HeartbeatService>();
 
         // Configure core services
         services.AddOptions()
@@ -103,20 +97,17 @@ public static class Application
         // Register FilePollerService with initialization
         services.AddSingleton<IFilePollerService, FilePollerService>(provider =>
         {
-            var service = new FilePollerService(
+            var filePollerService = new FilePollerService(
                 provider.GetRequiredService<ILogger<FilePollerService>>(),
                 provider.GetRequiredService<IOptionsMonitor<PlexOptions>>(),
                 provider.GetRequiredService<IOptionsMonitor<TmDbOptions>>(),
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 provider.GetRequiredService<IBackgroundJobClient>());
-
-            return service;
+            return filePollerService;
         });
 
         // Add additional services
         services.AddHttpClient()
             .AddMemoryCache();
-
-        return services;
     }
 }

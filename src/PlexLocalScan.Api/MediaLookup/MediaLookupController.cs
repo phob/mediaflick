@@ -1,8 +1,9 @@
-using PlexLocalScan.Shared.TmDbMediaSearch.Interfaces;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace PlexLocalScan.Api.Controllers;
+using PlexLocalScan.Shared.TmDbMediaSearch.Interfaces;
+
+namespace PlexLocalScan.Api.MediaLookup;
 
 /// <summary>
 /// Endpoint mappings for media lookup functionality

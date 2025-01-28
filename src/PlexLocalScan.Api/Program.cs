@@ -9,6 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Configuration and logging setup
 builder.AddConfiguration();
 builder.Services.AddApplication(builder.Configuration);
+builder.Services.AddSignalRService();
 
 var app = builder.Build();
 
@@ -17,13 +18,6 @@ await using (var scope = app.Services.CreateAsyncScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<PlexScanContext>();
     await db.Database.MigrateAsync();
-}
-
-// Initial job scheduling
-await using (var startupScope = app.Services.CreateAsyncScope())
-{
-    var filePollerService = startupScope.ServiceProvider.GetRequiredService<IFilePollerService>();
-    filePollerService.Initialize();
 }
 
 // Middleware pipeline
