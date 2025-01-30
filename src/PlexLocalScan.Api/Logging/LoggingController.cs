@@ -1,6 +1,4 @@
 using System.Text.Json.Nodes;
-
-
 using Serilog.Events;
 
 namespace PlexLocalScan.Api.Logging;
@@ -19,49 +17,64 @@ public class LoggingController
         string? searchTerm,
         DateTime? from,
         DateTime? to,
-        int limit = 100)
+        int limit = 100
+    )
     {
         try
         {
             var logsPath = Path.Combine(AppContext.BaseDirectory, "logs");
-            var logFiles = Directory.GetFiles(logsPath, "log*.json")
-                .OrderByDescending(f => f); // Latest files first
+            var logFiles = Directory.GetFiles(logsPath, "log*.json").OrderByDescending(f => f); // Latest files first
 
             var logs = new List<JsonObject>();
             foreach (var file in logFiles)
             {
-                if (logs.Count >= limit) break;
+                if (logs.Count >= limit)
+                    break;
 
                 var fileContent = await File.ReadAllLinesAsync(file);
                 foreach (var line in fileContent.Reverse()) // Latest entries first
                 {
-                    if (logs.Count >= limit) break;
+                    if (logs.Count >= limit)
+                        break;
 
-                    if (string.IsNullOrWhiteSpace(line)) continue;
+                    if (string.IsNullOrWhiteSpace(line))
+                        continue;
 
                     var logEntry = JsonNode.Parse(line)?.AsObject();
-                    if (logEntry == null) continue;
+                    if (logEntry == null)
+                        continue;
 
                     // Apply filters
                     if (minLevel != null)
                     {
-                        var level = Enum.Parse<LogEventLevel>(logEntry["Level"]?.GetValue<string>() ?? "Information");
-                        if (level < minLevel) continue;
+                        var level = Enum.Parse<LogEventLevel>(
+                            logEntry["Level"]?.GetValue<string>() ?? "Information"
+                        );
+                        if (level < minLevel)
+                            continue;
                     }
 
                     if (searchTerm != null)
                     {
                         var message = logEntry["RenderedMessage"]?.GetValue<string>() ?? "";
-                        if (!message.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) continue;
+                        if (!message.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+                            continue;
                     }
 
                     if (from != null || to != null)
                     {
-                        if (!DateTime.TryParse(logEntry["Timestamp"]?.GetValue<string>(), out var timestamp))
+                        if (
+                            !DateTime.TryParse(
+                                logEntry["Timestamp"]?.GetValue<string>(),
+                                out var timestamp
+                            )
+                        )
                             continue;
 
-                        if (timestamp < from) continue;
-                        if (timestamp > to) continue;
+                        if (timestamp < from)
+                            continue;
+                        if (timestamp > to)
+                            continue;
                     }
 
                     logs.Add(logEntry);
@@ -75,7 +88,8 @@ public class LoggingController
             _logger.LogError(ex, "Error retrieving logs");
             return Results.Problem(
                 detail: "An error occurred while retrieving logs",
-                statusCode: StatusCodes.Status500InternalServerError);
+                statusCode: StatusCodes.Status500InternalServerError
+            );
         }
     }
-} 
+}

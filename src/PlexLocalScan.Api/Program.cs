@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using PlexLocalScan.Api.ServiceCollection;
 using PlexLocalScan.Data.Data;
 using Serilog;
-using PlexLocalScan.Shared.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 

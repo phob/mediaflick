@@ -8,4 +8,4 @@ public record EpisodeInfo
     public string? StillPath { get; set; }
     public DateTime? AirDate { get; set; }
     public bool IsScanned { get; set; }
-} 
+}

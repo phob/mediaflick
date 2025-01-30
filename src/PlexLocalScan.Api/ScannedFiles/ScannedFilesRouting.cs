@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
-
 using PlexLocalScan.Abstractions;
 using PlexLocalScan.Api.Models;
 using PlexLocalScan.Api.ScannedFiles.Models;
@@ -40,7 +39,8 @@ internal static class ScannedFilesRouting
             [FromQuery] string? sortBy = null,
             [FromQuery] string? sortOrder = null,
             [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 10) =>
+            [FromQuery] int pageSize = 10
+        ) =>
         {
             var filter = new ScannedFileFilter
             {
@@ -48,83 +48,158 @@ internal static class ScannedFilesRouting
                 MediaType = mediaType,
                 SearchTerm = searchTerm,
                 SortBy = sortBy,
-                SortOrder = sortOrder
+                SortOrder = sortOrder,
             };
-            return await ScannedFilesController.GetScannedFiles(filter, ids, page, pageSize, context, logger);
+            return await ScannedFilesController.GetScannedFiles(
+                filter,
+                ids,
+                page,
+                pageSize,
+                context,
+                logger
+            );
         };
 
-        group.MapGet("/", getScannedFilesHandler)
+        group
+            .MapGet("/", getScannedFilesHandler)
             .WithName("GetScannedFiles")
-            .WithDescription("Retrieves a paged list of scanned files with optional filtering and sorting")
+            .WithDescription(
+                "Retrieves a paged list of scanned files with optional filtering and sorting"
+            )
             .Produces<PagedResult<ScannedFileDto>>();
 
-        group.MapGet("{id:int}",
-            static async (int id, [FromServices] PlexScanContext context, [FromServices] ILogger<Program> logger) => 
-                await ScannedFilesController.GetScannedFile(id, context, logger))
+        group
+            .MapGet(
+                "{id:int}",
+                static async (
+                    int id,
+                    [FromServices] PlexScanContext context,
+                    [FromServices] ILogger<Program> logger
+                ) => await ScannedFilesController.GetScannedFile(id, context, logger)
+            )
             .WithName("GetScannedFile")
             .WithDescription("Retrieves a specific scanned file by its ID")
             .Produces<ScannedFileDto>()
             .Produces(StatusCodes.Status404NotFound);
 
-        group.MapGet("tmdb-ids-and-titles",
-            static async (
-                [FromQuery] MediaType? mediaType,
-                [FromQuery] string? searchTerm,
-                [FromServices] PlexScanContext context = null!,
-                [FromServices] ILogger<Program> logger = null!) => 
-            {
-                var filter = new ScannedFileFilter
+        group
+            .MapGet(
+                "tmdb-ids-and-titles",
+                static async (
+                    [FromQuery] MediaType? mediaType,
+                    [FromQuery] string? searchTerm,
+                    [FromServices] PlexScanContext context = null!,
+                    [FromServices] ILogger<Program> logger = null!
+                ) =>
                 {
-                    MediaType = mediaType,
-                    SearchTerm = searchTerm
-                };
-                return await ScannedFilesController.GetTmdbIdsAndTitles(filter, context, logger);
-            })
+                    var filter = new ScannedFileFilter
+                    {
+                        MediaType = mediaType,
+                        SearchTerm = searchTerm,
+                    };
+                    return await ScannedFilesController.GetTmdbIdsAndTitles(
+                        filter,
+                        context,
+                        logger
+                    );
+                }
+            )
             .WithName("GetTmdbIdsAndTitles")
             .WithDescription("Retrieves a list of unique TMDb IDs and titles for scanned files")
             .Produces<IEnumerable<object>>();
     }
 
-    private static void MapScannedFilesStatsEndpoints(RouteGroupBuilder group) => 
-        group.MapGet("stats",
-            static async ([FromServices] PlexScanContext context, [FromServices] ILogger<Program> logger) => 
-                await ScannedFilesController.GetStats(context, logger))
+    private static void MapScannedFilesStatsEndpoints(RouteGroupBuilder group) =>
+        group
+            .MapGet(
+                "stats",
+                static async (
+                    [FromServices] PlexScanContext context,
+                    [FromServices] ILogger<Program> logger
+                ) => await ScannedFilesController.GetStats(context, logger)
+            )
             .WithName("GetScannedFilesStats")
-            .WithDescription("Retrieves statistics about scanned files, including counts by status and media type")
+            .WithDescription(
+                "Retrieves statistics about scanned files, including counts by status and media type"
+            )
             .Produces<ScannedFileStats>();
 
     private static void MapScannedFilesUpdateEndpoints(RouteGroupBuilder group)
     {
-        group.MapPatch("{id}",
-            static async (int id, [FromBody] UpdateScannedFileRequest request, [FromServices] PlexScanContext context, [FromServices] ILogger<Program> logger) => 
-                await ScannedFilesController.UpdateScannedFile(id, request, context, logger))
+        group
+            .MapPatch(
+                "{id}",
+                static async (
+                    int id,
+                    [FromBody] UpdateScannedFileRequest request,
+                    [FromServices] PlexScanContext context,
+                    [FromServices] ILogger<Program> logger
+                ) => await ScannedFilesController.UpdateScannedFile(id, request, context, logger)
+            )
             .WithName("UpdateScannedFile")
-            .WithDescription("Updates the TMDb ID, season number, and episode number for a scanned file")
+            .WithDescription(
+                "Updates the TMDb ID, season number, and episode number for a scanned file"
+            )
             .Produces<ScannedFile>()
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status400BadRequest);
 
-        group.MapPatch("{id}/recreate-symlink",
-            static async (int id, [FromServices] PlexScanContext context, [FromServices] ISymlinkRecreationService symlinkRecreationService, [FromServices] ILogger<Program> logger) => 
-                await ScannedFilesController.RecreateSymlink(id, context, symlinkRecreationService, logger))
+        group
+            .MapPatch(
+                "{id}/recreate-symlink",
+                static async (
+                    int id,
+                    [FromServices] PlexScanContext context,
+                    [FromServices] ISymlinkRecreationService symlinkRecreationService,
+                    [FromServices] ILogger<Program> logger
+                ) =>
+                    await ScannedFilesController.RecreateSymlink(
+                        id,
+                        context,
+                        symlinkRecreationService,
+                        logger
+                    )
+            )
             .WithName("RecreateSymlink")
             .WithDescription("Recreates the symlink for a scanned file")
             .Produces<ScannedFile>()
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status400BadRequest);
 
-        group.MapPost("recreate-symlinks",
-            static async ([FromServices] ISymlinkRecreationService symlinkRecreationService, [FromServices] ILogger<Program> logger) => 
-                await ScannedFilesController.RecreateSymlinks(symlinkRecreationService, logger))
+        group
+            .MapPost(
+                "recreate-symlinks",
+                static async (
+                    [FromServices] ISymlinkRecreationService symlinkRecreationService,
+                    [FromServices] ILogger<Program> logger
+                ) => await ScannedFilesController.RecreateSymlinks(symlinkRecreationService, logger)
+            )
             .WithName("RecreateAllSymlinks")
             .WithDescription("Recreates all symlinks")
             .Produces(StatusCodes.Status200OK);
     }
 
-    private static void MapScannedFilesDeleteEndpoints(RouteGroupBuilder group) => 
-        group.MapDelete("batch",
-            static async ([FromBody] int[]? ids, [FromServices] PlexScanContext context, [FromServices] ICleanupHandler cleanupHandler, [FromServices] IOptionsSnapshot<PlexOptions> plexOptions, [FromServices] INotificationService notificationService, [FromServices] ILogger<Program> logger) => 
-                await ScannedFilesController.DeleteScannedFiles(ids, context, cleanupHandler, plexOptions, notificationService, logger))
+    private static void MapScannedFilesDeleteEndpoints(RouteGroupBuilder group) =>
+        group
+            .MapDelete(
+                "batch",
+                static async (
+                    [FromBody] int[]? ids,
+                    [FromServices] PlexScanContext context,
+                    [FromServices] ICleanupHandler cleanupHandler,
+                    [FromServices] IOptionsSnapshot<PlexOptions> plexOptions,
+                    [FromServices] INotificationService notificationService,
+                    [FromServices] ILogger<Program> logger
+                ) =>
+                    await ScannedFilesController.DeleteScannedFiles(
+                        ids,
+                        context,
+                        cleanupHandler,
+                        plexOptions,
+                        notificationService,
+                        logger
+                    )
+            )
             .WithName("DeleteScannedFiles")
             .WithDescription("Deletes multiple scanned files by their IDs")
             .Produces(StatusCodes.Status200OK)

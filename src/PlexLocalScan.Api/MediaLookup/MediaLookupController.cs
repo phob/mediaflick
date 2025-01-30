@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-
 using PlexLocalScan.Shared.TmDbMediaSearch.Interfaces;
 
 namespace PlexLocalScan.Api.MediaLookup;
@@ -14,13 +13,14 @@ internal static class MediaLookupEndpoints
     {
         WriteIndented = false,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        Converters = { new JsonStringEnumConverter() }
+        Converters = { new JsonStringEnumConverter() },
     };
 
     internal static async Task<IResult> SearchMovies(
         string title,
         IMediaSearchService mediaLookupService,
-        ILogger<Program> logger)
+        ILogger<Program> logger
+    )
     {
         if (string.IsNullOrWhiteSpace(title))
         {
@@ -36,7 +36,8 @@ internal static class MediaLookupEndpoints
     internal static async Task<IResult> SearchTvShows(
         string title,
         IMediaSearchService mediaLookupService,
-        ILogger<Program> logger)
+        ILogger<Program> logger
+    )
     {
         if (string.IsNullOrWhiteSpace(title))
         {
@@ -52,11 +53,12 @@ internal static class MediaLookupEndpoints
     internal static async Task<IResult> GetMovieInfo(
         int tmdbId,
         IMediaSearchService mediaLookupService,
-        ILogger<Program> logger)
+        ILogger<Program> logger
+    )
     {
         logger.LogInformation("Getting movie info for TMDb ID: {TmdbId}", tmdbId);
         var movieInfo = await mediaLookupService.GetMovieMediaInfoAsync(tmdbId);
-        
+
         if (movieInfo is null)
         {
             return TypedResults.NotFound();
@@ -69,11 +71,12 @@ internal static class MediaLookupEndpoints
     internal static async Task<IResult> GetTvShowInfo(
         int tmdbId,
         IMediaSearchService mediaLookupService,
-        ILogger<Program> logger)
+        ILogger<Program> logger
+    )
     {
         logger.LogInformation("Getting TV show info for TMDb ID: {TmdbId}", tmdbId);
         var tvShowInfo = await mediaLookupService.GetTvShowMediaInfoAsync(tmdbId);
-        
+
         if (tvShowInfo is null)
         {
             return TypedResults.NotFound();
@@ -87,10 +90,19 @@ internal static class MediaLookupEndpoints
         int tmdbId,
         int seasonNumber,
         IMediaSearchService mediaLookupService,
-        ILogger<Program> logger)
+        ILogger<Program> logger
+    )
     {
-        logger.LogInformation("Getting TV season info for TMDb ID: {TmdbId}, Season Number: {SeasonNumber}", tmdbId, seasonNumber);
-        var tvSeasonInfo = await mediaLookupService.GetTvShowSeasonMediaInfoAsync(tmdbId, seasonNumber, includeDetails: true);
+        logger.LogInformation(
+            "Getting TV season info for TMDb ID: {TmdbId}, Season Number: {SeasonNumber}",
+            tmdbId,
+            seasonNumber
+        );
+        var tvSeasonInfo = await mediaLookupService.GetTvShowSeasonMediaInfoAsync(
+            tmdbId,
+            seasonNumber,
+            includeDetails: true
+        );
 
         if (tvSeasonInfo is null)
         {
@@ -106,11 +118,21 @@ internal static class MediaLookupEndpoints
         int seasonNumber,
         int episodeNumber,
         IMediaSearchService mediaLookupService,
-        ILogger<Program> logger)
+        ILogger<Program> logger
+    )
     {
-        logger.LogInformation("Getting TV episode info for TMDb ID: {TmdbId}, Season Number: {SeasonNumber}, Episode Number: {EpisodeNumber}", 
-            tmdbId, seasonNumber, episodeNumber);
-        var tvEpisodeInfo = await mediaLookupService.GetTvShowEpisodeMediaInfoAsync(tmdbId, seasonNumber, episodeNumber, includeDetails: true);
+        logger.LogInformation(
+            "Getting TV episode info for TMDb ID: {TmdbId}, Season Number: {SeasonNumber}, Episode Number: {EpisodeNumber}",
+            tmdbId,
+            seasonNumber,
+            episodeNumber
+        );
+        var tvEpisodeInfo = await mediaLookupService.GetTvShowEpisodeMediaInfoAsync(
+            tmdbId,
+            seasonNumber,
+            episodeNumber,
+            includeDetails: true
+        );
 
         if (tvEpisodeInfo is null)
         {
@@ -120,4 +142,4 @@ internal static class MediaLookupEndpoints
         var json = JsonSerializer.Serialize(tvEpisodeInfo, JsonOptions);
         return Results.Text(json, "application/json");
     }
-} 
+}

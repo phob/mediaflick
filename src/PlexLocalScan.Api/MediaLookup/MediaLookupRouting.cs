@@ -21,13 +21,15 @@ internal static class MediaLookupRouting
 
     private static void MapMovieEndpoints(RouteGroupBuilder group)
     {
-        group.MapGet("movies/search", MediaLookupEndpoints.SearchMovies)
+        group
+            .MapGet("movies/search", MediaLookupEndpoints.SearchMovies)
             .WithName("SearchMovies")
             .WithDescription("Searches for movies by title")
             .Produces<List<MediaSearchResult>>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest);
 
-        group.MapGet("movies/{tmdbId}", MediaLookupEndpoints.GetMovieInfo)
+        group
+            .MapGet("movies/{tmdbId}", MediaLookupEndpoints.GetMovieInfo)
             .WithName("GetMovieInfo")
             .WithDescription("Gets detailed information about a movie by TMDb ID")
             .Produces<MediaInfo>(StatusCodes.Status200OK)
@@ -36,25 +38,32 @@ internal static class MediaLookupRouting
 
     private static void MapTvShowEndpoints(RouteGroupBuilder group)
     {
-        group.MapGet("tvshows/search", MediaLookupEndpoints.SearchTvShows)
+        group
+            .MapGet("tvshows/search", MediaLookupEndpoints.SearchTvShows)
             .WithName("SearchTvShows")
             .WithDescription("Searches for TV shows by title")
             .Produces<List<MediaSearchResult>>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest);
 
-        group.MapGet("tvshows/{tmdbId}", MediaLookupEndpoints.GetTvShowInfo)
+        group
+            .MapGet("tvshows/{tmdbId}", MediaLookupEndpoints.GetTvShowInfo)
             .WithName("GetTvShowInfo")
             .WithDescription("Gets detailed information about a TV show by TMDb ID")
             .Produces<MediaInfo>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound);
 
-        group.MapGet("tvshows/{tmdbId}/seasons/{seasonNumber}", MediaLookupEndpoints.GetTvSeasonInfo)
+        group
+            .MapGet("tvshows/{tmdbId}/seasons/{seasonNumber}", MediaLookupEndpoints.GetTvSeasonInfo)
             .WithName("GetTvSeasonInfo")
             .WithDescription("Gets detailed information about a TV season by TMDb ID")
             .Produces<SeasonInfo>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound);
 
-        group.MapGet("tvshows/{tmdbId}/seasons/{seasonNumber}/episodes/{episodeNumber}", MediaLookupEndpoints.GetTvEpisodeInfo)
+        group
+            .MapGet(
+                "tvshows/{tmdbId}/seasons/{seasonNumber}/episodes/{episodeNumber}",
+                MediaLookupEndpoints.GetTvEpisodeInfo
+            )
             .WithName("GetTvEpisodeInfo")
             .WithDescription("Gets detailed information about a TV episode by TMDb ID")
             .Produces<EpisodeInfo>(StatusCodes.Status200OK)

@@ -12,7 +12,16 @@ public sealed class TmDbClientWrapper(string apiKey) : ITmDbClientWrapper, IDisp
     private readonly TMDbClient _client = new(apiKey);
     private const string BaseImageUrl = "https://image.tmdb.org/t/p/";
     private bool _disposed;
-    private static readonly string[] ValidImageSizes = ["w92", "w154", "w185", "w342", "w500", "w780", "original"];
+    private static readonly string[] ValidImageSizes =
+    [
+        "w92",
+        "w154",
+        "w185",
+        "w342",
+        "w500",
+        "w780",
+        "original",
+    ];
 
     public void Dispose()
     {
@@ -50,27 +59,31 @@ public sealed class TmDbClientWrapper(string apiKey) : ITmDbClientWrapper, IDisp
         return Task.FromResult<string?>($"{BaseImageUrl}{ValidateSize(size)}{FormatPath(path)}");
     }
 
-    public Task<SearchContainer<SearchMovie>> SearchMovieAsync(string query)
-        => _client.SearchMovieAsync(query);
+    public Task<SearchContainer<SearchMovie>> SearchMovieAsync(string query) =>
+        _client.SearchMovieAsync(query);
 
-    public Task<SearchContainer<SearchTv>> SearchTvShowAsync(string query)
-        => _client.SearchTvShowAsync(query);
+    public Task<SearchContainer<SearchTv>> SearchTvShowAsync(string query) =>
+        _client.SearchTvShowAsync(query);
 
-    public Task<Movie> GetMovieAsync(int movieId)
-        => _client.GetMovieAsync(movieId, MovieMethods.Images | MovieMethods.Credits);
-    
-    public Task<TvShow> GetTvShowAsync(int tvShowId)
-        => _client.GetTvShowAsync(tvShowId, TvShowMethods.Images | TvShowMethods.Credits);
+    public Task<Movie> GetMovieAsync(int movieId) =>
+        _client.GetMovieAsync(movieId, MovieMethods.Images | MovieMethods.Credits);
 
-    public Task<TvSeason> GetTvSeasonAsync(int tvShowId, int seasonNumber)
-        => _client.GetTvSeasonAsync(tvShowId, seasonNumber, TvSeasonMethods.Images | TvSeasonMethods.Credits);
+    public Task<TvShow> GetTvShowAsync(int tvShowId) =>
+        _client.GetTvShowAsync(tvShowId, TvShowMethods.Images | TvShowMethods.Credits);
 
-    public Task<TvEpisode> GetTvEpisodeAsync(int tvShowId, int seasonNumber, int episodeNumber)
-        => _client.GetTvEpisodeAsync(tvShowId, seasonNumber, episodeNumber);
+    public Task<TvSeason> GetTvSeasonAsync(int tvShowId, int seasonNumber) =>
+        _client.GetTvSeasonAsync(
+            tvShowId,
+            seasonNumber,
+            TvSeasonMethods.Images | TvSeasonMethods.Credits
+        );
 
-    public Task<ExternalIdsTvShow> GetTvShowExternalIdsAsync(int tvShowId)
-        => _client.GetTvShowExternalIdsAsync(tvShowId);
+    public Task<TvEpisode> GetTvEpisodeAsync(int tvShowId, int seasonNumber, int episodeNumber) =>
+        _client.GetTvEpisodeAsync(tvShowId, seasonNumber, episodeNumber);
 
-    public Task<ExternalIdsMovie> GetMovieExternalIdsAsync(int movieId)
-        => _client.GetMovieExternalIdsAsync(movieId);
-} 
+    public Task<ExternalIdsTvShow> GetTvShowExternalIdsAsync(int tvShowId) =>
+        _client.GetTvShowExternalIdsAsync(tvShowId);
+
+    public Task<ExternalIdsMovie> GetMovieExternalIdsAsync(int movieId) =>
+        _client.GetMovieExternalIdsAsync(movieId);
+}

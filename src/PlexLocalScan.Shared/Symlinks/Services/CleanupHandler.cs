@@ -6,9 +6,7 @@ using PlexLocalScan.Shared.Symlinks.Interfaces;
 
 namespace PlexLocalScan.Shared.Symlinks.Services;
 
-public class CleanupHandler(
-    ILogger<CleanupHandler> logger,
-    PlexScanContext dbContext)
+public class CleanupHandler(ILogger<CleanupHandler> logger, PlexScanContext dbContext)
     : ICleanupHandler
 {
     public async Task CleanupDeadSymlinksAsync(string baseFolder)
@@ -27,7 +25,10 @@ public class CleanupHandler(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error cleaning up dead symlinks in {BaseFolder}", baseFolder);
-            throw new InvalidOperationException($"Error cleaning up dead symlinks in {baseFolder}", ex);
+            throw new InvalidOperationException(
+                $"Error cleaning up dead symlinks in {baseFolder}",
+                ex
+            );
         }
     }
 
@@ -35,13 +36,18 @@ public class CleanupHandler(
     {
         try
         {
-            Directory.GetFiles(folder, "*.*", SearchOption.AllDirectories)
+            Directory
+                .GetFiles(folder, "*.*", SearchOption.AllDirectories)
                 .Where(SymlinkHelper.IsSymlink)
                 .Where(IsSymbolicLinkDead)
                 .ToList()
                 .ForEach(file =>
                 {
-                    logger.LogDebug("Removing dead symlink: {Path} -> {Target}", file, new FileInfo(file).LinkTarget);
+                    logger.LogDebug(
+                        "Removing dead symlink: {Path} -> {Target}",
+                        file,
+                        new FileInfo(file).LinkTarget
+                    );
                     File.Delete(file);
                 });
         }
@@ -73,7 +79,8 @@ public class CleanupHandler(
     {
         try
         {
-            Directory.GetDirectories(folder, "*", SearchOption.AllDirectories)
+            Directory
+                .GetDirectories(folder, "*", SearchOption.AllDirectories)
                 .Where(IsDirectoryEmpty)
                 .OrderByDescending(x => x.Length)
                 .ToList()
@@ -86,7 +93,10 @@ public class CleanupHandler(
         catch (Exception ex)
         {
             logger.LogError(ex, "Error removing empty directories in {Folder}", folder);
-            throw new InvalidOperationException($"Error removing empty directories in {folder}", ex);
+            throw new InvalidOperationException(
+                $"Error removing empty directories in {folder}",
+                ex
+            );
         }
     }
 
@@ -97,13 +107,16 @@ public class CleanupHandler(
         try
         {
             // Get all records for the deleted source folder
-            var affectedFiles = await dbContext.ScannedFiles
-                .Where(f => f.SourceFile.StartsWith(sourceFolder))
+            var affectedFiles = await dbContext
+                .ScannedFiles.Where(f => f.SourceFile.StartsWith(sourceFolder))
                 .ToListAsync();
 
             if (affectedFiles.Count == 0)
             {
-                logger.LogInformation("No files found for deleted source folder: {SourceFolder}", sourceFolder);
+                logger.LogInformation(
+                    "No files found for deleted source folder: {SourceFolder}",
+                    sourceFolder
+                );
                 return;
             }
 
@@ -130,7 +143,11 @@ public class CleanupHandler(
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError(ex, "Error deleting destination file: {DestFile}", file.DestFile);
+                    logger.LogError(
+                        ex,
+                        "Error deleting destination file: {DestFile}",
+                        file.DestFile
+                    );
                 }
             }
 #pragma warning restore S3267 // Loops should be simplified with "LINQ" expressions
@@ -145,13 +162,23 @@ public class CleanupHandler(
             dbContext.ScannedFiles.RemoveRange(affectedFiles);
             await dbContext.SaveChangesAsync();
 
-            logger.LogInformation("Cleaned up {Count} files for deleted source folder: {SourceFolder}",
-                affectedFiles.Count, sourceFolder);
+            logger.LogInformation(
+                "Cleaned up {Count} files for deleted source folder: {SourceFolder}",
+                affectedFiles.Count,
+                sourceFolder
+            );
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error cleaning up deleted source folder: {SourceFolder}", sourceFolder);
-            throw new InvalidOperationException($"Error cleaning up deleted source folder: {sourceFolder}", ex);
+            logger.LogError(
+                ex,
+                "Error cleaning up deleted source folder: {SourceFolder}",
+                sourceFolder
+            );
+            throw new InvalidOperationException(
+                $"Error cleaning up deleted source folder: {sourceFolder}",
+                ex
+            );
         }
     }
 }

@@ -10,7 +10,7 @@ namespace PlexLocalScan.SignalR.Hubs;
 public class ContextHub : Hub<ISignalRHub>
 {
     private const string HubRoute = "/hubs/filetracking";
-    
+
     /// <summary>
     /// Gets the hub route for client connections
     /// </summary>
@@ -34,4 +34,4 @@ public class ContextHub : Hub<ISignalRHub>
     public async Task OnFileUpdated(ScannedFileDto file) => await Clients.All.OnFileUpdated(file);
 
     public async Task OnHeartbeat(long timestamp) => await Clients.All.OnHeartbeat(timestamp);
-} 
+}

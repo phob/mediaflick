@@ -10,46 +10,42 @@ public partial class OnlyCombinationUnique : Migration
     /// <inheritdoc />
     protected override void Up(MigrationBuilder migrationBuilder)
     {
-        migrationBuilder.DropIndex(
-            name: "IX_ScannedFiles_DestFile",
-            table: "ScannedFiles");
+        migrationBuilder.DropIndex(name: "IX_ScannedFiles_DestFile", table: "ScannedFiles");
 
-        migrationBuilder.DropIndex(
-            name: "IX_ScannedFiles_SourceFile",
-            table: "ScannedFiles");
+        migrationBuilder.DropIndex(name: "IX_ScannedFiles_SourceFile", table: "ScannedFiles");
 
         migrationBuilder.CreateIndex(
             name: "IX_ScannedFiles_DestFile",
             table: "ScannedFiles",
-            column: "DestFile");
+            column: "DestFile"
+        );
 
         migrationBuilder.CreateIndex(
             name: "IX_ScannedFiles_SourceFile",
             table: "ScannedFiles",
-            column: "SourceFile");
+            column: "SourceFile"
+        );
     }
 
     /// <inheritdoc />
     protected override void Down(MigrationBuilder migrationBuilder)
     {
-        migrationBuilder.DropIndex(
-            name: "IX_ScannedFiles_DestFile",
-            table: "ScannedFiles");
+        migrationBuilder.DropIndex(name: "IX_ScannedFiles_DestFile", table: "ScannedFiles");
 
-        migrationBuilder.DropIndex(
-            name: "IX_ScannedFiles_SourceFile",
-            table: "ScannedFiles");
+        migrationBuilder.DropIndex(name: "IX_ScannedFiles_SourceFile", table: "ScannedFiles");
 
         migrationBuilder.CreateIndex(
             name: "IX_ScannedFiles_DestFile",
             table: "ScannedFiles",
             column: "DestFile",
-            unique: true);
+            unique: true
+        );
 
         migrationBuilder.CreateIndex(
             name: "IX_ScannedFiles_SourceFile",
             table: "ScannedFiles",
             column: "SourceFile",
-            unique: true);
+            unique: true
+        );
     }
 }

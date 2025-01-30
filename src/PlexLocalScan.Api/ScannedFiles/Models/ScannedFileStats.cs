@@ -25,4 +25,4 @@ public sealed class MediaTypeCount
 {
     public required MediaType MediaType { get; init; }
     public required int Count { get; init; }
-} 
+}

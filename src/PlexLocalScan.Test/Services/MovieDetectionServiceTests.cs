@@ -1,6 +1,6 @@
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Caching.Memory;
 using NSubstitute;
 using PlexLocalScan.Core.Media;
 using PlexLocalScan.Shared.Configuration.Options;
@@ -11,6 +11,7 @@ using TMDbLib.Objects.Search;
 using MediaType = PlexLocalScan.Core.Tables.MediaType;
 
 namespace PlexLocalScan.Test.Services;
+
 #pragma warning disable CA1515
 public sealed record MovieTestData
 #pragma warning restore CA1515
@@ -42,12 +43,7 @@ public class MovieDetectionServiceTests
         var cacheEntry = Substitute.For<ICacheEntry>();
         _cache.CreateEntry(Arg.Any<object>()).Returns(cacheEntry);
 
-        _service = new MovieDetectionService(
-            logger,
-            _tmdbClient,
-            _cache,
-            options
-        );
+        _service = new MovieDetectionService(logger, _tmdbClient, _cache, options);
     }
 
     [Theory]
@@ -65,9 +61,9 @@ public class MovieDetectionServiceTests
                     Id = testData.TmdbId,
                     Title = testData.Title,
                     ReleaseDate = testData.ReleaseDate,
-                    Popularity = testData.Popularity
-                }
-            ]
+                    Popularity = testData.Popularity,
+                },
+            ],
         };
 
         var externalIds = new ExternalIdsMovie { ImdbId = testData.ImdbId };
@@ -88,36 +84,36 @@ public class MovieDetectionServiceTests
     }
 
     public static TheoryData<MovieTestData> MovieTestData =>
-    [
-        new MovieTestData
-        {
-            FileName = "The Matrix 1999.mkv",
-            Title = "The Matrix",
-            TmdbId = 603,
-            ImdbId = "tt0133093",
-            Year = 1999,
-            ReleaseDate = new DateTime(1999, 3, 31, 0, 0, 0, DateTimeKind.Utc)
-        },
-        new MovieTestData
-        {
-            FileName = "Inception (2010).mkv",
-            Title = "Inception",
-            TmdbId = 27205,
-            ImdbId = "tt1375666",
-            Year = 2010,
-            ReleaseDate = new DateTime(2010, 7, 15, 0, 0, 0, DateTimeKind.Utc),
-            Popularity = 95.0
-        },
-        new MovieTestData
-        {
-            FileName = "Pulp.Fiction.1994.mkv",
-            Title = "Pulp Fiction",
-            TmdbId = 680,
-            ImdbId = "tt0110912",
-            Year = 1994,
-            ReleaseDate = new DateTime(1994, 10, 14, 0, 0, 0, DateTimeKind.Utc)
-        }
-    ];
+        [
+            new MovieTestData
+            {
+                FileName = "The Matrix 1999.mkv",
+                Title = "The Matrix",
+                TmdbId = 603,
+                ImdbId = "tt0133093",
+                Year = 1999,
+                ReleaseDate = new DateTime(1999, 3, 31, 0, 0, 0, DateTimeKind.Utc),
+            },
+            new MovieTestData
+            {
+                FileName = "Inception (2010).mkv",
+                Title = "Inception",
+                TmdbId = 27205,
+                ImdbId = "tt1375666",
+                Year = 2010,
+                ReleaseDate = new DateTime(2010, 7, 15, 0, 0, 0, DateTimeKind.Utc),
+                Popularity = 95.0,
+            },
+            new MovieTestData
+            {
+                FileName = "Pulp.Fiction.1994.mkv",
+                Title = "Pulp Fiction",
+                TmdbId = 680,
+                ImdbId = "tt0110912",
+                Year = 1994,
+                ReleaseDate = new DateTime(1994, 10, 14, 0, 0, 0, DateTimeKind.Utc),
+            },
+        ];
 
     [Fact]
     public async Task DetectMovieAsyncWithInvalidFileNameReturnsEmptyMediaInfo()
@@ -144,7 +140,7 @@ public class MovieDetectionServiceTests
         const string filePath = @"D:\Movies\The Matrix 1999.mkv";
         var searchContainer = new SearchContainer<SearchMovie>
         {
-            Results = new List<SearchMovie>()
+            Results = new List<SearchMovie>(),
         };
 
         _tmdbClient.SearchMovieAsync("The Matrix").Returns(searchContainer);
@@ -168,7 +164,7 @@ public class MovieDetectionServiceTests
         {
             Id = tmdbId,
             Title = "The Matrix",
-            ReleaseDate = new DateTime(1999, 3, 31, 0, 0, 0, DateTimeKind.Utc)
+            ReleaseDate = new DateTime(1999, 3, 31, 0, 0, 0, DateTimeKind.Utc),
         };
         var externalIds = new ExternalIdsMovie { ImdbId = "tt0133093" };
 
@@ -192,8 +188,13 @@ public class MovieDetectionServiceTests
     {
         // Arrange
         const int tmdbId = -1;
-        _tmdbClient.GetMovieAsync(Arg.Any<int>())
-            .Returns(Task.FromException<TMDbLib.Objects.Movies.Movie>(new HttpRequestException("Invalid TMDb ID")));
+        _tmdbClient
+            .GetMovieAsync(Arg.Any<int>())
+            .Returns(
+                Task.FromException<TMDbLib.Objects.Movies.Movie>(
+                    new HttpRequestException("Invalid TMDb ID")
+                )
+            );
 
         // Act
         var result = await _service.DetectMovieByTmdbIdAsync(tmdbId);
@@ -217,11 +218,13 @@ public class MovieDetectionServiceTests
             Year = 1999,
             TmdbId = 603,
             ImdbId = "tt0133093",
-            MediaType = MediaType.Movies
+            MediaType = MediaType.Movies,
         };
 
-        _cache.TryGetValue(Arg.Any<string>(), out _)
-            .Returns(callInfo => {
+        _cache
+            .TryGetValue(Arg.Any<string>(), out _)
+            .Returns(callInfo =>
+            {
                 callInfo[1] = cachedMediaInfo;
                 return true;
             });
@@ -235,8 +238,8 @@ public class MovieDetectionServiceTests
         Assert.Equal(cachedMediaInfo.Year, result.Year);
         Assert.Equal(cachedMediaInfo.TmdbId, result.TmdbId);
         Assert.Equal(cachedMediaInfo.ImdbId, result.ImdbId);
-        
+
         // Verify TMDb API was not called
         await _tmdbClient.DidNotReceive().SearchMovieAsync(Arg.Any<string>());
     }
-} 
+}

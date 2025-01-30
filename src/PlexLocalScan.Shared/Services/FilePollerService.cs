@@ -1,8 +1,8 @@
+using System.Collections.Concurrent;
+using Coravel.Invocable;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Coravel.Invocable;
 using PlexLocalScan.Shared.Configuration.Options;
-using System.Collections.Concurrent;
 
 namespace PlexLocalScan.Shared.Services;
 
@@ -10,7 +10,8 @@ public class FilePollerService(
     ILogger<FilePollerService> logger,
     IOptionsMonitor<PlexOptions> options,
     IOptionsMonitor<TmDbOptions> tmDbOptions,
-    IFileProcessing fileProcessing) : IInvocable
+    IFileProcessing fileProcessing
+) : IInvocable
 {
     private readonly ConcurrentDictionary<string, HashSet<string>> _knownFolders = [];
 
@@ -50,7 +51,10 @@ public class FilePollerService(
         {
             if (Directory.Exists(mapping.SourceFolder))
             {
-                _knownFolders[mapping.SourceFolder] = [.. Directory.GetDirectories(mapping.SourceFolder)];
+                _knownFolders[mapping.SourceFolder] =
+                [
+                    .. Directory.GetDirectories(mapping.SourceFolder),
+                ];
             }
         }
 

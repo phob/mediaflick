@@ -14,19 +14,24 @@ internal static class LoggingRouting
             .WithOpenApi()
             .WithDescription("Provides access to application logs");
 
-        group.MapGet("/", async (
-            [FromServices] LoggingController controller,
-            [FromQuery] LogEventLevel? minLevel,
-            [FromQuery] string? searchTerm,
-            [FromQuery] DateTime? from,
-            [FromQuery] DateTime? to,
-            [FromQuery] int limit = 100) =>
-        {
-            return await controller.GetLogs(minLevel, searchTerm, from, to, limit);
-        })
-        .WithName("GetLogs")
-        .WithDescription("Retrieves application logs with optional filtering")
-        .Produces<object>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status500InternalServerError);
+        group
+            .MapGet(
+                "/",
+                async (
+                    [FromServices] LoggingController controller,
+                    [FromQuery] LogEventLevel? minLevel,
+                    [FromQuery] string? searchTerm,
+                    [FromQuery] DateTime? from,
+                    [FromQuery] DateTime? to,
+                    [FromQuery] int limit = 100
+                ) =>
+                {
+                    return await controller.GetLogs(minLevel, searchTerm, from, to, limit);
+                }
+            )
+            .WithName("GetLogs")
+            .WithDescription("Retrieves application logs with optional filtering")
+            .Produces<object>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status500InternalServerError);
     }
-} 
+}

@@ -1,6 +1,4 @@
 using Coravel;
-
-using PlexLocalScan.Api.Endpoints;
 using PlexLocalScan.Shared.Services;
 using PlexLocalScan.SignalR.Hubs;
 using Scalar.AspNetCore;
@@ -16,27 +14,36 @@ public static class Middleware
         app.UseCors();
 
         // Configure the HTTP request pipeline
-        app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
-        {
-            context.Response.StatusCode = 500;
-            context.Response.ContentType = "application/json";
-            var error = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
-            if (error != null)
+        app.UseExceptionHandler(errorApp =>
+            errorApp.Run(async context =>
             {
-                var ex = error.Error;
-                Log.Error(ex, "An unhandled exception occurred");
-                await context.Response.WriteAsJsonAsync(new
+                context.Response.StatusCode = 500;
+                context.Response.ContentType = "application/json";
+                var error =
+                    context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
+                if (error != null)
                 {
-                    error = "An internal server error occurred.",
-                    details = app.Environment.IsDevelopment() ? ex.Message : null
-                });
-            }
-        }));
+                    var ex = error.Error;
+                    Log.Error(ex, "An unhandled exception occurred");
+                    await context.Response.WriteAsJsonAsync(
+                        new
+                        {
+                            error = "An internal server error occurred.",
+                            details = app.Environment.IsDevelopment() ? ex.Message : null,
+                        }
+                    );
+                }
+            })
+        );
 
         // Initialize Coravel scheduler
         app.Services.UseScheduler(scheduler =>
         {
-            scheduler.Schedule<FilePollerService>().EveryMinute();
+            scheduler
+                .Schedule<FilePollerService>()
+                .EveryMinute()
+                .RunOnceAtStart()
+                .PreventOverlapping(nameof(FilePollerService));
         });
 
         // Add middleware in the correct order
@@ -53,4 +60,4 @@ public static class Middleware
 
         return app;
     }
-} 
+}

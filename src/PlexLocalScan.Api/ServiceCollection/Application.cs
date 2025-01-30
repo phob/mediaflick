@@ -1,9 +1,13 @@
+using System.Text.Json.Serialization;
+using Coravel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using PlexLocalScan.Abstractions;
 using PlexLocalScan.Api.Config;
 using PlexLocalScan.Data.Data;
 using PlexLocalScan.Shared.Configuration.Options;
+using PlexLocalScan.Shared.DbContext.Interfaces;
+using PlexLocalScan.Shared.DbContext.Services;
 using PlexLocalScan.Shared.MediaDetection.Interfaces;
 using PlexLocalScan.Shared.MediaDetection.Services;
 using PlexLocalScan.Shared.Plex.Interfaces;
@@ -14,23 +18,24 @@ using PlexLocalScan.Shared.Symlinks.Services;
 using PlexLocalScan.Shared.TmDbMediaSearch.Interfaces;
 using PlexLocalScan.Shared.TmDbMediaSearch.Services;
 using PlexLocalScan.SignalR.Services;
-using PlexLocalScan.Shared.DbContext.Interfaces;
-using PlexLocalScan.Shared.DbContext.Services;
-using System.Text.Json.Serialization;
-using Coravel;
 
 namespace PlexLocalScan.Api.ServiceCollection;
 
 public static class Application
 {
-    public static void AddApplication(this IServiceCollection services, IConfiguration configuration)
+    public static void AddApplication(
+        this IServiceCollection services,
+        IConfiguration configuration
+    )
     {
         // Add controllers with JSON options
-        services.AddControllers()
+        services
+            .AddControllers()
             .AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.WriteIndented = false;
-                options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+                options.JsonSerializerOptions.DefaultIgnoreCondition =
+                    JsonIgnoreCondition.WhenWritingNull;
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
             });
 
@@ -46,7 +51,8 @@ public static class Application
         });
 
         // Configure core services
-        services.AddOptions()
+        services
+            .AddOptions()
             .Configure<PlexOptions>(configuration.GetSection("Plex"))
             .Configure<TmDbOptions>(configuration.GetSection("TMDb"))
             .Configure<MediaDetectionOptions>(configuration.GetSection("MediaDetection"))
@@ -55,10 +61,16 @@ public static class Application
         services.AddScheduler();
 
         // Add singleton services
-        services.AddSingleton(new YamlConfigurationService(configuration, Path.Combine(AppContext.BaseDirectory, "config", "config.yml")));
+        services.AddSingleton(
+            new YamlConfigurationService(
+                configuration,
+                Path.Combine(AppContext.BaseDirectory, "config", "config.yml")
+            )
+        );
 
         // Add scoped services
-        services.AddScoped<INotificationService, NotificationService>()
+        services
+            .AddScoped<INotificationService, NotificationService>()
             .AddScoped<ISymlinkHandler, SymlinkHandler>()
             .AddScoped<ITmDbClientWrapper>(sp =>
             {
@@ -77,17 +89,18 @@ public static class Application
             .AddScoped<FilePollerService>();
 
         // Add database context
-        services.AddDbContext<PlexScanContext>((_, options) =>
-        {
-            var connectionString = $"Data Source={Path.Combine(AppContext.BaseDirectory, "config", "plexscan.db")}";
-            options.UseSqlite(connectionString);
-        });
+        services.AddDbContext<PlexScanContext>(
+            (_, options) =>
+            {
+                var connectionString =
+                    $"Data Source={Path.Combine(AppContext.BaseDirectory, "config", "plexscan.db")}";
+                options.UseSqlite(connectionString);
+            }
+        );
         // Add Coravel services
         services.AddQueue();
 
-
         // Add additional services
-        services.AddHttpClient()
-            .AddMemoryCache();
+        services.AddHttpClient().AddMemoryCache();
     }
 }

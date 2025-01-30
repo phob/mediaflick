@@ -1,11 +1,10 @@
-
 using PlexLocalScan.Api.Config;
 using PlexLocalScan.Api.Logging;
 using PlexLocalScan.Api.MediaLookup;
 using PlexLocalScan.Api.ScannedFiles;
 using PlexLocalScan.Api.Symlink;
 
-namespace PlexLocalScan.Api.Endpoints;
+namespace PlexLocalScan.Api;
 
 /// <summary>
 /// Extension methods for endpoint registration
@@ -19,7 +18,7 @@ internal static class EndpointExtensions
     {
         // Media lookup endpoints
         app.MapMediaLookupEndpoints();
-        
+
         // Scanned files endpoints
         app.MapScannedFilesEndpoints();
 
@@ -34,4 +33,4 @@ internal static class EndpointExtensions
 
         return app;
     }
-} 
+}

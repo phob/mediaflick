@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -6,8 +8,6 @@ using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Shared.Configuration.Options;
 using PlexLocalScan.Shared.MediaDetection.Interfaces;
 using PlexLocalScan.Shared.TmDbMediaSearch.Interfaces;
-using System.Globalization;
-using System.Text.RegularExpressions;
 using TMDbLib.Objects.Search;
 using static PlexLocalScan.Shared.MediaDetection.Options.RegexTv;
 
@@ -17,16 +17,13 @@ public class TvShowDetectionService(
     ILogger<TvShowDetectionService> logger,
     ITmDbClientWrapper tmdbClient,
     IMemoryCache cache,
-    IOptionsSnapshot<MediaDetectionOptions> options)
-    : ITvShowDetectionService
+    IOptionsSnapshot<MediaDetectionOptions> options
+) : ITvShowDetectionService
 {
     private readonly MediaDetectionOptions _options = options.Value;
     private readonly Regex _tvShowPattern = BasicSeasonEpisodeRegex;
     private readonly Regex _titleCleanupPattern = FinerTitleRegex;
-    private readonly MediaInfo _emptyMediaInfo = new MediaInfo
-    {
-        MediaType = MediaType.TvShows
-    };
+    private readonly MediaInfo _emptyMediaInfo = new MediaInfo { MediaType = MediaType.TvShows };
 
     public async Task<MediaInfo> DetectTvShowAsync(string fileName, string filePath)
     {
@@ -35,7 +32,12 @@ public class TvShowDetectionService(
             logger.LogDebug("Attempting to detect TV show pattern for: {FileName}", fileName);
             var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
             var match = _tvShowPattern.Match(fileNameWithoutExtension);
-            var titleMatch = _titleCleanupPattern.Match(match.Groups["title"].Value.Replace(".", " ", StringComparison.OrdinalIgnoreCase).Trim());
+            var titleMatch = _titleCleanupPattern.Match(
+                match
+                    .Groups["title"]
+                    .Value.Replace(".", " ", StringComparison.OrdinalIgnoreCase)
+                    .Trim()
+            );
             if (!match.Success || !titleMatch.Success)
             {
                 logger.LogDebug("Filename does not match TV show pattern: {FileName}", fileName);
@@ -55,7 +57,7 @@ public class TvShowDetectionService(
                 return cachedInfo ?? _emptyMediaInfo;
             }
 
-            var bestMatch =  await TmdbSearchShowAsync(title);
+            var bestMatch = await TmdbSearchShowAsync(title);
             if (bestMatch == null)
             {
                 return _emptyMediaInfo;
@@ -75,7 +77,7 @@ public class TvShowDetectionService(
                 EpisodeNumber2 = episode2,
                 EpisodeTitle = episodeInfo?.Name,
                 EpisodeTmdbId = episodeInfo?.Id,
-                Genres = tvShowDetails.Genres?.Select(g => g.Name).ToList().AsReadOnly()
+                Genres = tvShowDetails.Genres?.Select(g => g.Name).ToList().AsReadOnly(),
             };
             cache.Set(cacheKey, mediaInfo, TimeSpan.FromSeconds(_options.CacheDuration));
             return mediaInfo;
@@ -92,10 +94,12 @@ public class TvShowDetectionService(
         var searchResults = await tmdbClient.SearchTvShowAsync(title);
         if (searchResults.Results.Count == 0)
         {
-            searchResults = await tmdbClient.SearchTvShowAsync(title.Replace("complete", "", StringComparison.OrdinalIgnoreCase));
+            searchResults = await tmdbClient.SearchTvShowAsync(
+                title.Replace("complete", "", StringComparison.OrdinalIgnoreCase)
+            );
         }
-        var bestMatch = searchResults.Results
-            .OrderByDescending(s => GetTitleSimilarity(title, s.Name))
+        var bestMatch = searchResults
+            .Results.OrderByDescending(s => GetTitleSimilarity(title, s.Name))
             .ThenByDescending(s => s.Popularity)
             .FirstOrDefault();
         if (bestMatch != null)
@@ -138,7 +142,7 @@ public class TvShowDetectionService(
                 EpisodeNumber = episode,
                 EpisodeTitle = episodeInfo?.Name,
                 EpisodeTmdbId = episodeInfo?.Id,
-                Genres = tvShowDetails.Genres?.Select(g => g.Name).ToList().AsReadOnly()
+                Genres = tvShowDetails.Genres?.Select(g => g.Name).ToList().AsReadOnly(),
             };
 
             cache.Set(cacheKey, mediaInfo, TimeSpan.FromSeconds(_options.CacheDuration));
@@ -154,7 +158,11 @@ public class TvShowDetectionService(
     private static double GetTitleSimilarity(string searchTitle, string resultTitle)
     {
         static string NormalizeForComparison(string input) =>
-            input.ToUpperInvariant().Replace(":", "", StringComparison.OrdinalIgnoreCase).Replace("-", "", StringComparison.OrdinalIgnoreCase).Trim();
+            input
+                .ToUpperInvariant()
+                .Replace(":", "", StringComparison.OrdinalIgnoreCase)
+                .Replace("-", "", StringComparison.OrdinalIgnoreCase)
+                .Trim();
 
         searchTitle = NormalizeForComparison(searchTitle);
         resultTitle = NormalizeForComparison(resultTitle);
@@ -175,4 +183,4 @@ public class TvShowDetectionService(
         var matchedWords = searchWords.Count(sw => resultWords.Any(rw => rw == sw));
         return (double)matchedWords / Math.Max(searchWords.Length, resultWords.Length);
     }
-} 
+}

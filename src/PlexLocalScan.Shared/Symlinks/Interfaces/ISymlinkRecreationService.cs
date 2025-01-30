@@ -6,4 +6,4 @@ public interface ISymlinkRecreationService
 {
     Task<bool> RecreateSymlinkIfNeededAsync(ScannedFile scannedFile);
     Task<int> RecreateAllSymlinksAsync();
-} 
+}

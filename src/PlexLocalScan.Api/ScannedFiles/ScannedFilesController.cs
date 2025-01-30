@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-
 using PlexLocalScan.Abstractions;
 using PlexLocalScan.Api.Models;
 using PlexLocalScan.Api.ScannedFiles.Models;
@@ -23,11 +22,20 @@ internal static class ScannedFilesController
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
         PlexScanContext context = null!,
-        ILogger<Program> logger = null!)
+        ILogger<Program> logger = null!
+    )
     {
         logger.LogInformation(
             "Getting scanned files. IDs: {Ids}, Page: {Page}, PageSize: {PageSize}, Status: {Status}, MediaType: {MediaType}, SearchTerm: {SearchTerm}, SortBy: {SortBy}, SortOrder: {SortOrder}",
-            ids != null ? string.Join(",", ids) : "all", page, pageSize, filter.Status, filter.MediaType, filter.SearchTerm, filter.SortBy, filter.SortOrder);
+            ids != null ? string.Join(",", ids) : "all",
+            page,
+            pageSize,
+            filter.Status,
+            filter.MediaType,
+            filter.SearchTerm,
+            filter.SortBy,
+            filter.SortOrder
+        );
 
         var query = context.ScannedFiles.AsQueryable();
 
@@ -52,8 +60,9 @@ internal static class ScannedFilesController
         {
             var searchTerm = filter.SearchTerm.ToUpperInvariant();
             query = query.Where(f =>
-                EF.Functions.Like(f.SourceFile.ToUpper(), $"%{searchTerm}%") ||
-                f.DestFile != null && EF.Functions.Like(f.DestFile.ToUpper(), $"%{searchTerm}%"));
+                EF.Functions.Like(f.SourceFile.ToUpper(), $"%{searchTerm}%")
+                || f.DestFile != null && EF.Functions.Like(f.DestFile.ToUpper(), $"%{searchTerm}%")
+            );
         }
 
         // Apply sorting
@@ -86,40 +95,43 @@ internal static class ScannedFilesController
             "title" => filter.SortOrder?.ToUpperInvariant() == "desc"
                 ? query.OrderByDescending(f => f.Title)
                 : query.OrderBy(f => f.Title),
-            _ => query.OrderBy(f => f.SourceFile) // Default sorting
+            _ => query.OrderBy(f => f.SourceFile), // Default sorting
         };
 
         var totalItems = await query.CountAsync();
-        var items = await query
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
+        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
 
         logger.LogInformation(
             "Retrieved {Count} scanned files. Total items: {TotalItems}, Total pages: {TotalPages}",
-            items.Count, totalItems, (int)Math.Ceiling(totalItems / (double)pageSize));
+            items.Count,
+            totalItems,
+            (int)Math.Ceiling(totalItems / (double)pageSize)
+        );
 
-        return Results.Ok(new PagedResult<ScannedFileDto>
-        {
-            Items = items.Select(ScannedFileDto.FromScannedFile).ToList(),
-            TotalItems = totalItems,
-            Page = page,
-            PageSize = pageSize,
-            TotalPages = (int)Math.Ceiling(totalItems / (double)pageSize)
-        });
+        return Results.Ok(
+            new PagedResult<ScannedFileDto>
+            {
+                Items = items.Select(ScannedFileDto.FromScannedFile).ToList(),
+                TotalItems = totalItems,
+                Page = page,
+                PageSize = pageSize,
+                TotalPages = (int)Math.Ceiling(totalItems / (double)pageSize),
+            }
+        );
     }
 
     internal static async Task<IResult> GetTmdbIdsAndTitles(
         [FromQuery] ScannedFileFilter filter,
         PlexScanContext context = null!,
-        ILogger<Program> logger = null!)
+        ILogger<Program> logger = null!
+    )
     {
         logger.LogInformation("Getting TMDb IDs and titles with filter: {@Filter}", filter);
-        
+
         var query = context.ScannedFiles.AsQueryable();
-        
+
         query = query.Where(f => f.Status == FileStatus.Success);
-        
+
         if (filter.MediaType.HasValue)
         {
             query = query.Where(f => f.MediaType == filter.MediaType.Value);
@@ -128,18 +140,28 @@ internal static class ScannedFilesController
         if (!string.IsNullOrEmpty(filter.SearchTerm))
         {
             var searchTerm = filter.SearchTerm.ToUpperInvariant();
-            query = query.Where(f => f.Title != null && EF.Functions.Like(f.Title.ToUpper(), $"%{searchTerm}%"));
+            query = query.Where(f =>
+                f.Title != null && EF.Functions.Like(f.Title.ToUpper(), $"%{searchTerm}%")
+            );
         }
 
-        var tmdbIdsAndTitles = await query.Select(f => new { f.TmdbId, f.Title }).Distinct().OrderBy(f => f.Title).ToListAsync();
-        logger.LogInformation("Retrieved {Count} unique TMDb IDs and titles", tmdbIdsAndTitles.Count);
+        var tmdbIdsAndTitles = await query
+            .Select(f => new { f.TmdbId, f.Title })
+            .Distinct()
+            .OrderBy(f => f.Title)
+            .ToListAsync();
+        logger.LogInformation(
+            "Retrieved {Count} unique TMDb IDs and titles",
+            tmdbIdsAndTitles.Count
+        );
         return Results.Ok(tmdbIdsAndTitles);
     }
 
     internal static async Task<IResult> GetScannedFile(
         int id,
         PlexScanContext context = null!,
-        ILogger<Program> logger = null!)
+        ILogger<Program> logger = null!
+    )
     {
         logger.LogInformation("Getting scanned file with ID: {Id}", id);
         var scannedFile = await context.ScannedFiles.FindAsync(id);
@@ -156,22 +178,23 @@ internal static class ScannedFilesController
 
     internal static async Task<IResult> GetStats(
         PlexScanContext context = null!,
-        ILogger<Program> logger = null!)
+        ILogger<Program> logger = null!
+    )
     {
         logger.LogInformation("Getting scanned files statistics");
 
         var stats = new ScannedFileStats
         {
             TotalFiles = await context.ScannedFiles.CountAsync(),
-            ByStatus = await context.ScannedFiles
-                .GroupBy(f => f.Status)
+            ByStatus = await context
+                .ScannedFiles.GroupBy(f => f.Status)
                 .Select(g => new StatusCount { Status = g.Key, Count = g.Count() })
                 .ToListAsync(),
-            ByMediaType = await context.ScannedFiles
-                .Where(f => f.MediaType.HasValue)
+            ByMediaType = await context
+                .ScannedFiles.Where(f => f.MediaType.HasValue)
                 .GroupBy(f => f.MediaType!.Value)
                 .Select(g => new MediaTypeCount { MediaType = g.Key, Count = g.Count() })
-                .ToListAsync()
+                .ToListAsync(),
         };
 
         logger.LogInformation("Retrieved statistics: {@Stats}", stats);
@@ -182,11 +205,16 @@ internal static class ScannedFilesController
         int id,
         [FromBody] UpdateScannedFileRequest request,
         PlexScanContext context = null!,
-        ILogger<Program> logger = null!)
+        ILogger<Program> logger = null!
+    )
     {
         try
         {
-            logger.LogInformation("Updating scanned file {Id} with request: {@Request}", id, request);
+            logger.LogInformation(
+                "Updating scanned file {Id} with request: {@Request}",
+                id,
+                request
+            );
 
             var scannedFile = await context.ScannedFiles.FindAsync(id);
 
@@ -216,13 +244,15 @@ internal static class ScannedFilesController
             scannedFile.UpdateToVersion++;
 
             await context.SaveChangesAsync();
-            
+
             return Results.Ok(scannedFile);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to update scanned file {Id}", id);
-            return Results.BadRequest(new { error = "Failed to update the scanned file", details = ex.Message });
+            return Results.BadRequest(
+                new { error = "Failed to update the scanned file", details = ex.Message }
+            );
         }
     }
 
@@ -230,7 +260,8 @@ internal static class ScannedFilesController
         int id,
         PlexScanContext context = null!,
         ISymlinkRecreationService symlinkRecreationService = null!,
-        ILogger<Program> logger = null!)
+        ILogger<Program> logger = null!
+    )
     {
         try
         {
@@ -253,13 +284,19 @@ internal static class ScannedFilesController
 
             // Refresh the entity from the database to get the latest version
             await context.Entry(scannedFile).ReloadAsync();
-            logger.LogInformation("Successfully updated scanned file {Id}: {@ScannedFile}", id, scannedFile);
+            logger.LogInformation(
+                "Successfully updated scanned file {Id}: {@ScannedFile}",
+                id,
+                scannedFile
+            );
             return Results.Ok(scannedFile);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to update scanned file {Id}", id);
-            return Results.BadRequest(new { error = "Failed to update the scanned file", details = ex.Message });
+            return Results.BadRequest(
+                new { error = "Failed to update the scanned file", details = ex.Message }
+            );
         }
     }
 
@@ -269,7 +306,8 @@ internal static class ScannedFilesController
         ICleanupHandler cleanupHandler = null!,
         IOptionsSnapshot<PlexOptions> plexOptions = null!,
         INotificationService notificationService = null!,
-        ILogger<Program> logger = null!)
+        ILogger<Program> logger = null!
+    )
     {
         if (ids == null || ids.Length == 0)
         {
@@ -278,15 +316,13 @@ internal static class ScannedFilesController
 
         logger.LogInformation("Deleting multiple scanned files. IDs: {@Ids}", ids);
 
-        var filesToDelete = await context.ScannedFiles
-            .Where(f => ids.Contains(f.Id))
-            .ToListAsync();
+        var filesToDelete = await context.ScannedFiles.Where(f => ids.Contains(f.Id)).ToListAsync();
 
         if (filesToDelete.Count > 0)
         {
             // Group files by media type for efficient cleanup
             var filesByMediaType = filesToDelete.GroupBy(f => f.MediaType);
-            
+
             foreach (var mediaTypeGroup in filesByMediaType)
             {
                 if (!mediaTypeGroup.Key.HasValue)
@@ -294,8 +330,9 @@ internal static class ScannedFilesController
                     continue;
                 }
 
-                var folderMapping = plexOptions.Value.FolderMappings
-                    .FirstOrDefault(fm => fm.MediaType == mediaTypeGroup.Key);
+                var folderMapping = plexOptions.Value.FolderMappings.FirstOrDefault(fm =>
+                    fm.MediaType == mediaTypeGroup.Key
+                );
 
                 if (folderMapping != null)
                 {
@@ -306,11 +343,11 @@ internal static class ScannedFilesController
                         {
                             File.Delete(file.DestFile);
                         }
-                        
+
                         // Notify clients about each deletion
                         await notificationService.NotifyFileRemoved(file);
                     }
-                    
+
                     // Clean up empty directories once per media type
                     await cleanupHandler.CleanupDeadSymlinksAsync(folderMapping.DestinationFolder);
                 }
@@ -326,11 +363,15 @@ internal static class ScannedFilesController
 
     internal static async Task<IResult> RecreateSymlinks(
         ISymlinkRecreationService symlinkRecreationService,
-        ILogger<Program> logger)
+        ILogger<Program> logger
+    )
     {
         logger.LogInformation("Starting recreation of all symlinks");
         var successCount = await symlinkRecreationService.RecreateAllSymlinksAsync();
-        logger.LogInformation("Completed recreation of symlinks. Success count: {SuccessCount}", successCount);
+        logger.LogInformation(
+            "Completed recreation of symlinks. Success count: {SuccessCount}",
+            successCount
+        );
         return Results.Ok(new { SuccessCount = successCount });
     }
 }

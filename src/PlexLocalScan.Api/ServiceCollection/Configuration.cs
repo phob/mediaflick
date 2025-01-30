@@ -1,5 +1,4 @@
 using PlexLocalScan.Api.Config;
-
 using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Json;
@@ -14,13 +13,14 @@ public static class Configuration
         var configPath = Path.Combine(AppContext.BaseDirectory, "config", "config.yml");
         Directory.CreateDirectory(Path.GetDirectoryName(configPath)!);
         Console.WriteLine("configPath: " + configPath);
-        var configDir = Path.GetDirectoryName(configPath) 
+        var configDir =
+            Path.GetDirectoryName(configPath)
             ?? throw new InvalidOperationException("Config directory path cannot be null");
 
         ConfigurationHelper.EnsureDefaultConfigAsync(configPath).GetAwaiter().GetResult();
 
-        builder.Configuration
-            .SetBasePath(configDir)
+        builder
+            .Configuration.SetBasePath(configDir)
             .AddYamlFile(Path.GetFileName(configPath), false, reloadOnChange: true)
             .AddEnvironmentVariables()
             .AddCommandLine(args: []);
@@ -30,22 +30,27 @@ public static class Configuration
         Directory.CreateDirectory(logsPath);
 
         // Configure Serilog
-        builder.Host.UseSerilog((context, services, configuration) => configuration
-            .ReadFrom.Configuration(context.Configuration)
-            .ReadFrom.Services(services)
-            .Enrich.FromLogContext()
-            .Enrich.WithMachineName()
-            .Enrich.WithThreadId()
-            .WriteTo.Console()
-            .MinimumLevel.Debug()
-            .WriteTo.File(new JsonFormatter(renderMessage: true),
-                Path.Combine(logsPath, "log.json"),
-                rollingInterval: RollingInterval.Day,
-                retainedFileCountLimit: 7,
-                fileSizeLimitBytes: 10 * 1024 * 1024) // 10MB
-            .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
-            .MinimumLevel.Override("System", LogEventLevel.Warning));
+        builder.Host.UseSerilog(
+            (context, services, configuration) =>
+                configuration
+                    .ReadFrom.Configuration(context.Configuration)
+                    .ReadFrom.Services(services)
+                    .Enrich.FromLogContext()
+                    .Enrich.WithMachineName()
+                    .Enrich.WithThreadId()
+                    .WriteTo.Console()
+                    .MinimumLevel.Debug()
+                    .WriteTo.File(
+                        new JsonFormatter(renderMessage: true),
+                        Path.Combine(logsPath, "log.json"),
+                        rollingInterval: RollingInterval.Day,
+                        retainedFileCountLimit: 7,
+                        fileSizeLimitBytes: 10 * 1024 * 1024
+                    ) // 10MB
+                    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+                    .MinimumLevel.Override("System", LogEventLevel.Warning)
+        );
 
         return builder;
     }
-} 
+}

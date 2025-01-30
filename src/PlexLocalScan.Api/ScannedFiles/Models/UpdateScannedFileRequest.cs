@@ -7,4 +7,4 @@ public sealed class UpdateScannedFileRequest
     public int? TmdbId { get; init; }
     public int? SeasonNumber { get; init; }
     public int? EpisodeNumber { get; init; }
-} 
+}
