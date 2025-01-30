@@ -1,8 +1,10 @@
+using Coravel;
+
 using PlexLocalScan.Api.Endpoints;
+using PlexLocalScan.Shared.Services;
 using PlexLocalScan.SignalR.Hubs;
 using Scalar.AspNetCore;
 using Serilog;
-using Hangfire;
 
 namespace PlexLocalScan.Api.ServiceCollection;
 
@@ -31,6 +33,12 @@ public static class Middleware
             }
         }));
 
+        // Initialize Coravel scheduler
+        app.Services.UseScheduler(scheduler =>
+        {
+            scheduler.Schedule<FilePollerService>().EveryMinute();
+        });
+
         // Add middleware in the correct order
         app.UseRouting();
 
@@ -42,8 +50,6 @@ public static class Middleware
         app.MapOpenApi();
         app.MapScalarApiReference(options => options.Theme = ScalarTheme.Mars);
         app.MapGet("/", () => Results.Redirect("/scalar/v1"));
-
-        app.UseHangfireDashboard("/hangfire");
 
         return app;
     }

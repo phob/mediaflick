@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 using PlexLocalScan.Abstractions;
+using PlexLocalScan.Api.Models;
 using PlexLocalScan.Api.ScannedFiles.Models;
 using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Data.Data;

@@ -1,4 +1,9 @@
-using PlexLocalScan.Api.Routing;
+
+using PlexLocalScan.Api.Config;
+using PlexLocalScan.Api.Logging;
+using PlexLocalScan.Api.MediaLookup;
+using PlexLocalScan.Api.ScannedFiles;
+using PlexLocalScan.Api.Symlink;
 
 namespace PlexLocalScan.Api.Endpoints;
 

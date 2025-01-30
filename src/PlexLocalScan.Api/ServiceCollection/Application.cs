@@ -17,8 +17,7 @@ using PlexLocalScan.SignalR.Services;
 using PlexLocalScan.Shared.DbContext.Interfaces;
 using PlexLocalScan.Shared.DbContext.Services;
 using System.Text.Json.Serialization;
-using Hangfire;
-using Hangfire.MemoryStorage;
+using Coravel;
 
 namespace PlexLocalScan.Api.ServiceCollection;
 
@@ -53,6 +52,8 @@ public static class Application
             .Configure<MediaDetectionOptions>(configuration.GetSection("MediaDetection"))
             .Configure<FolderMappingOptions>(configuration.GetSection("FolderMapping"));
 
+        services.AddScheduler();
+
         // Add singleton services
         services.AddSingleton(new YamlConfigurationService(configuration, Path.Combine(AppContext.BaseDirectory, "config", "config.yml")));
 
@@ -72,7 +73,8 @@ public static class Application
             .AddScoped<ISymlinkRecreationService, SymlinkRecreationService>()
             .AddScoped<IContextService, ContextService>()
             .AddScoped<IFileProcessing, FileProcessing>()
-            .AddScoped<IPlexHandler, PlexHandler>();
+            .AddScoped<IPlexHandler, PlexHandler>()
+            .AddScoped<FilePollerService>();
 
         // Add database context
         services.AddDbContext<PlexScanContext>((_, options) =>
@@ -80,31 +82,9 @@ public static class Application
             var connectionString = $"Data Source={Path.Combine(AppContext.BaseDirectory, "config", "plexscan.db")}";
             options.UseSqlite(connectionString);
         });
-        // Add Hangfire services with SQLite storage
-        services.AddHangfire(config =>
-        {
-            config.UseSimpleAssemblyNameTypeSerializer();
-            config.UseRecommendedSerializerSettings();
-            config.UseMemoryStorage();
-        });
+        // Add Coravel services
+        services.AddQueue();
 
-        services.AddHangfireServer(options =>
-            options.ServerName = "PlexLocalScanWorker");
-
-        // Add Hangfire background job client
-        services.AddSingleton<IBackgroundJobClient, BackgroundJobClient>();
-
-        // Register FilePollerService with initialization
-        services.AddSingleton<IFilePollerService, FilePollerService>(provider =>
-        {
-            var filePollerService = new FilePollerService(
-                provider.GetRequiredService<ILogger<FilePollerService>>(),
-                provider.GetRequiredService<IOptionsMonitor<PlexOptions>>(),
-                provider.GetRequiredService<IOptionsMonitor<TmDbOptions>>(),
-                provider.GetRequiredService<IServiceScopeFactory>(),
-                provider.GetRequiredService<IBackgroundJobClient>());
-            return filePollerService;
-        });
 
         // Add additional services
         services.AddHttpClient()

@@ -1,5 +1,5 @@
 using PlexLocalScan.Api.Config;
-using PlexLocalScan.Api.Routing;
+
 using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Json;
