@@ -6,6 +6,7 @@ using Serilog;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configuration and logging setup
+builder.Services.AddCorsPolicy();
 builder.AddConfiguration();
 builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddSignalRService();

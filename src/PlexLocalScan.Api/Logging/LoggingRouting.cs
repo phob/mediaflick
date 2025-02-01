@@ -18,7 +18,6 @@ internal static class LoggingRouting
             .MapGet(
                 "/",
                 async (
-                    [FromServices] LoggingController controller,
                     [FromQuery] LogEventLevel? minLevel,
                     [FromQuery] string? searchTerm,
                     [FromQuery] DateTime? from,
@@ -26,7 +25,7 @@ internal static class LoggingRouting
                     [FromQuery] int limit = 100
                 ) =>
                 {
-                    return await controller.GetLogs(minLevel, searchTerm, from, to, limit);
+                    return await LoggingEndpoints.GetLogs(minLevel, searchTerm, from, to, limit);
                 }
             )
             .WithName("GetLogs")

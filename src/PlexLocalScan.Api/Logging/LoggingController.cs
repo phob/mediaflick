@@ -3,21 +3,14 @@ using Serilog.Events;
 
 namespace PlexLocalScan.Api.Logging;
 
-public class LoggingController
+internal static class LoggingEndpoints
 {
-    private readonly ILogger<LoggingController> _logger;
-
-    public LoggingController(ILogger<LoggingController> logger)
-    {
-        _logger = logger;
-    }
-
-    public async Task<IResult> GetLogs(
+    public static async Task<IResult> GetLogs(
         LogEventLevel? minLevel,
         string? searchTerm,
         DateTime? from,
         DateTime? to,
-        int limit = 100
+        int limit
     )
     {
         try
@@ -83,9 +76,8 @@ public class LoggingController
 
             return Results.Ok(new { logs });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            _logger.LogError(ex, "Error retrieving logs");
             return Results.Problem(
                 detail: "An error occurred while retrieving logs",
                 statusCode: StatusCodes.Status500InternalServerError

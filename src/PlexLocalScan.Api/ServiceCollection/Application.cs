@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using PlexLocalScan.Abstractions;
 using PlexLocalScan.Api.Config;
+using PlexLocalScan.Api.Logging;
 using PlexLocalScan.Data.Data;
 using PlexLocalScan.Shared.Configuration.Options;
 using PlexLocalScan.Shared.DbContext.Interfaces;
