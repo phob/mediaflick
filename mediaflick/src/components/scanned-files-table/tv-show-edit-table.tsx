@@ -39,6 +39,15 @@ export function TvShowEditTable({ loading, editableRows, onRowsChange }: Readonl
     onRowsChange(newRows)
   }
 
+  const handleEpisode2Change = (index: number, value: string) => {
+    const newRows = [...editableRows]
+    newRows[index] = {
+      ...newRows[index],
+      episodeNumber2: value === "" ? undefined : Number(value),
+    }
+    onRowsChange(newRows)
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center p-4">
@@ -56,6 +65,7 @@ export function TvShowEditTable({ loading, editableRows, onRowsChange }: Readonl
             <TableHead>TMDB ID</TableHead>
             <TableHead>Season</TableHead>
             <TableHead>Episode</TableHead>
+            <TableHead>Episode 2</TableHead>
             <TableHead>Status</TableHead>
           </TableRow>
         </TableHeader>
@@ -79,6 +89,15 @@ export function TvShowEditTable({ loading, editableRows, onRowsChange }: Readonl
                   className="w-20"
                   value={item.episodeNumber?.toString() ?? ""}
                   onChange={(e) => handleEpisodeChange(index, e.target.value)}
+                  min={1}
+                />
+              </TableCell>
+              <TableCell>
+                <Input
+                  type="number"
+                  className="w-20"
+                  value={item.episodeNumber2?.toString() ?? ""}
+                  onChange={(e) => handleEpisode2Change(index, e.target.value)}
                   min={1}
                 />
               </TableCell>

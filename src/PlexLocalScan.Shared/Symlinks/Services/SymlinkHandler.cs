@@ -76,7 +76,7 @@ public class SymlinkHandler(ILogger<SymlinkHandler> logger, IContextService cont
                     logger.LogDebug("Symlink already exists: {TargetPath}", fullTargetPath);
                     await contextService.UpdateStatusAsync(
                         sourcePath,
-                        fullTargetPath,
+                        null,
                         emptyMediaInfo,
                         FileStatus.Duplicate
                     );

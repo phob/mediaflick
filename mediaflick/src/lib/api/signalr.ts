@@ -12,6 +12,7 @@ interface ScannedFileDto {
     imdbId: string | null
     seasonNumber: number | null
     episodeNumber: number | null
+    episodeNumber2: number | null
     status: string
     createdAt: string
     updatedAt: string
@@ -28,6 +29,7 @@ const convertDtoToScannedFile = (dto: ScannedFileDto): ScannedFile => ({
     imdbId: dto.imdbId || undefined,
     seasonNumber: dto.seasonNumber || undefined,
     episodeNumber: dto.episodeNumber || undefined,
+    episodeNumber2: dto.episodeNumber2 || undefined,
     status: dto.status as MediaStatus,
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,

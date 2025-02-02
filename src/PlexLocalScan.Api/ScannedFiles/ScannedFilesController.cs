@@ -239,6 +239,10 @@ internal static class ScannedFilesController
             {
                 scannedFile.EpisodeNumber = request.EpisodeNumber.Value;
             }
+            if (request.EpisodeNumber2.HasValue)
+            {
+                scannedFile.EpisodeNumber2 = request.EpisodeNumber2.Value;
+            }
 
             scannedFile.UpdatedAt = DateTime.UtcNow;
             scannedFile.UpdateToVersion++;
@@ -339,7 +343,10 @@ internal static class ScannedFilesController
                     // Delete all destination files for this media type
                     foreach (var file in mediaTypeGroup)
                     {
-                        if (!string.IsNullOrEmpty(file.DestFile))
+                        if (
+                            !string.IsNullOrEmpty(file.DestFile)
+                            && file.Status == FileStatus.Success
+                        )
                         {
                             File.Delete(file.DestFile);
                         }

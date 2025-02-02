@@ -80,6 +80,7 @@ export interface ScannedFile {
   genres?: string[]
   seasonNumber?: number
   episodeNumber?: number
+  episodeNumber2?: number
   status: MediaStatus
   createdAt: string
   updatedAt: string
@@ -99,6 +100,7 @@ export interface UpdateScannedFileRequest {
   tmdbId?: number
   seasonNumber?: number
   episodeNumber?: number
+  episodeNumber2?: number
 }
 
 export interface ScannedFileStats {

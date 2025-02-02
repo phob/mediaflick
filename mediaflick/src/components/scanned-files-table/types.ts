@@ -15,6 +15,7 @@ export type Row = {
   episode?: string
   seasonNumber?: number
   episodeNumber?: number
+  episodeNumber2?: number
   status: string | ReactNode
   createdAt: string
   updatedAt: string

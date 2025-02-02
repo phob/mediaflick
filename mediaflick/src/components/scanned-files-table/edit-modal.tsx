@@ -34,6 +34,7 @@ interface EditModalProps {
 interface EditableRow extends Row {
   seasonNumber?: number
   episodeNumber?: number
+  episodeNumber2?: number
   title?: string
   year?: number
 }
@@ -107,6 +108,7 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave, initialMediaT
         tmdbId: 0,
         seasonNumber: undefined,
         episodeNumber: undefined,
+        episodeNumber2: undefined,
       }))
     )
   }
@@ -123,6 +125,7 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave, initialMediaT
     updatedAt: file.updatedAt,
     seasonNumber: file.seasonNumber,
     episodeNumber: file.episodeNumber,
+    episodeNumber2: file.episodeNumber2,
   })
 
   return (

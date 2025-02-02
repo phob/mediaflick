@@ -60,6 +60,13 @@ public class SymlinkRecreationService(
                 return false;
             }
 
+            await contextService.UpdateStatusAsync(
+                scannedFile.SourceFile,
+                null,
+                mediaInfo,
+                FileStatus.Processing
+            );
+
             // Delete the old symlink if it exists
             if (!string.IsNullOrEmpty(scannedFile.DestFile) && File.Exists(scannedFile.DestFile))
             {
@@ -219,7 +226,7 @@ public class SymlinkRecreationService(
                     };
                     await contextService.UpdateStatusAsync(
                         duplicate.SourceFile,
-                        duplicate.DestFile,
+                        null,
                         mediaInfo,
                         FileStatus.Duplicate
                     );
@@ -263,7 +270,7 @@ public class SymlinkRecreationService(
                     };
                     await contextService.UpdateStatusAsync(
                         duplicate.SourceFile,
-                        duplicate.DestFile,
+                        null,
                         mediaInfo,
                         FileStatus.Duplicate
                     );

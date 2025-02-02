@@ -224,6 +224,7 @@ export function ScannedFilesTable({
             tmdbId: row.tmdbId,
             seasonNumber: row.seasonNumber,
             episodeNumber: row.episodeNumber,
+            episodeNumber2: row.episodeNumber2,
           })
         )
       )
@@ -643,7 +644,7 @@ export function ScannedFilesTable({
   return (
     <>
       {topContent}
-      <div className="h-[calc(100vh-200px)] min-h-[400px] overflow-auto">
+      <div className="h-[calc(100vh-400px)] min-h-[400px] overflow-auto">
         {tableComponent}
       </div>
       {data && data.totalPages > 1 && (
