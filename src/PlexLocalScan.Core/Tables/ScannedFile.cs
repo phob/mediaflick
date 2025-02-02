@@ -20,6 +20,7 @@ public class ScannedFile
     public string? Genres { get; set; }
     public int? SeasonNumber { get; set; }
     public int? EpisodeNumber { get; set; }
+    public int? EpisodeNumber2 { get; set; }
 
     [Required]
     public FileStatus Status { get; set; }

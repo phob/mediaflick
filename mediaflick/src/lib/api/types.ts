@@ -54,6 +54,8 @@ export interface SeasonInfo {
   posterPath: string
   airDate: string
   episodes: EpisodeInfo[]
+  episodeCount: number
+  episodeCountScanned: number
 }
 
 export interface EpisodeInfo {

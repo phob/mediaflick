@@ -48,7 +48,13 @@ public class TvShowDetectionService(
             var season = int.Parse(match.Groups["season"].Value, CultureInfo.InvariantCulture);
             var episode = int.Parse(match.Groups["episode"].Value, CultureInfo.InvariantCulture);
             int? episode2 = match.Groups["episode2"].Success
-                ? int.Parse(match.Groups["episode2"].Value, CultureInfo.InvariantCulture)
+                ? int.Parse(
+                    match
+                        .Groups["episode2"]
+                        .Value.Replace("E", "", StringComparison.OrdinalIgnoreCase)
+                        .Trim(),
+                    CultureInfo.InvariantCulture
+                )
                 : null;
 
             var cacheKey = $"tvshow_{title}_{season}_{episode}";

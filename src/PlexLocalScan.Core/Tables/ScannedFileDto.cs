@@ -15,6 +15,7 @@ public class ScannedFileDto
     public Collection<string>? Genres { get; init; }
     public int? SeasonNumber { get; init; }
     public int? EpisodeNumber { get; init; }
+    public int? EpisodeNumber2 { get; init; }
     public string Status { get; init; } = string.Empty;
     public DateTime CreatedAt { get; init; }
     public DateTime? UpdatedAt { get; init; }
@@ -55,6 +56,7 @@ public class ScannedFileDto
                 : null,
             SeasonNumber = file.SeasonNumber,
             EpisodeNumber = file.EpisodeNumber,
+            EpisodeNumber2 = file.EpisodeNumber2,
             Status = file.Status.ToString(),
             CreatedAt = file.CreatedAt,
             UpdatedAt = file.UpdatedAt,

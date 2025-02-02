@@ -136,8 +136,8 @@ export function SeasonList({ tmdbId, mediaInfo }: Readonly<SeasonListProps>) {
                           <div className="flex items-center gap-1">
                             <Film className="h-4 w-4" />
                             <span>
-                              {season.episodes.length} Episodes{" "}
-                              {season.episodes.filter((e) => e.isScanned).length >= season.episodes.length ? (
+                              {season.episodeCountScanned} / {season.episodeCount} Episodes{" "}
+                              {season.episodeCountScanned >= season.episodeCount ? (
                                 <CheckCircle2 className="inline h-4 w-4 text-primary" />
                               ) : (
                                 <XCircle className="inline h-4 w-4 text-destructive" />

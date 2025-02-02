@@ -198,6 +198,14 @@ public class ContextService(
                 scannedFile.EpisodeNumber = mediaInfo.EpisodeNumber;
                 hasChanges = true;
             }
+            if (
+                mediaInfo.EpisodeNumber2 != null
+                && mediaInfo.EpisodeNumber2 != scannedFile.EpisodeNumber2
+            )
+            {
+                scannedFile.EpisodeNumber2 = mediaInfo.EpisodeNumber2;
+                hasChanges = true;
+            }
             if (status.HasValue && status.Value != scannedFile.Status)
             {
                 scannedFile.Status = status.Value;
@@ -232,6 +240,44 @@ public class ContextService(
                 {
                     scannedFile.UpdatedAt = DateTime.UtcNow;
                     var saveResult = await dbContext.SaveChangesAsync();
+
+                    // Check if we need to create a duplicate entry for EpisodeNumber2
+                    if (scannedFile.EpisodeNumber2.HasValue)
+                    {
+                        var existingDuplicate = await dbContext.ScannedFiles.FirstOrDefaultAsync(
+                            f =>
+                                f.SourceFile == scannedFile.SourceFile
+                                && f.EpisodeNumber == scannedFile.EpisodeNumber2
+                        );
+
+                        if (existingDuplicate == null)
+                        {
+                            var duplicateEntry = new ScannedFile
+                            {
+                                SourceFile = scannedFile.SourceFile,
+                                DestFile = scannedFile.DestFile,
+                                MediaType = scannedFile.MediaType,
+                                Status = FileStatus.Success,
+                                TmdbId = scannedFile.TmdbId,
+                                ImdbId = scannedFile.ImdbId,
+                                SeasonNumber = scannedFile.SeasonNumber,
+                                EpisodeNumber = scannedFile.EpisodeNumber2,
+                                EpisodeNumber2 = scannedFile.EpisodeNumber2,
+                                Genres = scannedFile.Genres,
+                                Title = scannedFile.Title,
+                                Year = scannedFile.Year,
+                                CreatedAt = DateTime.UtcNow,
+                                UpdatedAt = DateTime.UtcNow,
+                            };
+
+                            await dbContext.ScannedFiles.AddAsync(duplicateEntry);
+                            await dbContext.SaveChangesAsync();
+
+                            // Notify clients about the new duplicate entry
+                            await notificationService.NotifyFileAdded(duplicateEntry);
+                        }
+                    }
+
                     await transaction.CommitAsync();
 
                     if (saveResult > 0)

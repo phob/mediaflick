@@ -11,4 +11,6 @@ public record SeasonInfo
     public DateTime? AirDate { get; set; }
     public ReadOnlyCollection<EpisodeInfo> Episodes { get; init; } =
         new ReadOnlyCollection<EpisodeInfo>([]);
+    public int? EpisodeCount { get; set; }
+    public int? EpisodeCountScanned { get; set; }
 }

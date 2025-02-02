@@ -76,7 +76,7 @@ public class MediaSearchService(
             Status = movie.Status,
             Genres = movie.Genres.Select(g => g.Name).ToList().AsReadOnly(),
         };
-        cache.Set(cacheKey, mediaInfo, TimeSpan.FromMinutes(60));
+        cache.Set(cacheKey, mediaInfo, TimeSpan.FromSeconds(10));
         return mediaInfo;
     }
 
@@ -97,7 +97,6 @@ public class MediaSearchService(
                 && f.MediaType == MediaType.TvShows
                 && f.Status == FileStatus.Success
             )
-            .OrderBy(e => e.SeasonNumber)
             .Count();
 
         var episodeCount = tvShow.NumberOfEpisodes;
@@ -121,7 +120,7 @@ public class MediaSearchService(
             SeasonCountScanned = 0,
         };
 
-        cache.Set(cacheKey, info, TimeSpan.FromMinutes(10));
+        cache.Set(cacheKey, info, TimeSpan.FromSeconds(10));
         return info;
     }
 
@@ -139,6 +138,11 @@ public class MediaSearchService(
 
         var season = await tmdbClient.GetTvSeasonAsync(tmdbId, seasonNumber);
         var episodes = new List<EpisodeInfo>();
+        var episodeCount = season.Episodes.Count;
+        var episodeCountScanned = dbContext
+            .ScannedFiles.Where(f => f.TmdbId == tmdbId && f.SeasonNumber == seasonNumber)
+            .Count();
+
         if (includeDetails)
         {
             var episodesScannedFiles = dbContext
@@ -154,10 +158,10 @@ public class MediaSearchService(
                 season.Episodes.Select(episode => new EpisodeInfo
                 {
                     EpisodeNumber = episode.EpisodeNumber,
-                    Name = includeDetails ? episode.Name : null,
-                    Overview = includeDetails ? episode.Overview : null,
-                    StillPath = includeDetails ? episode.StillPath : null,
-                    AirDate = includeDetails ? episode.AirDate : null,
+                    Name = episode.Name,
+                    Overview = episode.Overview,
+                    StillPath = episode.StillPath,
+                    AirDate = episode.AirDate,
                     IsScanned = episodesScannedFiles.Any(e =>
                         e.EpisodeNumber == episode.EpisodeNumber && e.SeasonNumber == seasonNumber
                     ),
@@ -173,10 +177,12 @@ public class MediaSearchService(
             PosterPath = includeDetails ? season.PosterPath : null,
             AirDate = includeDetails ? season.AirDate : null,
             Episodes = episodes.AsReadOnly(),
+            EpisodeCount = episodeCount,
+            EpisodeCountScanned = episodeCountScanned,
         };
 
         // Cache the season data
-        cache.Set(cacheKey, seasonInfo, TimeSpan.FromMinutes(10));
+        cache.Set(cacheKey, seasonInfo, TimeSpan.FromSeconds(10));
         return seasonInfo;
     }
 

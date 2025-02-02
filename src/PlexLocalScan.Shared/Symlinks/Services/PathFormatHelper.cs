@@ -40,7 +40,7 @@ public static class PathFormatHelper
 
         if (mediaInfo.EpisodeNumber2.HasValue)
         {
-            fileName += $" - E{mediaInfo.EpisodeNumber2:D2}";
+            fileName += $"E{mediaInfo.EpisodeNumber2:D2}";
         }
 
         if (!string.IsNullOrEmpty(mediaInfo.EpisodeTitle))

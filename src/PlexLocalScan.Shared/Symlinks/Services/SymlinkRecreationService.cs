@@ -117,6 +117,7 @@ public class SymlinkRecreationService(
                 ImdbId = mediaInfo.ImdbId,
                 SeasonNumber = scannedFile.SeasonNumber,
                 EpisodeNumber = scannedFile.EpisodeNumber,
+                EpisodeNumber2 = scannedFile.EpisodeNumber2,
                 Genres = mediaInfo.Genres,
                 Title = mediaInfo.Title,
                 Year = mediaInfo.Year,
@@ -208,6 +209,7 @@ public class SymlinkRecreationService(
                         ImdbId = duplicate.ImdbId,
                         SeasonNumber = duplicate.SeasonNumber,
                         EpisodeNumber = duplicate.EpisodeNumber,
+                        EpisodeNumber2 = duplicate.EpisodeNumber2,
                         Genres = ScannedFileDto
                             .ConvertStringToGenres(duplicate.Genres)
                             ?.ToList()
@@ -251,6 +253,7 @@ public class SymlinkRecreationService(
                         ImdbId = duplicate.ImdbId,
                         SeasonNumber = duplicate.SeasonNumber,
                         EpisodeNumber = duplicate.EpisodeNumber,
+                        EpisodeNumber2 = duplicate.EpisodeNumber2,
                         Genres = ScannedFileDto
                             .ConvertStringToGenres(duplicate.Genres)
                             ?.ToList()
