@@ -30,11 +30,11 @@ export function SeasonList({ tmdbId, mediaInfo }: Readonly<SeasonListProps>) {
 
   useEffect(() => {
     const loadSeasons = async () => {
-      if (!mediaInfo.SeasonCount) return
+      if (!mediaInfo.seasonCount) return
 
       try {
         setLoading(true)
-        const seasonNumbers = Array.from({ length: mediaInfo.SeasonCount }, (_, i) => i + 1)
+        const seasonNumbers = Array.from({ length: mediaInfo.seasonCount }, (_, i) => i + 1)
         const seasonMap = new Map<number, SeasonInfo>()
 
         // Process seasons in chunks to avoid overwhelming the API
@@ -71,11 +71,11 @@ export function SeasonList({ tmdbId, mediaInfo }: Readonly<SeasonListProps>) {
 
           // Add to map to ensure uniqueness and maintain order
           validResults.forEach((season) => {
-            seasonMap.set(season.SeasonNumber, season)
+            seasonMap.set(season.seasonNumber, season)
           })
 
           // Convert map to sorted array and update state
-          const sortedSeasons = Array.from(seasonMap.values()).sort((a, b) => a.SeasonNumber - b.SeasonNumber)
+          const sortedSeasons = Array.from(seasonMap.values()).sort((a, b) => a.seasonNumber - b.seasonNumber)
           setSeasons(sortedSeasons)
         }
       } catch (error) {
@@ -88,7 +88,7 @@ export function SeasonList({ tmdbId, mediaInfo }: Readonly<SeasonListProps>) {
     // Reset seasons when tmdbId or seasonCount changes
     setSeasons([])
     loadSeasons()
-  }, [mediaInfo.SeasonCount, tmdbId])
+  }, [mediaInfo.seasonCount, tmdbId])
 
   if (loading && seasons.length === 0) {
     return (
@@ -111,19 +111,19 @@ export function SeasonList({ tmdbId, mediaInfo }: Readonly<SeasonListProps>) {
       <div className="grid grid-cols-1 gap-6">
         {seasons.map((season) => (
           <Card
-            key={season.SeasonNumber}
+            key={season.seasonNumber}
             className="motion-safe:animate-fadeIn bg-card transition-transform"
           >
             <CardContent className="p-0">
               <Accordion type="single" collapsible>
-                <AccordionItem value={`season-${season.SeasonNumber}`}>
+                <AccordionItem value={`season-${season.seasonNumber}`}>
                   <AccordionTrigger className="px-6 py-4 hover:no-underline">
                     <div className="flex items-center gap-4">
-                      {season.PosterPath && (
+                      {season.posterPath && (
                         <div className="relative h-36 w-24 overflow-hidden rounded-xl shadow-lg transition-transform hover:scale-105">
                           <Image
-                            src={`https://image.tmdb.org/t/p/w500${season.PosterPath}`}
-                            alt={season.Name}
+                            src={`https://image.tmdb.org/t/p/w500${season.posterPath}`}
+                            alt={season.name}
                             fill
                             sizes="(min-width: 768px) 300px, 100vw"
                             className="object-cover"
@@ -131,28 +131,28 @@ export function SeasonList({ tmdbId, mediaInfo }: Readonly<SeasonListProps>) {
                         </div>
                       )}
                       <div className="flex-1 space-y-2">
-                        <h3 className="text-xl font-semibold text-foreground">{season.Name}</h3>
+                        <h3 className="text-xl font-semibold text-foreground">{season.name}</h3>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Film className="h-4 w-4" />
                             <span>
-                              {season.Episodes.length} Episodes{" "}
-                              {season.Episodes.filter((e) => e.IsScanned).length >= season.Episodes.length ? (
+                              {season.episodeCountScanned} / {season.episodeCount} Episodes{" "}
+                              {season.episodeCountScanned >= season.episodeCount ? (
                                 <CheckCircle2 className="inline h-4 w-4 text-primary" />
                               ) : (
                                 <XCircle className="inline h-4 w-4 text-destructive" />
                               )}
                             </span>
                           </div>
-                          {season.AirDate && (
+                          {season.airDate && (
                             <div className="flex items-center gap-1">
                               <Calendar className="h-4 w-4" />
-                              <span>{new Date(season.AirDate).toLocaleDateString()}</span>
+                              <span>{new Date(season.airDate).toLocaleDateString()}</span>
                             </div>
                           )}
                         </div>
                         <p className="line-clamp-2 text-sm text-muted-foreground">
-                          {season.Overview || "No overview available"}
+                          {season.overview || "No overview available"}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -163,7 +163,7 @@ export function SeasonList({ tmdbId, mediaInfo }: Readonly<SeasonListProps>) {
                           asChild
                         >
                           <Link
-                            href={`https://debridmediamanager.com/show/${mediaInfo.ImdbId}/${season.SeasonNumber}`}
+                            href={`https://debridmediamanager.com/show/${mediaInfo.imdbId}/${season.seasonNumber}`}
                             target="_blank"
                             rel="noopener noreferrer"
                           >
@@ -176,19 +176,19 @@ export function SeasonList({ tmdbId, mediaInfo }: Readonly<SeasonListProps>) {
                   </AccordionTrigger>
                   <AccordionContent>
                     <div className="grid gap-4 px-6 py-4 md:grid-cols-2 lg:grid-cols-1">
-                      {season.Episodes.map((episode) => (
+                      {season.episodes.map((episode) => (
                         <Card
-                          key={episode.EpisodeNumber}
+                          key={episode.episodeNumber}
                           className={cn(
                             "border-none bg-accent/20 transition-all hover:bg-accent/40"
                           )}
                         >
                           <CardContent className="flex flex-row gap-4 p-4">
-                            {episode.StillPath && (
+                            {episode.stillPath && (
                               <div className="relative h-24 w-40 overflow-hidden rounded-xl shadow-md transition-transform hover:scale-105">
                                 <Image
-                                  src={`https://image.tmdb.org/t/p/w300${episode.StillPath}`}
-                                  alt={episode.Name}
+                                  src={`https://image.tmdb.org/t/p/w300${episode.stillPath}`}
+                                  alt={episode.name}
                                   fill
                                   sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
                                   className="object-cover"
@@ -198,22 +198,22 @@ export function SeasonList({ tmdbId, mediaInfo }: Readonly<SeasonListProps>) {
                             <div className="flex-1 space-y-2">
                               <div className="flex items-center gap-2">
                                 <h4 className="text-medium font-semibold">
-                                  {episode.EpisodeNumber}. {episode.Name}
+                                  {episode.episodeNumber}. {episode.name}
                                 </h4>
-                                {episode.IsScanned ? (
+                                {episode.isScanned ? (
                                   <CheckCircle2 className="h-4 w-4 text-primary" />
                                 ) : (
                                   <XCircle className="h-4 w-4 text-destructive" />
                                 )}
                               </div>
-                              {episode.AirDate && (
+                              {episode.airDate && (
                                 <div className="flex items-center gap-1 text-sm text-muted-foreground">
                                   <Calendar className="h-4 w-4" />
-                                  <span>{new Date(episode.AirDate).toLocaleDateString()}</span>
+                                  <span>{new Date(episode.airDate).toLocaleDateString()}</span>
                                 </div>
                               )}
                               <p className="line-clamp-2 text-sm text-muted-foreground">
-                                {episode.Overview || "No overview available"}
+                                {episode.overview || "No overview available"}
                               </p>
                             </div>
                           </CardContent>

@@ -14,7 +14,8 @@ public partial class InitialCreate : Migration
             name: "ScannedFiles",
             columns: table => new
             {
-                Id = table.Column<int>(type: "INTEGER", nullable: false)
+                Id = table
+                    .Column<int>(type: "INTEGER", nullable: false)
                     .Annotation("Sqlite:Autoincrement", true),
                 SourceFile = table.Column<string>(type: "TEXT", nullable: false),
                 DestFile = table.Column<string>(type: "TEXT", nullable: true),
@@ -22,24 +23,27 @@ public partial class InitialCreate : Migration
                 TmdbId = table.Column<int>(type: "INTEGER", nullable: true),
                 Status = table.Column<string>(type: "TEXT", nullable: false),
                 CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: true)
+                UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
             },
-            constraints: table => table.PrimaryKey("PK_ScannedFiles", x => x.Id));
+            constraints: table => table.PrimaryKey("PK_ScannedFiles", x => x.Id)
+        );
 
         migrationBuilder.CreateIndex(
             name: "IX_ScannedFiles_DestFile",
             table: "ScannedFiles",
             column: "DestFile",
-            unique: true);
+            unique: true
+        );
 
         migrationBuilder.CreateIndex(
             name: "IX_ScannedFiles_SourceFile",
             table: "ScannedFiles",
             column: "SourceFile",
-            unique: true);
+            unique: true
+        );
     }
 
     /// <inheritdoc />
-    protected override void Down(MigrationBuilder migrationBuilder) => migrationBuilder.DropTable(
-            name: "ScannedFiles");
+    protected override void Down(MigrationBuilder migrationBuilder) =>
+        migrationBuilder.DropTable(name: "ScannedFiles");
 }

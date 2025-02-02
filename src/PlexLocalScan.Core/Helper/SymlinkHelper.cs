@@ -15,7 +15,8 @@ public static class SymlinkHelper
         return fileInfo.Attributes.HasFlag(FileAttributes.ReparsePoint);
     }
 
-    public static bool IsVideoFile(string extension) => SourceArray.Contains(extension.ToLower(System.Globalization.CultureInfo.CurrentCulture));
+    public static bool IsVideoFile(string extension) =>
+        SourceArray.Contains(extension.ToLower(System.Globalization.CultureInfo.CurrentCulture));
 
     public static async Task<bool> CreateFileLinkAsync(string sourcePath, string destinationPath)
     {

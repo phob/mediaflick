@@ -15,7 +15,7 @@ namespace PlexLocalScan.Data.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "9.0.0");
+            modelBuilder.HasAnnotation("ProductVersion", "9.0.1");
 
             modelBuilder.Entity("PlexLocalScan.Core.Tables.ScannedFile", b =>
                 {
@@ -30,6 +30,9 @@ namespace PlexLocalScan.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<int?>("EpisodeNumber")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("EpisodeNumber2")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Genres")

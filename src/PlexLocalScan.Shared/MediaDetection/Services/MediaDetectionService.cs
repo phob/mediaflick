@@ -10,8 +10,8 @@ public class MediaDetectionService(
     ILogger<MediaDetectionService> logger,
     IMovieDetectionService movieDetectionService,
     ITvShowDetectionService tvShowDetectionService,
-    IContextService contextService)
-    : IMediaDetectionService
+    IContextService contextService
+) : IMediaDetectionService
 {
     public async Task<MediaInfo?> DetectMediaAsync(string filePath, MediaType mediaType)
     {
@@ -23,21 +23,40 @@ public class MediaDetectionService(
         {
             mediaInfo = mediaType switch
             {
-                MediaType.Movies => await movieDetectionService.DetectMovieAsync(fileName, filePath),
-                MediaType.TvShows => await tvShowDetectionService.DetectTvShowAsync(fileName, filePath),
+                MediaType.Movies => await movieDetectionService.DetectMovieAsync(
+                    fileName,
+                    filePath
+                ),
+                MediaType.TvShows => await tvShowDetectionService.DetectTvShowAsync(
+                    fileName,
+                    filePath
+                ),
                 MediaType.Extras => mediaInfo,
                 MediaType.Unknown => mediaInfo,
-                _ => throw new ArgumentException($"Unsupported media type: {mediaType}")
+                _ => throw new ArgumentException($"Unsupported media type: {mediaType}"),
             };
 
             if (mediaInfo is not null && !IsValidMediaInfo(mediaInfo))
             {
-                logger.LogWarning("Invalid or incomplete media info detected for {FileName}", fileName);
-                await contextService.UpdateStatusAsync(filePath, null, mediaInfo, FileStatus.Failed);
+                logger.LogWarning(
+                    "Invalid or incomplete media info detected for {FileName}",
+                    fileName
+                );
+                await contextService.UpdateStatusAsync(
+                    filePath,
+                    null,
+                    mediaInfo,
+                    FileStatus.Failed
+                );
                 return mediaInfo;
             }
 
-            await contextService.UpdateStatusAsync(filePath, null, mediaInfo, FileStatus.Processing);
+            await contextService.UpdateStatusAsync(
+                filePath,
+                null,
+                mediaInfo,
+                FileStatus.Processing
+            );
             return mediaInfo;
         }
         catch (Exception ex)
@@ -51,10 +70,8 @@ public class MediaDetectionService(
     private static bool IsValidMediaInfo(MediaInfo mediaInfo)
     {
         var hasBasicInfo = new[] { mediaInfo }.Any(m =>
-            !string.IsNullOrWhiteSpace(m.Title) &&
-            m.Year > 0 &&
-            m.TmdbId > 0 &&
-            m.ImdbId != null);
+            !string.IsNullOrWhiteSpace(m.Title) && m.Year > 0 && m.TmdbId > 0 && m.ImdbId != null
+        );
 
         if (!hasBasicInfo)
         {
@@ -65,7 +82,7 @@ public class MediaDetectionService(
         {
             MediaType.Movies => true,
             MediaType.TvShows => mediaInfo.SeasonNumber > 0 && mediaInfo.EpisodeNumber > 0,
-            _ => false
+            _ => false,
         };
     }
 }

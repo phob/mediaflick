@@ -6,8 +6,8 @@ internal sealed class YamlConfigurationService(IConfiguration configuration, str
 
     public async Task UpdateConfigAsync(object config)
     {
-        if (config is null) throw new ArgumentNullException(nameof(config));
-        
+        ArgumentNullException.ThrowIfNull(config);
+
         var serializer = new YamlDotNet.Serialization.SerializerBuilder().Build();
         string updatedYaml = serializer.Serialize(config);
 

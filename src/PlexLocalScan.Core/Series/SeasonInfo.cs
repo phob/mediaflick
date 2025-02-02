@@ -9,5 +9,8 @@ public record SeasonInfo
     public string? Overview { get; set; }
     public string? PosterPath { get; set; }
     public DateTime? AirDate { get; set; }
-    public ReadOnlyCollection<EpisodeInfo> Episodes { get; init; } = new ReadOnlyCollection<EpisodeInfo>([]);
+    public ReadOnlyCollection<EpisodeInfo> Episodes { get; init; } =
+        new ReadOnlyCollection<EpisodeInfo>([]);
+    public int? EpisodeCount { get; set; }
+    public int? EpisodeCountScanned { get; set; }
 }
