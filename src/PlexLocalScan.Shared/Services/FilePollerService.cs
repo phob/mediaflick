@@ -1,9 +1,8 @@
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using System.Collections.Concurrent;
+using Coravel.Invocable;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PlexLocalScan.Shared.Configuration.Options;
-using System.Collections.Concurrent;
 
 namespace PlexLocalScan.Shared.Services;
 
@@ -11,65 +10,54 @@ public class FilePollerService(
     ILogger<FilePollerService> logger,
     IOptionsMonitor<PlexOptions> options,
     IOptionsMonitor<TmDbOptions> tmDbOptions,
-    IServiceScopeFactory serviceScopeFactory) : BackgroundService
+    IFileProcessing fileProcessing
+) : IInvocable
 {
-    private readonly ConcurrentDictionary<string, HashSet<string>> _knownFolders = new();
+    private readonly ConcurrentDictionary<string, HashSet<string>> _knownFolders = [];
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    public async Task Invoke() => await ExecutePollingAsync();
+
+    public async Task ExecutePollingAsync()
     {
-        logger.LogInformation("FilePollerService started");
-        // Initialize known folders dictionary
-        foreach (var mapping in options.CurrentValue.FolderMappings)
+        try
         {
-            logger.LogInformation("Watching folder: {SourceFolder} with Type: {MediaType}", mapping.SourceFolder, mapping.MediaType);
-            if (Directory.Exists(mapping.SourceFolder))
-            {
-                _knownFolders[mapping.SourceFolder] = [.. Directory.GetDirectories(mapping.SourceFolder)];
-            }
+            await InitializeFoldersAsync();
+            await ProcessFilesAsync();
         }
-        while (!stoppingToken.IsCancellationRequested)
+        catch (OperationCanceledException)
         {
-            logger.LogDebug("PollingInterval: {PollingInterval}", options.CurrentValue.PollingInterval);
-            try
-            {
-                if (tmDbOptions.CurrentValue.ApiKey == "your-tmdb-api-key")
-                {
-                    logger.LogError("TmDb API key is not set");
-                    await Task.Delay(TimeSpan.FromSeconds(options.CurrentValue.PollingInterval), stoppingToken);
-                    continue;
-                }
-                using var scope = serviceScopeFactory.CreateScope();
-                var fileProcessing = scope.ServiceProvider.GetRequiredService<IFileProcessing>();
-                await fileProcessing.ProcessAllMappingsAsync(options.CurrentValue, _knownFolders);
-                await Task.Delay(TimeSpan.FromSeconds(options.CurrentValue.PollingInterval), stoppingToken);
-            }
-            catch (OperationCanceledException)
-            {
-                // Graceful shutdown, no need to log an error
-                break;
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Error occurred while monitoring folders");
-                try
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
-                }
-                catch (OperationCanceledException)
-                {
-                    // Graceful shutdown during error recovery
-                    break;
-                }
-            }
+            logger.LogInformation("File polling operation canceled");
         }
-
-        logger.LogInformation("FilePollerService shutting down");
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error in file polling operation");
+        }
     }
 
-    public override Task StopAsync(CancellationToken cancellationToken)
+    private async Task ProcessFilesAsync()
     {
-        logger.LogInformation("FilePollerService stopping, clearing known folders");
-        _knownFolders.Clear();
-        return base.StopAsync(cancellationToken);
+        if (tmDbOptions.CurrentValue.ApiKey == "your-tmdb-api-key")
+        {
+            logger.LogError("TmDb API key not configured");
+            return;
+        }
+
+        await fileProcessing.ProcessAllMappingsAsync(options.CurrentValue, _knownFolders);
+    }
+
+    private Task InitializeFoldersAsync()
+    {
+        foreach (var mapping in options.CurrentValue.FolderMappings)
+        {
+            if (Directory.Exists(mapping.SourceFolder))
+            {
+                _knownFolders[mapping.SourceFolder] =
+                [
+                    .. Directory.GetDirectories(mapping.SourceFolder),
+                ];
+            }
+        }
+
+        return Task.CompletedTask;
     }
 }

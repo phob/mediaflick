@@ -11,10 +11,12 @@ namespace PlexLocalScan.SignalR.Services;
 public class NotificationService(IHubContext<ContextHub, ISignalRHub> hubContext)
     : INotificationService
 {
-    public async Task NotifyFileAdded(ScannedFile file) => await hubContext.Clients.All.OnFileAdded(ScannedFileDto.FromScannedFile(file));
+    public async Task NotifyFileAdded(ScannedFile file) =>
+        await hubContext.Clients.All.OnFileAdded(ScannedFileDto.FromScannedFile(file));
 
-    public async Task NotifyFileRemoved(ScannedFile file) => await hubContext.Clients.All.OnFileRemoved(ScannedFileDto.FromScannedFile(file));
+    public async Task NotifyFileRemoved(ScannedFile file) =>
+        await hubContext.Clients.All.OnFileRemoved(ScannedFileDto.FromScannedFile(file));
 
-    public async Task NotifyFileUpdated(ScannedFile file) => await hubContext.Clients.All.OnFileUpdated(ScannedFileDto.FromScannedFile(file));
-
-} 
+    public async Task NotifyFileUpdated(ScannedFile file) =>
+        await hubContext.Clients.All.OnFileUpdated(ScannedFileDto.FromScannedFile(file));
+}

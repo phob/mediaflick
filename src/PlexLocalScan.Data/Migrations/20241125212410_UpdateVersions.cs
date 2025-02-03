@@ -15,25 +15,23 @@ public partial class UpdateVersions : Migration
             table: "ScannedFiles",
             type: "INTEGER",
             nullable: false,
-            defaultValue: 0);
+            defaultValue: 0
+        );
 
         migrationBuilder.AddColumn<int>(
             name: "VersionUpdated",
             table: "ScannedFiles",
             type: "INTEGER",
             nullable: false,
-            defaultValue: 0);
+            defaultValue: 0
+        );
     }
 
     /// <inheritdoc />
     protected override void Down(MigrationBuilder migrationBuilder)
     {
-        migrationBuilder.DropColumn(
-            name: "UpdateToVersion",
-            table: "ScannedFiles");
+        migrationBuilder.DropColumn(name: "UpdateToVersion", table: "ScannedFiles");
 
-        migrationBuilder.DropColumn(
-            name: "VersionUpdated",
-            table: "ScannedFiles");
+        migrationBuilder.DropColumn(name: "VersionUpdated", table: "ScannedFiles");
     }
 }

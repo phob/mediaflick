@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -6,8 +8,6 @@ using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Shared.Configuration.Options;
 using PlexLocalScan.Shared.MediaDetection.Interfaces;
 using PlexLocalScan.Shared.TmDbMediaSearch.Interfaces;
-using System.Globalization;
-using System.Text.RegularExpressions;
 using static PlexLocalScan.Shared.MediaDetection.Options.RegexMovie;
 
 namespace PlexLocalScan.Shared.MediaDetection.Services;
@@ -16,17 +16,15 @@ public class MovieDetectionService(
     ILogger<MovieDetectionService> logger,
     ITmDbClientWrapper tmdbClient,
     IMemoryCache cache,
-    IOptionsSnapshot<MediaDetectionOptions> options) : IMovieDetectionService
+    IOptionsSnapshot<MediaDetectionOptions> options
+) : IMovieDetectionService
 {
     private readonly MediaDetectionOptions _options = options.Value;
     private readonly Regex _moviePattern = BasicMovieRegex;
 
     public async Task<MediaInfo> DetectMovieAsync(string fileName, string filePath)
     {
-        var emptyMediaInfo = new MediaInfo
-        {
-            MediaType = MediaType.Movies
-        };
+        var emptyMediaInfo = new MediaInfo { MediaType = MediaType.Movies };
         try
         {
             var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
@@ -38,7 +36,10 @@ public class MovieDetectionService(
                 return emptyMediaInfo;
             }
 
-            var title = match.Groups["title"].Value.Replace(".", " ", StringComparison.OrdinalIgnoreCase).Trim();
+            var title = match
+                .Groups["title"]
+                .Value.Replace(".", " ", StringComparison.OrdinalIgnoreCase)
+                .Trim();
             var yearStr = match.Groups["year"].Value;
             var year = int.Parse(yearStr, CultureInfo.CurrentCulture);
 
@@ -63,7 +64,11 @@ public class MovieDetectionService(
         }
     }
 
-    private async Task<MediaInfo> SearchTmDbForMovie(string title, int year, MediaInfo emptyMediaInfo)
+    private async Task<MediaInfo> SearchTmDbForMovie(
+        string title,
+        int year,
+        MediaInfo emptyMediaInfo
+    )
     {
         if (string.IsNullOrWhiteSpace(title))
         {
@@ -72,7 +77,10 @@ public class MovieDetectionService(
 
         if (year <= 1800 || year > DateTime.Now.Year + 5)
         {
-            throw new ArgumentOutOfRangeException(nameof(year), "Year must be between 1800 and 5 years in the future");
+            throw new ArgumentOutOfRangeException(
+                nameof(year),
+                "Year must be between 1800 and 5 years in the future"
+            );
         }
 
         var searchResults = await tmdbClient.SearchMovieAsync(title);
@@ -83,8 +91,8 @@ public class MovieDetectionService(
             return emptyMediaInfo;
         }
 
-        var bestMatch = searchResults.Results
-            .Where(m => m.ReleaseDate?.Year == year)
+        var bestMatch = searchResults
+            .Results.Where(m => m.ReleaseDate?.Year == year)
             .MaxBy(m => m.Popularity);
 
         if (bestMatch == null)
@@ -100,16 +108,13 @@ public class MovieDetectionService(
             Year = bestMatch.ReleaseDate?.Year,
             TmdbId = bestMatch.Id,
             ImdbId = externalIds.ImdbId,
-            MediaType = MediaType.Movies
+            MediaType = MediaType.Movies,
         };
     }
 
     public async Task<MediaInfo> DetectMovieByTmdbIdAsync(int tmdbId)
     {
-        var emptyMediaInfo = new MediaInfo
-        {
-            MediaType = MediaType.Movies
-        };
+        var emptyMediaInfo = new MediaInfo { MediaType = MediaType.Movies };
         try
         {
             var cacheKey = $"movie_tmdb_{tmdbId}";
@@ -128,7 +133,7 @@ public class MovieDetectionService(
                 Year = movieDetails.ReleaseDate?.Year,
                 TmdbId = movieDetails.Id,
                 ImdbId = externalIds.ImdbId,
-                MediaType = MediaType.Movies
+                MediaType = MediaType.Movies,
             };
 
             cache.Set(cacheKey, mediaInfo, TimeSpan.FromSeconds(_options.CacheDuration));
@@ -140,5 +145,4 @@ public class MovieDetectionService(
             return emptyMediaInfo;
         }
     }
-} 
-
+}

@@ -1,7 +1,7 @@
 services:
   mediaflick-plexlocalscan-api:
     build: .
-    user: pho
+    user: 1000:1000
     container_name: mediaflick-plexlocalscan-api
     ports:
       - "3000:3000"
@@ -12,6 +12,7 @@ services:
       - /mnt/organized/tvseries:/mnt/organized/tvseries
       - /mnt/organized/movies:/mnt/organized/movies
       - /opt/mediaflick:/app/config
+      - /opt/mediaflick/logs:/app/logs
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5000

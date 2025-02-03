@@ -52,12 +52,12 @@ export function MediaInfoContent({ id, type }: Readonly<MediaInfoContentProps>) 
 
   return (
     <div className="relative -mt-16 min-h-screen w-full">
-      <MediaBackdrop backdropPath={mediaInfo.BackdropPath} />
+      <MediaBackdrop backdropPath={mediaInfo.backdropPath} />
       <div className="relative z-10">
         <div className="container mx-auto px-4 py-24">
           <MediaDetails mediaInfo={mediaInfo} />
-          {mediaInfo.MediaType === MediaType.TvShows && (
-            <SeasonList tmdbId={mediaInfo.TmdbId} mediaInfo={mediaInfo} />
+          {mediaInfo.mediaType === MediaType.TvShows && (
+            <SeasonList tmdbId={mediaInfo.tmdbId} mediaInfo={mediaInfo} />
           )}
         </div>
       </div>

@@ -15,6 +15,7 @@ public class ScannedFileDto
     public Collection<string>? Genres { get; init; }
     public int? SeasonNumber { get; init; }
     public int? EpisodeNumber { get; init; }
+    public int? EpisodeNumber2 { get; init; }
     public string Status { get; init; } = string.Empty;
     public DateTime CreatedAt { get; init; }
     public DateTime? UpdatedAt { get; init; }
@@ -22,11 +23,12 @@ public class ScannedFileDto
     public int UpdateToVersion { get; init; }
 
     private const string GenreSeparator = "|";
-    
-    public static IEnumerable<string>? ConvertStringToGenres(string? genresString)
-        => !string.IsNullOrWhiteSpace(genresString) 
-            ? genresString.Split(GenreSeparator, StringSplitOptions.RemoveEmptyEntries) 
+
+    public static IEnumerable<string>? ConvertStringToGenres(string? genresString) =>
+        !string.IsNullOrWhiteSpace(genresString)
+            ? genresString.Split(GenreSeparator, StringSplitOptions.RemoveEmptyEntries)
             : null;
+
     public static string? ConvertGenresToString(IEnumerable<string>? genres)
     {
         if (genres == null)
@@ -38,23 +40,27 @@ public class ScannedFileDto
         return enumerable.Length != 0 ? string.Join(GenreSeparator, enumerable) : null;
     }
 
-    public static ScannedFileDto FromScannedFile(ScannedFile file) => new()
-    {
-        Id = file.Id,
-        SourceFile = file.SourceFile,
-        DestFile = file.DestFile,
-        MediaType = file.MediaType?.ToString(),
-        TmdbId = file.TmdbId,
-        ImdbId = file.ImdbId,
-        Title = file.Title,
-        Year = file.Year,
-        Genres = ConvertStringToGenres(file.Genres) is IEnumerable<string> genres ? new Collection<string>(genres.ToList()) : null,
-        SeasonNumber = file.SeasonNumber,
-        EpisodeNumber = file.EpisodeNumber,
-        Status = file.Status.ToString(),
-        CreatedAt = file.CreatedAt,
-        UpdatedAt = file.UpdatedAt,
-        VersionUpdated = file.VersionUpdated,
-        UpdateToVersion = file.UpdateToVersion
-    };
-} 
+    public static ScannedFileDto FromScannedFile(ScannedFile file) =>
+        new()
+        {
+            Id = file.Id,
+            SourceFile = file.SourceFile,
+            DestFile = file.DestFile,
+            MediaType = file.MediaType?.ToString(),
+            TmdbId = file.TmdbId,
+            ImdbId = file.ImdbId,
+            Title = file.Title,
+            Year = file.Year,
+            Genres = ConvertStringToGenres(file.Genres) is IEnumerable<string> genres
+                ? new Collection<string>(genres.ToList())
+                : null,
+            SeasonNumber = file.SeasonNumber,
+            EpisodeNumber = file.EpisodeNumber,
+            EpisodeNumber2 = file.EpisodeNumber2,
+            Status = file.Status.ToString(),
+            CreatedAt = file.CreatedAt,
+            UpdatedAt = file.UpdatedAt,
+            VersionUpdated = file.VersionUpdated,
+            UpdateToVersion = file.UpdateToVersion,
+        };
+}

@@ -30,12 +30,13 @@ src
 ├── PlexLocalScan.Abstractions
 ├── PlexLocalScan.Api
 │   ├── Config
-│   ├── Controllers
-│   ├── Endpoints
-│   ├── Models
+│   ├── Logging
+│   ├── MediaLookup
 │   ├── Properties
-│   ├── Routing
-│   └── ServiceCollection
+│   ├── ScannedFiles
+│   │   └── Models
+│   ├── ServiceCollection
+│   └── Symlink
 ├── PlexLocalScan.Core
 │   ├── Helper
 │   ├── Media
@@ -44,7 +45,6 @@ src
 ├── PlexLocalScan.Data
 │   ├── Data
 │   └── Migrations
-├── PlexLocalScan.FileTracking
 ├── PlexLocalScan.Shared
 │   ├── Configuration
 │   │   └── Options
@@ -68,9 +68,7 @@ src
 ├── PlexLocalScan.SignalR
 │   ├── Hubs
 │   └── Services
-├── PlexLocalScan.Test
-│   ├── Integration
-│   └── Services
-└── components
-    └── settings
+└── PlexLocalScan.Test
+    ├── Integration
+    └── Services
 ```

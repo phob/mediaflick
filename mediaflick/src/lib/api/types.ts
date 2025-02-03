@@ -12,25 +12,25 @@ export interface MediaSearchResult {
 }
 
 export interface MediaInfo {
-  Title: string
-  Year: number
-  Genres: string[]
-  TmdbId: number
-  ImdbId: string
-  MediaType: MediaType
-  SeasonNumber?: number
-  EpisodeNumber?: number
-  EpisodeTitle?: string
-  EpisodeTmdbId?: number
-  PosterPath?: string
-  BackdropPath?: string
-  Summary?: string
-  Overview?: string
-  Status?: string
-  EpisodeCount?: number
-  EpisodeCountScanned?: number
-  SeasonCount?: number
-  SeasonCountScanned?: number
+  title: string
+  year: number
+  genres: string[]
+  tmdbId: number
+  imdbId: string
+  mediaType: MediaType
+  seasonNumber?: number
+  episodeNumber?: number
+  episodeTitle?: string
+  episodeTmdbId?: number
+  posterPath?: string
+  backdropPath?: string
+  summary?: string
+  overview?: string
+  status?: string
+  episodeCount?: number
+  episodeCountScanned?: number
+  seasonCount?: number
+  seasonCountScanned?: number
 }
 
 export enum MediaType {
@@ -48,22 +48,24 @@ export enum MediaStatus {
 }
 
 export interface SeasonInfo {
-  SeasonNumber: number
-  Name: string
-  Overview: string
-  PosterPath: string
-  AirDate: string
-  Episodes: EpisodeInfo[]
+  seasonNumber: number
+  name: string
+  overview: string
+  posterPath: string
+  airDate: string
+  episodes: EpisodeInfo[]
+  episodeCount: number
+  episodeCountScanned: number
 }
 
 export interface EpisodeInfo {
-  EpisodeNumber: number
-  Name: string
-  Overview: string
-  StillPath: string
-  AirDate: string
-  TmdbId: number
-  IsScanned: boolean
+  episodeNumber: number
+  name: string
+  overview: string
+  stillPath: string
+  airDate: string
+  tmdbId: number
+  isScanned: boolean
 }
 
 export interface ScannedFile {
@@ -78,6 +80,7 @@ export interface ScannedFile {
   genres?: string[]
   seasonNumber?: number
   episodeNumber?: number
+  episodeNumber2?: number
   status: MediaStatus
   createdAt: string
   updatedAt: string
@@ -97,6 +100,7 @@ export interface UpdateScannedFileRequest {
   tmdbId?: number
   seasonNumber?: number
   episodeNumber?: number
+  episodeNumber2?: number
 }
 
 export interface ScannedFileStats {

@@ -1,0 +1,32 @@
+# This workflow will build a .NET project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
+
+name: .NET Test
+
+on:
+  push:
+    branches: [ $default-branch ]
+  pull_request:
+    branches: [ $default-branch ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    env:
+      DOTNET_VERSION: 9.0.x
+      SOLUTION_FILE: src/PlexLocalScan.sln
+      TEST_PROJECT: src/PlexLocalScan.Test/PlexLocalScan.Test.csproj
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    - name: Restore dependencies
+      run: dotnet restore ${{ env.SOLUTION_FILE }}
+    - name: Build
+      run: dotnet build --no-restore ${{ env.SOLUTION_FILE }}
+    - name: Test
+      run: dotnet test --no-build --verbosity normal ${{ env.TEST_PROJECT }}

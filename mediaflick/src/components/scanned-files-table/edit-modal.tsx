@@ -34,6 +34,7 @@ interface EditModalProps {
 interface EditableRow extends Row {
   seasonNumber?: number
   episodeNumber?: number
+  episodeNumber2?: number
   title?: string
   year?: number
 }
@@ -61,6 +62,7 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave, initialMediaT
         const selectedIds = selectedRows.map((row) => row.key)
         const result = await mediaApi.getScannedFiles({
           ids: selectedIds,
+          mediaType: selectedMediaType,
           pageSize: selectedIds.length,
           sortBy: "sourceFile",
           sortOrder: "asc",
@@ -78,7 +80,7 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave, initialMediaT
     }
 
     fetchSelectedFiles()
-  }, [isOpen, selectedRows])
+  }, [isOpen, selectedRows, selectedMediaType])
 
   const handleMediaTypeChange = (type: string) => {
     setSelectedMediaType(type as MediaType.Movies | MediaType.TvShows)
@@ -106,6 +108,7 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave, initialMediaT
         tmdbId: 0,
         seasonNumber: undefined,
         episodeNumber: undefined,
+        episodeNumber2: undefined,
       }))
     )
   }
@@ -122,6 +125,7 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave, initialMediaT
     updatedAt: file.updatedAt,
     seasonNumber: file.seasonNumber,
     episodeNumber: file.episodeNumber,
+    episodeNumber2: file.episodeNumber2,
   })
 
   return (

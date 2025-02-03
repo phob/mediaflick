@@ -198,6 +198,16 @@ export function ScannedFilesTable({
     return rows.filter((row) => selectedKeys.has(row.key))
   }, [selectedKeys, rows])
 
+  const handleRowClick = useCallback((key: number) => {
+    const newKeys = new Set(selectedKeys)
+    if (newKeys.has(key)) {
+      newKeys.delete(key)
+    } else {
+      newKeys.add(key)
+    }
+    setSelectedKeys(newKeys)
+  }, [selectedKeys])
+
   const handleEditSelected = useCallback(() => {
     setIsEditModalOpen(true)
   }, [])
@@ -214,6 +224,7 @@ export function ScannedFilesTable({
             tmdbId: row.tmdbId,
             seasonNumber: row.seasonNumber,
             episodeNumber: row.episodeNumber,
+            episodeNumber2: row.episodeNumber2,
           })
         )
       )
@@ -350,16 +361,6 @@ export function ScannedFilesTable({
   )
 
   const tableComponent = React.useMemo(() => {
-    const handleRowClick = (key: number) => {
-      const newKeys = new Set(selectedKeys)
-      if (newKeys.has(key)) {
-        newKeys.delete(key)
-      } else {
-        newKeys.add(key)
-      }
-      setSelectedKeys(newKeys)
-    }
-
     return (
       <div>
         <Separator className="my-4" />
@@ -371,11 +372,8 @@ export function ScannedFilesTable({
                   <Checkbox
                     checked={selectedKeys.size > 0 && selectedKeys.size === rows.length}
                     onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedKeys(new Set(rows.map(row => row.key)))
-                      } else {
-                        setSelectedKeys(new Set())
-                      }
+                      const newKeys = checked ? new Set<number>(rows.map(row => row.key)) : new Set<number>()
+                      setSelectedKeys(newKeys)
                     }}
                     aria-label="Select all"
                   />
@@ -481,6 +479,7 @@ export function ScannedFilesTable({
     handleSort,
     selectedKeys,
     newEntries,
+    handleRowClick,
   ])
 
   useEffect(() => {
@@ -645,7 +644,7 @@ export function ScannedFilesTable({
   return (
     <>
       {topContent}
-      <div className="h-[calc(100vh-200px)] min-h-[400px] overflow-auto">
+      <div className="h-[calc(100vh-400px)] min-h-[400px] overflow-auto">
         {tableComponent}
       </div>
       {data && data.totalPages > 1 && (

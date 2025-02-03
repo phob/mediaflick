@@ -16,12 +16,14 @@ public partial class UniqueEpisode : Migration
             name: "IX_ScannedFiles_SourceFile_DestFile_EpisodeNumber",
             table: "ScannedFiles",
             columns: columns,
-            unique: true);
+            unique: true
+        );
 
         migrationBuilder.CreateIndex(
             name: "IX_ScannedFiles_TmdbId",
             table: "ScannedFiles",
-            column: "TmdbId");
+            column: "TmdbId"
+        );
     }
 
     /// <inheritdoc />
@@ -29,10 +31,9 @@ public partial class UniqueEpisode : Migration
     {
         migrationBuilder.DropIndex(
             name: "IX_ScannedFiles_SourceFile_DestFile_EpisodeNumber",
-            table: "ScannedFiles");
+            table: "ScannedFiles"
+        );
 
-        migrationBuilder.DropIndex(
-            name: "IX_ScannedFiles_TmdbId",
-            table: "ScannedFiles");
+        migrationBuilder.DropIndex(name: "IX_ScannedFiles_TmdbId", table: "ScannedFiles");
     }
 }

@@ -13,8 +13,8 @@ public record MediaInfo
     public MediaType? MediaType { get; set; }
     public int? SeasonNumber { get; init; }
     public int? EpisodeNumber { get; init; }
-    public string? EpisodeTitle { get; init; }
     public int? EpisodeNumber2 { get; init; }
+    public string? EpisodeTitle { get; init; }
     public int? EpisodeTmdbId { get; set; }
     public string? PosterPath { get; set; }
     public string? BackdropPath { get; set; }

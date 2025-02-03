@@ -19,7 +19,8 @@ public class SymlinkRecreationService(
     ICleanupHandler cleanupHandler,
     IContextService contextService,
     IOptionsSnapshot<PlexOptions> plexOptions,
-    PlexScanContext dbContext) : ISymlinkRecreationService
+    PlexScanContext dbContext
+) : ISymlinkRecreationService
 {
     public async Task<bool> RecreateSymlinkIfNeededAsync(ScannedFile scannedFile)
     {
@@ -36,22 +37,36 @@ public class SymlinkRecreationService(
             {
                 mediaInfo = scannedFile.MediaType switch
                 {
-                    MediaType.Movies => await movieDetectionService.DetectMovieByTmdbIdAsync(scannedFile.TmdbId.Value),
-                    MediaType.TvShows when scannedFile is {SeasonNumber: not null, EpisodeNumber: not null} =>
+                    MediaType.Movies => await movieDetectionService.DetectMovieByTmdbIdAsync(
+                        scannedFile.TmdbId.Value
+                    ),
+                    MediaType.TvShows
+                        when scannedFile is { SeasonNumber: not null, EpisodeNumber: not null } =>
                         await tvShowDetectionService.DetectTvShowByTmdbIdAsync(
                             scannedFile.TmdbId.Value,
                             scannedFile.SeasonNumber.Value,
-                            scannedFile.EpisodeNumber.Value),
-                    _ => null
+                            scannedFile.EpisodeNumber.Value
+                        ),
+                    _ => null,
                 };
             }
 
             if (mediaInfo == null)
             {
-                logger.LogWarning("Failed to get media info for file {SourceFile}", scannedFile.SourceFile);
+                logger.LogWarning(
+                    "Failed to get media info for file {SourceFile}",
+                    scannedFile.SourceFile
+                );
                 return false;
             }
-            
+
+            await contextService.UpdateStatusAsync(
+                scannedFile.SourceFile,
+                null,
+                mediaInfo,
+                FileStatus.Processing
+            );
+
             // Delete the old symlink if it exists
             if (!string.IsNullOrEmpty(scannedFile.DestFile) && File.Exists(scannedFile.DestFile))
             {
@@ -59,19 +74,26 @@ public class SymlinkRecreationService(
             }
 
             // Get the correct destination folder from configuration
-            var folderMapping = plexOptions.Value.FolderMappings
-                .FirstOrDefault(m => m.MediaType == mediaInfo.MediaType);
+            var folderMapping = plexOptions.Value.FolderMappings.FirstOrDefault(m =>
+                m.MediaType == mediaInfo.MediaType
+            );
 
             if (folderMapping == null)
             {
-                logger.LogError("No folder mapping found for media type {MediaType}", mediaInfo.MediaType);
+                logger.LogError(
+                    "No folder mapping found for media type {MediaType}",
+                    mediaInfo.MediaType
+                );
                 return false;
             }
 
             var destFolder = folderMapping.DestinationFolder;
             if (string.IsNullOrEmpty(destFolder))
             {
-                logger.LogError("Destination folder is null or empty for media type {MediaType}", mediaInfo.MediaType);
+                logger.LogError(
+                    "Destination folder is null or empty for media type {MediaType}",
+                    mediaInfo.MediaType
+                );
                 return false;
             }
 
@@ -79,13 +101,18 @@ public class SymlinkRecreationService(
             await cleanupHandler.CleanupDeadSymlinksAsync(destFolder);
 
             // Create the new symlink
-            await symlinkHandler.CreateSymlinksAsync(scannedFile.SourceFile, destFolder, mediaInfo, mediaInfo.MediaType ?? MediaType.Unknown);
+            await symlinkHandler.CreateSymlinksAsync(
+                scannedFile.SourceFile,
+                destFolder,
+                mediaInfo,
+                mediaInfo.MediaType ?? MediaType.Unknown
+            );
 
             // Update the version number to match
             scannedFile.VersionUpdated = scannedFile.UpdateToVersion;
 
             var fileStatus = FileStatus.Success;
-            if (scannedFile is {Status: FileStatus.Duplicate, DestFile: null})
+            if (scannedFile is { Status: FileStatus.Duplicate, DestFile: null })
             {
                 fileStatus = FileStatus.Duplicate;
             }
@@ -97,6 +124,7 @@ public class SymlinkRecreationService(
                 ImdbId = mediaInfo.ImdbId,
                 SeasonNumber = scannedFile.SeasonNumber,
                 EpisodeNumber = scannedFile.EpisodeNumber,
+                EpisodeNumber2 = scannedFile.EpisodeNumber2,
                 Genres = mediaInfo.Genres,
                 Title = mediaInfo.Title,
                 Year = mediaInfo.Year,
@@ -112,7 +140,11 @@ public class SymlinkRecreationService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error recreating symlink for file {SourceFile}", scannedFile.SourceFile);
+            logger.LogError(
+                ex,
+                "Error recreating symlink for file {SourceFile}",
+                scannedFile.SourceFile
+            );
             return false;
         }
     }
@@ -125,21 +157,37 @@ public class SymlinkRecreationService(
         try
         {
             // Get all files that need updating
-            var filesToUpdate = await dbContext.ScannedFiles
-                .Where(f => f.UpdateToVersion > f.VersionUpdated)
+            var filesToUpdate = await dbContext
+                .ScannedFiles.Where(f => f.UpdateToVersion > f.VersionUpdated)
                 .ToListAsync();
 
-            logger.LogInformation("Found {Count} files that need symlink recreation", filesToUpdate.Count);
+            logger.LogInformation(
+                "Found {Count} files that need symlink recreation",
+                filesToUpdate.Count
+            );
 
             // Group files by TMDb ID to check for duplicates
             var movieGroups = filesToUpdate
-                .Where(f => f is {MediaType: MediaType.Movies, TmdbId: not null})
+                .Where(f => f is { MediaType: MediaType.Movies, TmdbId: not null })
                 .GroupBy(f => f.TmdbId!.Value)
                 .ToList();
 
             var tvShowGroups = filesToUpdate
-                .Where(f => f is {MediaType: MediaType.TvShows, TmdbId: not null, SeasonNumber: not null, EpisodeNumber: not null})
-                .GroupBy(f => new { TmdbId = f.TmdbId!.Value, Season = f.SeasonNumber!.Value, Episode = f.EpisodeNumber!.Value })
+                .Where(f =>
+                    f
+                        is {
+                            MediaType: MediaType.TvShows,
+                            TmdbId: not null,
+                            SeasonNumber: not null,
+                            EpisodeNumber: not null
+                        }
+                )
+                .GroupBy(f => new
+                {
+                    TmdbId = f.TmdbId!.Value,
+                    Season = f.SeasonNumber!.Value,
+                    Episode = f.EpisodeNumber!.Value,
+                })
                 .ToList();
 
             // Process movies - only keep the first file for each TMDb ID
@@ -168,11 +216,20 @@ public class SymlinkRecreationService(
                         ImdbId = duplicate.ImdbId,
                         SeasonNumber = duplicate.SeasonNumber,
                         EpisodeNumber = duplicate.EpisodeNumber,
-                        Genres = ScannedFileDto.ConvertStringToGenres(duplicate.Genres)?.ToList().AsReadOnly(),
+                        EpisodeNumber2 = duplicate.EpisodeNumber2,
+                        Genres = ScannedFileDto
+                            .ConvertStringToGenres(duplicate.Genres)
+                            ?.ToList()
+                            .AsReadOnly(),
                         Title = duplicate.Title,
                         Year = duplicate.Year,
                     };
-                    await contextService.UpdateStatusAsync(duplicate.SourceFile, duplicate.DestFile, mediaInfo, FileStatus.Duplicate);
+                    await contextService.UpdateStatusAsync(
+                        duplicate.SourceFile,
+                        null,
+                        mediaInfo,
+                        FileStatus.Duplicate
+                    );
                     failedCount++;
                 }
             }
@@ -203,16 +260,28 @@ public class SymlinkRecreationService(
                         ImdbId = duplicate.ImdbId,
                         SeasonNumber = duplicate.SeasonNumber,
                         EpisodeNumber = duplicate.EpisodeNumber,
-                        Genres = ScannedFileDto.ConvertStringToGenres(duplicate.Genres)?.ToList().AsReadOnly(),
+                        EpisodeNumber2 = duplicate.EpisodeNumber2,
+                        Genres = ScannedFileDto
+                            .ConvertStringToGenres(duplicate.Genres)
+                            ?.ToList()
+                            .AsReadOnly(),
                         Title = duplicate.Title,
                         Year = duplicate.Year,
                     };
-                    await contextService.UpdateStatusAsync(duplicate.SourceFile, duplicate.DestFile, mediaInfo, FileStatus.Duplicate);
+                    await contextService.UpdateStatusAsync(
+                        duplicate.SourceFile,
+                        null,
+                        mediaInfo,
+                        FileStatus.Duplicate
+                    );
                     failedCount++;
                 }
             }
-            logger.LogInformation("Symlink recreation completed. Success: {SuccessCount}, Failed: {FailedCount}", 
-                successCount, failedCount);
+            logger.LogInformation(
+                "Symlink recreation completed. Success: {SuccessCount}, Failed: {FailedCount}",
+                successCount,
+                failedCount
+            );
 
             return successCount;
         }
@@ -222,4 +291,4 @@ public class SymlinkRecreationService(
             return successCount;
         }
     }
-} 
+}

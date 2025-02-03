@@ -5,6 +5,10 @@ namespace PlexLocalScan.Shared.Symlinks.Interfaces;
 
 public interface ISymlinkHandler
 {
-    Task<bool> CreateSymlinksAsync(string sourceFile, string destinationFolder, MediaInfo? mediaInfo, MediaType mediaType);
-    
+    Task<bool> CreateSymlinksAsync(
+        string sourceFile,
+        string destinationFolder,
+        MediaInfo? mediaInfo,
+        MediaType mediaType
+    );
 }

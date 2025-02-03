@@ -14,24 +14,22 @@ public partial class SeasonEpisode : Migration
             name: "EpisodeNumber",
             table: "ScannedFiles",
             type: "INTEGER",
-            nullable: true);
+            nullable: true
+        );
 
         migrationBuilder.AddColumn<int>(
             name: "SeasonNumber",
             table: "ScannedFiles",
             type: "INTEGER",
-            nullable: true);
+            nullable: true
+        );
     }
 
     /// <inheritdoc />
     protected override void Down(MigrationBuilder migrationBuilder)
     {
-        migrationBuilder.DropColumn(
-            name: "EpisodeNumber",
-            table: "ScannedFiles");
+        migrationBuilder.DropColumn(name: "EpisodeNumber", table: "ScannedFiles");
 
-        migrationBuilder.DropColumn(
-            name: "SeasonNumber",
-            table: "ScannedFiles");
+        migrationBuilder.DropColumn(name: "SeasonNumber", table: "ScannedFiles");
     }
 }

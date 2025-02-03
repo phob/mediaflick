@@ -6,4 +6,4 @@ public interface ICleanupHandler
     Task CleanupDeletedSourceFolderAsync(string sourceFolder);
     bool IsSymbolicLinkDead(string symlinkPath);
     bool IsDirectoryEmpty(string path);
-} 
+}

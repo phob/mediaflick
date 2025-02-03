@@ -5,23 +5,22 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add configuration
-builder.AddConfiguration();
-
-// Add services
+// Configuration and logging setup
 builder.Services.AddCorsPolicy();
+builder.AddConfiguration();
 builder.Services.AddApplication(builder.Configuration);
+builder.Services.AddSignalRService();
 
 var app = builder.Build();
 
-// Apply migrations on startup
-using (var scope = app.Services.CreateScope())
+// Database migrations
+await using (var scope = app.Services.CreateAsyncScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<PlexScanContext>();
     await db.Database.MigrateAsync();
 }
 
-// Configure middleware and endpoints
+// Middleware pipeline
 app.AddMiddleware();
 
 try
@@ -29,7 +28,7 @@ try
     Log.Information("Starting PlexLocalScan API");
     await app.RunAsync();
 }
-catch (Exception ex)
+catch (Exception ex) when (ex is not HostAbortedException)
 {
     Log.Fatal(ex, "API terminated unexpectedly");
 }
