@@ -13,7 +13,8 @@ dotnet publish "PlexLocalScan.Api/PlexLocalScan.Api.csproj" -c Release -o /app/p
 FROM node:20-slim AS frontend-build
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable pnpm
+RUN corepack enable
+RUN corepack prepare pnpm@10.0.0 --activate
 WORKDIR /mediaflick
 
 # Copy frontend files
@@ -28,7 +29,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine
 WORKDIR /app
 
 # Install required dependencies
-RUN apk add --no-cache icu-libs nodejs npm && npm install -g pnpm
+# RUN apk add --no-cache icu-libs nodejs npm && npm install -g pnpm
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
