@@ -34,4 +34,5 @@ public class ContextHub : Hub<ISignalRHub>
     public async Task OnFileUpdated(ScannedFileDto file) => await Clients.All.OnFileUpdated(file);
 
     public async Task OnHeartbeat(long timestamp) => await Clients.All.OnHeartbeat(timestamp);
+    public async Task OnZurgVersion(long timestamp) => await Clients.All.OnZurgVersion(timestamp);
 }

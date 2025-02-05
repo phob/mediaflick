@@ -8,8 +8,5 @@ public static class SignalR
     {
         // Add SignalR
         services.AddSignalR();
-
-        // Add HeartbeatService
-        services.AddHostedService<HeartbeatService>();
     }
 }

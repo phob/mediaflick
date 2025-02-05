@@ -10,6 +10,9 @@ interface ScannedFileDto {
     mediaType: string
     tmdbId: number | null
     imdbId: string | null
+    title: string | null
+    year: number | null
+    genres: string[] | null
     seasonNumber: number | null
     episodeNumber: number | null
     episodeNumber2: number | null
@@ -27,6 +30,9 @@ const convertDtoToScannedFile = (dto: ScannedFileDto): ScannedFile => ({
     mediaType: dto.mediaType as MediaType,
     tmdbId: dto.tmdbId || undefined,
     imdbId: dto.imdbId || undefined,
+    title: dto.title || undefined,
+    year: dto.year || undefined,
+    genres: dto.genres || undefined,
     seasonNumber: dto.seasonNumber || undefined,
     episodeNumber: dto.episodeNumber || undefined,
     episodeNumber2: dto.episodeNumber2 || undefined,
@@ -39,14 +45,15 @@ const convertDtoToScannedFile = (dto: ScannedFileDto): ScannedFile => ({
 
 type FileEventHandler = (file: ScannedFile) => void
 type HeartbeatHandler = (timestamp: number) => void
-type FileEventType = 'OnFileAdded' | 'OnFileUpdated' | 'OnFileRemoved' | 'OnHeartbeat'
+type ZurgVersionHandler = (timestamp: number) => void
+type FileEventType = 'OnFileAdded' | 'OnFileUpdated' | 'OnFileRemoved' | 'OnHeartbeat' | 'OnZurgVersion'
 
 class FileTrackingSignalR {
     private connection: HubConnection | null = null;
-    private eventHandlers: Map<FileEventType, Set<FileEventHandler | HeartbeatHandler>> = new Map();
+    private eventHandlers: Map<FileEventType, Set<FileEventHandler | HeartbeatHandler | ZurgVersionHandler>> = new Map();
     private isConnected: boolean = false
     private lastHeartbeat: number = 0
-
+    private lastZurgVersion: number = 0
     constructor() {
         if (typeof window !== 'undefined') {
             this.connection = new HubConnectionBuilder()
@@ -61,7 +68,7 @@ class FileTrackingSignalR {
 
     private setupEventHandlers(): void {
         if (!this.connection) return;
-        const events: FileEventType[] = ['OnFileAdded', 'OnFileUpdated', 'OnFileRemoved', 'OnHeartbeat']
+        const events: FileEventType[] = ['OnFileAdded', 'OnFileUpdated', 'OnFileRemoved', 'OnHeartbeat', 'OnZurgVersion']
         
         events.forEach(eventType => {
             this.eventHandlers.set(eventType, new Set())
@@ -75,7 +82,17 @@ class FileTrackingSignalR {
                             (handler as HeartbeatHandler)(timestamp)
                         )
                     })
-                } else {
+                } 
+                if (eventType === 'OnZurgVersion') {
+                    this.connection.on(eventType, (timestamp: number) => {
+                        this.lastZurgVersion = timestamp
+                        console.log(`${eventType}:`, new Date(timestamp))
+                        this.eventHandlers.get(eventType)?.forEach(handler => 
+                            (handler as ZurgVersionHandler)(timestamp)
+                        )
+                    })
+                } 
+                if (eventType === 'OnFileAdded' || eventType === 'OnFileUpdated' || eventType === 'OnFileRemoved') {
                     this.connection.on(eventType, (dto: ScannedFileDto) => {
                         const file = convertDtoToScannedFile(dto)
                         console.log(`${eventType}:`, file)
@@ -102,7 +119,8 @@ class FileTrackingSignalR {
 
     public subscribe(eventType: Exclude<FileEventType, 'OnHeartbeat'>, handler: FileEventHandler): () => void
     public subscribe(eventType: 'OnHeartbeat', handler: HeartbeatHandler): () => void
-    public subscribe(eventType: FileEventType, handler: FileEventHandler | HeartbeatHandler): () => void {
+    public subscribe(eventType: 'OnZurgVersion', handler: ZurgVersionHandler): () => void
+    public subscribe(eventType: FileEventType, handler: FileEventHandler | HeartbeatHandler | ZurgVersionHandler): () => void {
         const handlers = this.eventHandlers.get(eventType)
         if (handlers) {
             handlers.add(handler)
@@ -114,7 +132,7 @@ class FileTrackingSignalR {
         }
     }
 
-    public unsubscribe(eventType: FileEventType, handler: FileEventHandler | HeartbeatHandler): void {
+    public unsubscribe(eventType: FileEventType, handler: FileEventHandler | HeartbeatHandler | ZurgVersionHandler): void {
         this.eventHandlers.get(eventType)?.delete(handler)
     }
 
@@ -124,6 +142,10 @@ class FileTrackingSignalR {
 
     public getLastHeartbeat(): number {
         return this.lastHeartbeat
+    }
+
+    public getLastZurgVersion(): number {
+        return this.lastZurgVersion
     }
 }
 

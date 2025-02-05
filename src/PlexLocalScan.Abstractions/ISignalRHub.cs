@@ -26,4 +26,9 @@ public interface ISignalRHub
     /// Sends server timestamp to clients for heartbeat
     /// </summary>
     Task OnHeartbeat(long timestamp);
+
+    /// <summary>
+    /// Sends Zurg version to clients
+    /// </summary>
+    Task OnZurgVersion(long timestamp);
 }
