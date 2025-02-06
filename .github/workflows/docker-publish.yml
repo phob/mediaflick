@@ -92,3 +92,11 @@ jobs:
         # This step uses the identity token to provision an ephemeral certificate
         # against the sigstore community Fulcio instance.
         run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
+
+      - name: Cleanup Docker
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          token: ${{ secrets.MY_PAT }}
+          delete-untagged: true
+          delete-ghost-images: true
+            delete-orphaned-images: true

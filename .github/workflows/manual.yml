@@ -10,3 +10,5 @@ jobs:
           with:
             token: ${{ secrets.MY_PAT }}
             delete-untagged: true
+            delete-ghost-images: true
+            delete-orphaned-images: true
