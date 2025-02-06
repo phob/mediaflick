@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
 jobs:
     cleanup:
+      name: 'ghcr cleanup'
       runs-on: ubuntu-latest
       steps:
         - uses: dataaxiom/ghcr-cleanup-action@v1
@@ -12,3 +13,4 @@ jobs:
             delete-untagged: true
             delete-ghost-images: true
             delete-orphaned-images: true
+            delete-tags: 'sha256*'
