@@ -59,9 +59,6 @@ export function HeartbeatStatus() {
     if (isZurgOffline && !isOffline) {
       return 'Zurg offline'
     }
-    if (isOffline) {
-      return null
-    }
     if (timestamp === 0) {
       return 'Connecting to Zurg...'
     }
