@@ -1,6 +1,7 @@
 using Coravel;
 using PlexLocalScan.Shared.Services;
 using PlexLocalScan.SignalR.Hubs;
+using PlexLocalScan.SignalR.Services;
 using Scalar.AspNetCore;
 using Serilog;
 
@@ -44,6 +45,15 @@ public static class Middleware
                 .EveryMinute()
                 .RunOnceAtStart()
                 .PreventOverlapping(nameof(FilePollerService));
+
+            scheduler
+                .Schedule<HeartbeatService>()
+                .EveryThirtySeconds()
+                .PreventOverlapping(nameof(HeartbeatService));
+            scheduler
+                .Schedule<ZurgService>()
+                .EveryThirtySeconds()
+                .PreventOverlapping(nameof(ZurgService));
         });
 
         // Add middleware in the correct order

@@ -21,15 +21,18 @@ internal static class ConfigRouting
                 (
                     IOptionsSnapshot<PlexOptions> plexOptions,
                     IOptionsSnapshot<TmDbOptions> tmdbOptions,
-                    IOptionsSnapshot<MediaDetectionOptions> mediaDetectionOptions
+                    IOptionsSnapshot<MediaDetectionOptions> mediaDetectionOptions,
+                    IOptionsSnapshot<ZurgOptions> zurgOptions
                 ) =>
                 {
                     var config = new CombinedConfig(
                         plexOptions.Value,
                         tmdbOptions.Value,
-                        mediaDetectionOptions.Value
+                        mediaDetectionOptions.Value,
+                        zurgOptions.Value
                     );
                     return Results.Ok(config);
+
                 }
             )
             .WithName("GetConfiguration")
@@ -61,8 +64,10 @@ internal static class ConfigRouting
     private sealed record CombinedConfig(
         PlexOptions Plex,
         TmDbOptions TmDb,
-        MediaDetectionOptions MediaDetection
+        MediaDetectionOptions MediaDetection,
+        ZurgOptions Zurg
     );
+
 
     private static List<string> ValidateConfig(CombinedConfig config)
     {

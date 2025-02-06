@@ -15,6 +15,7 @@ import { ConfigurationPayload } from "@/lib/api/types"
 import PlexConfig from "./plex-config"
 import FolderMappings from "./folder-mappings"
 import TMDbConfig from "./tmdb-config"
+import ZurgConfig from "./zurg-config"
 
 type SettingsModalProps = {
   isOpen: boolean
@@ -36,6 +37,9 @@ const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
     },
     mediaDetection: {
       cacheDuration: 3600,
+    },
+    zurg: {
+      versionLocation: "",
     },
   })
   const [isLoading, setIsLoading] = useState(false)
@@ -83,6 +87,7 @@ const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
           <PlexConfig config={config} onConfigChange={setConfig} />
           <FolderMappings config={config} onConfigChange={setConfig} />
           <TMDbConfig config={config} onConfigChange={setConfig} />
+          <ZurgConfig config={config} onConfigChange={setConfig} />
         </div>
         <DialogFooter className="border-t border-gray-800 px-6 py-4">
           <Button

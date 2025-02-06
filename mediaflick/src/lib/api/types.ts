@@ -143,10 +143,15 @@ export interface FolderMappingConfig {
   mediaType: MediaType
 }
 
+export interface ZurgConfig {
+  versionLocation: string
+}
+
 export interface ConfigurationPayload {
   plex: PlexConfig
   tmDb: TMDbConfig
   mediaDetection: MediaDetectionConfig
+  zurg: ZurgConfig
 }
 
 export type LogLevel = 'Verbose' | 'Debug' | 'Information' | 'Warning' | 'Error' | 'Fatal';

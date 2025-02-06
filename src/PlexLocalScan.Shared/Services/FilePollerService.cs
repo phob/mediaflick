@@ -10,6 +10,7 @@ public class FilePollerService(
     ILogger<FilePollerService> logger,
     IOptionsMonitor<PlexOptions> options,
     IOptionsMonitor<TmDbOptions> tmDbOptions,
+    IOptionsMonitor<ZurgOptions> zurgOptions,
     IFileProcessing fileProcessing
 ) : IInvocable
 {
@@ -21,8 +22,15 @@ public class FilePollerService(
     {
         try
         {
-            await InitializeFoldersAsync();
-            await ProcessFilesAsync();
+            if (File.Exists(zurgOptions.CurrentValue.VersionLocation))
+            {
+                await InitializeFoldersAsync();
+                await ProcessFilesAsync();
+            }
+            else
+            {
+                logger.LogInformation("Zurg version file not found");
+            }
         }
         catch (OperationCanceledException)
         {

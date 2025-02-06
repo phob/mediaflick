@@ -57,7 +57,8 @@ public static class Application
             .Configure<PlexOptions>(configuration.GetSection("Plex"))
             .Configure<TmDbOptions>(configuration.GetSection("TMDb"))
             .Configure<MediaDetectionOptions>(configuration.GetSection("MediaDetection"))
-            .Configure<FolderMappingOptions>(configuration.GetSection("FolderMapping"));
+            .Configure<FolderMappingOptions>(configuration.GetSection("FolderMapping"))
+            .Configure<ZurgOptions>(configuration.GetSection("Zurg"));
 
         services.AddScheduler();
 
@@ -87,7 +88,9 @@ public static class Application
             .AddScoped<IContextService, ContextService>()
             .AddScoped<IFileProcessing, FileProcessing>()
             .AddScoped<IPlexHandler, PlexHandler>()
-            .AddScoped<FilePollerService>();
+            .AddScoped<FilePollerService>()
+            .AddScoped<ZurgService>()
+            .AddScoped<HeartbeatService>();
 
         // Add database context
         services.AddDbContext<PlexScanContext>(

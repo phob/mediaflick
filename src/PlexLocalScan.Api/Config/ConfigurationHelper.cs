@@ -43,7 +43,9 @@ internal static class ConfigurationHelper
                 },
                 TMDb = new { ApiKey = "your-tmdb-api-key" },
                 MediaDetection = new { CacheDuration = 3600 },
+                Zurg = new { VersionLocation = "/mnt/zurg/version.txt" },
             };
+
 
             var serializer = new SerializerBuilder().Build();
             var yaml = serializer.Serialize(defaultConfig);

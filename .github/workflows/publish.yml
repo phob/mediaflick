@@ -1,0 +1,98 @@
+name: Publish Apps
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./mediaflick
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          
+      - name: Install dependencies
+        run: pnpm install
+        
+      - name: Build
+        run: pnpm build
+        
+      - name: Create frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mediaflick-frontend
+          path: mediaflick/.next
+          
+  publish-backend:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runtime: ['win-x64', 'linux-x64']
+        
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+          
+      - name: Restore dependencies
+        run: dotnet restore src/PlexLocalScan.sln
+        
+      - name: Build
+        run: dotnet build src/PlexLocalScan.sln --configuration Release --no-restore
+        
+      - name: Publish
+        run: |
+          dotnet publish src/PlexLocalScan.Api/PlexLocalScan.Api.csproj \
+            --configuration Release \
+            --runtime ${{ matrix.runtime }} \
+            --self-contained true \
+            --output ./publish/${{ matrix.runtime }}
+            
+      - name: Create backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mediaflick-backend-${{ matrix.runtime }}
+          path: ./publish/${{ matrix.runtime }}
+          
+  create-release:
+    needs: [publish-frontend, publish-backend]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+          
+      - name: Create release archives
+        run: |
+          cd artifacts
+          zip -r mediaflick-frontend.zip mediaflick-frontend/
+          cd mediaflick-backend-win-x64 && zip -r ../mediaflick-backend-windows.zip . && cd ..
+          cd mediaflick-backend-linux-x64 && tar -czf ../mediaflick-backend-linux.tar.gz . && cd ..
+          
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/mediaflick-frontend.zip
+            artifacts/mediaflick-backend-windows.zip
+            artifacts/mediaflick-backend-linux.tar.gz
