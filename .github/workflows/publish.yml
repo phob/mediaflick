@@ -35,6 +35,8 @@ jobs:
         with:
           name: mediaflick-frontend
           path: mediaflick/.next
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
           
   publish-backend:
     runs-on: ubuntu-latest
