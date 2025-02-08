@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   plex:
     container_name: plex
@@ -12,6 +10,10 @@ services:
       - /opt/plex/config:/config
       - /opt/plex/transcode:/transcode
       - /opt/plex/media:/data
+      - /mnt/organized/tvseries:/mnt/organized/tvseries
+      - /mnt/organized/movies:/mnt/organized/movies
+      - /mnt/zurg/tvseries:/mnt/zurg/tvseries
+      - /mnt/zurg/movies:/mnt/zurg/movies
     restart: unless-stopped
 
 # Note: Before running, ensure directories exist and have correct permissions:
