@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  plex:
+    container_name: plex
+    image: plexinc/pms-docker
+    network_mode: host  # Using host network for optimal performance
+    environment:
+      - TZ=${TIMEZONE:-$(timedatectl | grep "Time zone" | awk '{print $3}')}  # Use system timezone
+      - PLEX_CLAIM=claim-_C16H5qQ6qhHnubew_Yx
+    volumes:
+      - /opt/plex/config:/config
+      - /opt/plex/transcode:/transcode
+      - /opt/plex/media:/data
+    restart: unless-stopped
+
+# Note: Before running, ensure directories exist and have correct permissions:
+#   sudo mkdir -p /opt/plex/{config,transcode,media}
+#   sudo chown -R $USER:$USER /opt/plex 
