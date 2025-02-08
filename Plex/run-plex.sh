@@ -17,7 +17,7 @@ docker run \
   --name plex \
   --network=host \
   -e TZ="$TIMEZONE" \
-  -e PLEX_CLAIM="claim-REPLACE_WITH_YOUR_CLAIM_TOKEN" \
+  -e PLEX_CLAIM="claim-_C16H5qQ6qhHnubew_Yx" \
   -v /opt/plex/config:/config \
   -v /opt/plex/transcode:/transcode \
   -v /opt/plex/media:/data \
