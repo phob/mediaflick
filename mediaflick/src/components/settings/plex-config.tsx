@@ -1,6 +1,8 @@
 import { Input } from "@/components/ui/input"
 import { ConfigurationPayload } from "@/lib/api/types"
 import { SectionTitle } from "./section-title"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { InfoCircledIcon } from "@radix-ui/react-icons"
 
 type PlexConfigProps = {
   config: ConfigurationPayload
@@ -45,7 +47,26 @@ const PlexConfig = ({ config, onConfigChange }: PlexConfigProps) => {
           </div>
         </div>
         <div className="space-y-2">
-          <label htmlFor="plex-token" className="text-sm text-gray-400">Plex Token</label>
+          <div className="flex items-center gap-2">
+            <label htmlFor="plex-token" className="text-sm text-gray-400">Plex Token</label>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <InfoCircledIcon className="h-4 w-4 text-gray-500" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[300px] p-4">
+                  <p className="text-sm">To get your Plex token:</p>
+                  <ol className="list-decimal ml-4 mt-2 text-sm space-y-1">
+                    <li>Sign in to Plex Web App</li>
+                    <li>Click any media item</li>
+                    <li>Click the three dots (⋯) and select &quot;Get Info&quot;</li>
+                    <li>Click &quot;View XML&quot; in the lower-left corner</li>
+                    <li>Find &quot;X-Plex-Token=&quot; in the URL</li>
+                  </ol>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           <Input
             id="plex-token"
             type="password"
