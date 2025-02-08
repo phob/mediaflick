@@ -2,7 +2,7 @@ import { Input } from "@/components/ui/input"
 import { ConfigurationPayload } from "@/lib/api/types"
 import { SectionTitle } from "./section-title"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { InfoCircledIcon } from "@radix-ui/react-icons"
+import { Info } from "lucide-react"
 
 type PlexConfigProps = {
   config: ConfigurationPayload
@@ -52,7 +52,7 @@ const PlexConfig = ({ config, onConfigChange }: PlexConfigProps) => {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger>
-                  <InfoCircledIcon className="h-4 w-4 text-gray-500" />
+                  <Info className="h-4 w-4 text-gray-500" />
                 </TooltipTrigger>
                 <TooltipContent className="max-w-[300px] p-4">
                   <p className="text-sm">To get your Plex token:</p>
