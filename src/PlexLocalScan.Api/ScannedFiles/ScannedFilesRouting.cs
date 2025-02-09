@@ -6,6 +6,7 @@ using PlexLocalScan.Api.ScannedFiles.Models;
 using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Data.Data;
 using PlexLocalScan.Shared.Configuration.Options;
+using PlexLocalScan.Shared.Plex.Interfaces;
 using PlexLocalScan.Shared.Symlinks.Interfaces;
 
 namespace PlexLocalScan.Api.ScannedFiles;
@@ -171,8 +172,15 @@ internal static class ScannedFilesRouting
                 "recreate-symlinks",
                 static async (
                     [FromServices] ISymlinkRecreationService symlinkRecreationService,
+                    [FromServices] IOptionsSnapshot<PlexOptions> plexOptions,
+                    [FromServices] IPlexHandler plexHandler,
                     [FromServices] ILogger<Program> logger
-                ) => await ScannedFilesController.RecreateSymlinks(symlinkRecreationService, logger)
+                ) => await ScannedFilesController.RecreateSymlinks(
+                    symlinkRecreationService,
+                    plexOptions,
+                    plexHandler,
+                    logger
+                )
             )
             .WithName("RecreateAllSymlinks")
             .WithDescription("Recreates all symlinks")

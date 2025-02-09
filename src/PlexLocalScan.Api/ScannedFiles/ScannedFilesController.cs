@@ -8,6 +8,8 @@ using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Data.Data;
 using PlexLocalScan.Shared.Configuration.Options;
 using PlexLocalScan.Shared.Symlinks.Interfaces;
+using PlexLocalScan.Shared.Plex.Interfaces;
+using PlexLocalScan.Shared.Plex.Services;
 
 namespace PlexLocalScan.Api.ScannedFiles;
 
@@ -370,15 +372,98 @@ internal static class ScannedFilesController
 
     internal static async Task<IResult> RecreateSymlinks(
         ISymlinkRecreationService symlinkRecreationService,
+        IOptionsSnapshot<PlexOptions> plexOptions,
+        IPlexHandler plexHandler,
         ILogger<Program> logger
     )
     {
         logger.LogInformation("Starting recreation of all symlinks");
+
+        // Get list of all destination files before recreation
+        var beforeFiles = new Dictionary<string, HashSet<string>>();
+        foreach (var mapping in plexOptions.Value.FolderMappings)
+        {
+            if (Directory.Exists(mapping.DestinationFolder))
+            {
+                beforeFiles[mapping.DestinationFolder] = new HashSet<string>(
+                    Directory.GetFiles(mapping.DestinationFolder, "*", SearchOption.AllDirectories)
+                );
+            }
+        }
+
+        // Recreate symlinks
         var successCount = await symlinkRecreationService.RecreateAllSymlinksAsync();
+
+        // Get list of all destination files after recreation
+        var afterFiles = new Dictionary<string, HashSet<string>>();
+        foreach (var mapping in plexOptions.Value.FolderMappings)
+        {
+            if (Directory.Exists(mapping.DestinationFolder))
+            {
+                afterFiles[mapping.DestinationFolder] = new HashSet<string>(
+                    Directory.GetFiles(mapping.DestinationFolder, "*", SearchOption.AllDirectories)
+                );
+            }
+        }
+
+        // Track changes per directory
+        var directoryChanges = new Dictionary<string, FolderAction>();
+
+        // Compare before and after states for each folder mapping
+        foreach (var mapping in plexOptions.Value.FolderMappings)
+        {
+            var basePath = mapping.DestinationFolder;
+            
+            // Skip if folder doesn't exist
+            if (!Directory.Exists(basePath)) continue;
+
+            var beforeSet = beforeFiles.GetValueOrDefault(basePath, new HashSet<string>());
+            var afterSet = afterFiles.GetValueOrDefault(basePath, new HashSet<string>());
+
+            // Get all directories that had files before or after
+            var allDirs = new HashSet<string>();
+            foreach (var file in beforeSet.Union(afterSet))
+            {
+                allDirs.Add(Path.GetDirectoryName(file)!);
+            }
+
+            // Check each directory for changes
+            foreach (var dir in allDirs)
+            {
+                var beforeDirFiles = beforeSet.Where(f => Path.GetDirectoryName(f) == dir).ToList();
+                var afterDirFiles = afterSet.Where(f => Path.GetDirectoryName(f) == dir).ToList();
+
+                if (beforeDirFiles.Any() && !afterDirFiles.Any())
+                {
+                    // All files in directory were deleted
+                    directoryChanges[dir] = FolderAction.Delete;
+                }
+                else if (!beforeDirFiles.SequenceEqual(afterDirFiles))
+                {
+                    // Files were changed (created, modified, or partially deleted)
+                    directoryChanges[dir] = FolderAction.Refresh;
+                }
+            }
+        }
+
+        // Notify Plex about directory changes
+        foreach (var change in directoryChanges)
+        {
+            await plexHandler.UpdateFolderForScanningAsync(change.Key, change.Value);
+        }
+
         logger.LogInformation(
-            "Completed recreation of symlinks. Success count: {SuccessCount}",
-            successCount
+            "Completed recreation of symlinks. Success count: {SuccessCount}, Directory changes: {DirectoryChanges}",
+            successCount,
+            directoryChanges.Count
         );
-        return Results.Ok(new { SuccessCount = successCount });
+
+        return Results.Ok(new { 
+            SuccessCount = successCount,
+            DirectoryChanges = directoryChanges.Select(dc => new { 
+                Directory = dc.Key, 
+                Action = dc.Value.ToString() 
+            }).ToList()
+        });
     }
 }
