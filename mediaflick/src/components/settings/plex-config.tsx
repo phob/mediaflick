@@ -69,7 +69,7 @@ const PlexConfig = ({ config, onConfigChange }: PlexConfigProps) => {
           </div>
           <Input
             id="plex-token"
-            type="password"
+            type="text"
             value={config.plex.plexToken}
             onChange={(e) => onConfigChange({
               ...config,

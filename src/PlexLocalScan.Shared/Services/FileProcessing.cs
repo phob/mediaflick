@@ -107,6 +107,7 @@ public class FileProcessing(
                             "Deleted destination file: {DestFile}",
                             trackedFile.DestFile
                         );
+
                     }
                     catch (Exception ex)
                     {
@@ -229,10 +230,7 @@ public class FileProcessing(
                 }
 
                 // Trigger Plex scan after processing each folder
-                await plexHandler.AddFolderForScanningAsync(
-                    destinationFolder,
-                    mapping.DestinationFolder
-                );
+                await plexHandler.UpdateFolderForScanningAsync(destinationFolder);
             }
         }
         catch (Exception ex)
