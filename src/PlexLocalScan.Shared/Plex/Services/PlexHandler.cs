@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-
 using PlexLocalScan.Shared.Configuration.Options;
 using PlexLocalScan.Shared.Plex.Interfaces;
 
@@ -18,8 +17,8 @@ public class PlexHandler(
     {
         try
         {
-            var url = $"{_options.ApiEndpoint}/library/sections?X-Plex-Token={_options.PlexToken}";
-            var response = await httpClient.GetStringAsync(new Uri(url));
+            var url = $"/library/sections?X-Plex-Token={_options.PlexToken}";
+            var response = await httpClient.GetStringAsync(url);
 
             var doc = new System.Xml.XmlDocument();
             doc.LoadXml(response);
@@ -101,7 +100,7 @@ public class PlexHandler(
 
             var encodedPath = Uri.EscapeDataString(folderPath);
             var url =
-                $"{_options.ApiEndpoint}/library/sections/{sectionId}/refresh"
+                $"/library/sections/{sectionId}/refresh"
                 + $"?path={encodedPath}"
                 + $"&async=1"
                 + $"&X-Plex-Token={_options.PlexToken}";
@@ -134,9 +133,12 @@ public class PlexHandler(
             // Only execute empty trash for Delete action
             if (action == FolderAction.Delete)
             {
+                // wait 10 seconds
+                await Task.Delay(10000);
                 var urlTrash =
-                    $"{_options.ApiEndpoint}/library/sections/{sectionId}/emptyTrash"
+                    $"/library/sections/{sectionId}/emptyTrash"
                     + $"?X-Plex-Token={_options.PlexToken}";
+
 
                 logger.LogDebug(
                     "Request URL: {Url}",
