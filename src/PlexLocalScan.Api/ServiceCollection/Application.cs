@@ -99,7 +99,8 @@ public static class Application
             //.AddScoped<IPlexHandler, PlexHandler>()
             .AddScoped<FilePollerService>()
             .AddScoped<ZurgService>()
-            .AddScoped<HeartbeatService>();
+            .AddScoped<HeartbeatService>()
+            .AddScoped<PlexPrepare>();
 
         // Add database context
         services.AddDbContext<PlexScanContext>(

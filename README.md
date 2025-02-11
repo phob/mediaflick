@@ -15,6 +15,47 @@ MediaFlick is a media management tool that allows you to scan your media library
 
 ## Installation
 
+MediaFlick can be installed in multiple ways:
+
+### Docker Installation (Recommended)
+
+#### Using Docker Run
+
+```bash
+docker run -d \
+  --name mediaflick \
+  -p 3000:3000 \
+  -v /mnt/zurg:/mnt/zurg \
+  -v /opt/mediaflick/config:/config \
+  -v /opt/mediaflick/logs:/logs \
+  ghcr.io/phob/mediaflick:latest
+```
+
+#### Using Docker Compose
+
+Create a `docker-compose.yml` file:
+
+```yaml
+services:
+  mediaflick:
+    image: ghcr.io/phob/mediaflick:latest
+    container_name: mediaflick
+    ports:
+      - "3000:3000"
+    volumes:
+      - /mnt/zurg:/mnt/zurg
+      - /opt/mediaflick/config:/config
+      - /opt/mediaflick/logs:/logs
+    restart: unless-stopped
+```
+
+Then run:
+```bash
+docker-compose up -d
+```
+
+### Manual Installation
+
 MediaFlick consists of two components: a backend service (.NET) and a frontend web application (Next.js). Both need to be installed and running for the application to work properly.
 
 ### Backend Installation
@@ -91,3 +132,65 @@ After installation, you'll need to configure both components:
 2. Frontend configuration can be done through the web interface under Settings.
 
 For detailed configuration options, please refer to the [Configuration Guide](docs/configuration.md).
+
+### Saltbox Installation
+
+For Saltbox users, you can integrate MediaFlick with Authelia authentication and Traefik. Create a `docker-compose.yml` file in your `/opt/mediaflick/` directory:
+
+```yaml
+services:
+  mediaflick:
+    restart: unless-stopped
+    container_name: mediaflick
+    image: ghcr.io/phob/mediaflick:latest
+    hostname: mediaflick
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    networks:
+      - saltbox
+    labels:
+      com.github.saltbox.saltbox_managed: true
+      traefik.enable: true
+      traefik.http.routers.mediaflick-http.entrypoints: web
+      traefik.http.routers.mediaflick-http.middlewares: globalHeaders@file,redirect-to-https@docker,robotHeaders@file,cloudflarewarp@docker,authelia@docker
+      traefik.http.routers.mediaflick-http.rule: Host(`mediaflick.yourdomain.com`)
+      traefik.http.routers.mediaflick-http.service: mediaflick
+      traefik.http.routers.mediaflick.entrypoints: websecure
+      traefik.http.routers.mediaflick.middlewares: globalHeaders@file,secureHeaders@file,robotHeaders@file,cloudflarewarp@docker,authelia@docker
+      traefik.http.routers.mediaflick.rule: Host(`mediaflick.yourdomain.com`)
+      traefik.http.routers.mediaflick.service: mediaflick
+      traefik.http.routers.mediaflick.tls.certresolver: cfdns
+      traefik.http.routers.mediaflick.tls.options: securetls@file
+      traefik.http.services.mediaflick.loadbalancer.server.port: 3000
+    volumes:
+      - /opt/mediaflick/config:/config
+      - /opt/mediaflick/logs:/logs
+      - /mnt/unionfs:/mnt/unionfs
+      - /etc/localtime:/etc/localtime:ro
+      - /mnt/zurg:/mnt/zurg
+      - /mnt/organized:/mnt/organized
+
+networks:
+  saltbox:
+    external: true
+```
+
+Then create the necessary directories and set permissions:
+
+```bash
+mkdir -p /opt/mediaflick/{config,logs}
+chown -R 1000:1000 /opt/mediaflick
+```
+
+Start the container:
+
+```bash
+cd /opt/mediaflick
+docker-compose up -d
+```
+
+MediaFlick will be available at `https://mediaflick.yourdomain.com` with Authelia authentication through Traefik.
+
+**Note**: Make sure you have properly configured your Saltbox installation with Traefik and Authelia before proceeding.

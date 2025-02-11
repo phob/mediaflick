@@ -2,16 +2,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using PlexLocalScan.Core.Helper;
 using PlexLocalScan.Data.Data;
-using PlexLocalScan.Shared.Plex.Interfaces;
-using PlexLocalScan.Shared.Plex.Services;
+
 using PlexLocalScan.Shared.Symlinks.Interfaces;
 
 namespace PlexLocalScan.Shared.Symlinks.Services;
 
 public class CleanupHandler(
     ILogger<CleanupHandler> logger,
-    PlexScanContext dbContext,
-    IPlexHandler plexHandler
+    PlexScanContext dbContext
 ) : ICleanupHandler
 
 {
@@ -95,7 +93,6 @@ public class CleanupHandler(
                 {
                     logger.LogInformation("Removing empty directory: {Path}", directory);
                     Directory.Delete(directory);
-                    plexHandler.UpdateFolderForScanningAsync(directory, FolderAction.Delete);
                 });
         }
         catch (Exception ex)

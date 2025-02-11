@@ -379,72 +379,12 @@ internal static class ScannedFilesController
     {
         logger.LogInformation("Starting recreation of all symlinks");
 
-        // Get list of all destination files before recreation
-        var beforeFiles = new Dictionary<string, HashSet<string>>();
-        foreach (var mapping in plexOptions.Value.FolderMappings)
-        {
-            if (Directory.Exists(mapping.DestinationFolder))
-            {
-                beforeFiles[mapping.DestinationFolder] = new HashSet<string>(
-                    Directory.GetFiles(mapping.DestinationFolder, "*", SearchOption.AllDirectories)
-                );
-            }
-        }
+        Dictionary<string, HashSet<string>> beforeFiles = PlexPrepare.SnapshotBefore(plexOptions.Value.FolderMappings);
 
         // Recreate symlinks
         var successCount = await symlinkRecreationService.RecreateAllSymlinksAsync();
 
-        // Get list of all destination files after recreation
-        var afterFiles = new Dictionary<string, HashSet<string>>();
-        foreach (var mapping in plexOptions.Value.FolderMappings)
-        {
-            if (Directory.Exists(mapping.DestinationFolder))
-            {
-                afterFiles[mapping.DestinationFolder] = new HashSet<string>(
-                    Directory.GetFiles(mapping.DestinationFolder, "*", SearchOption.AllDirectories)
-                );
-            }
-        }
-
-        // Track changes per directory
-        var directoryChanges = new Dictionary<string, FolderAction>();
-
-        // Compare before and after states for each folder mapping
-        foreach (var mapping in plexOptions.Value.FolderMappings)
-        {
-            var basePath = mapping.DestinationFolder;
-            
-            // Skip if folder doesn't exist
-            if (!Directory.Exists(basePath)) continue;
-
-            var beforeSet = beforeFiles.GetValueOrDefault(basePath, new HashSet<string>());
-            var afterSet = afterFiles.GetValueOrDefault(basePath, new HashSet<string>());
-
-            // Get all directories that had files before or after
-            var allDirs = new HashSet<string>();
-            foreach (var file in beforeSet.Union(afterSet))
-            {
-                allDirs.Add(Path.GetDirectoryName(file)!);
-            }
-
-            // Check each directory for changes
-            foreach (var dir in allDirs)
-            {
-                var beforeDirFiles = beforeSet.Where(f => Path.GetDirectoryName(f) == dir).ToList();
-                var afterDirFiles = afterSet.Where(f => Path.GetDirectoryName(f) == dir).ToList();
-
-                if (beforeDirFiles.Any() && !afterDirFiles.Any())
-                {
-                    // All files in directory were deleted
-                    directoryChanges[dir] = FolderAction.Delete;
-                }
-                else if (!beforeDirFiles.SequenceEqual(afterDirFiles))
-                {
-                    // Files were changed (created, modified, or partially deleted)
-                    directoryChanges[dir] = FolderAction.Refresh;
-                }
-            }
-        }
+        Dictionary<string, FolderAction> directoryChanges = PlexPrepare.SnapshotAfter(plexOptions.Value.FolderMappings, beforeFiles);
 
         // Notify Plex about directory changes
         foreach (var change in directoryChanges)
@@ -458,12 +398,15 @@ internal static class ScannedFilesController
             directoryChanges.Count
         );
 
-        return Results.Ok(new { 
+        return Results.Ok(new
+        {
             SuccessCount = successCount,
-            DirectoryChanges = directoryChanges.Select(dc => new { 
-                Directory = dc.Key, 
-                Action = dc.Value.ToString() 
+            DirectoryChanges = directoryChanges.Select(dc => new
+            {
+                Directory = dc.Key,
+                Action = dc.Value.ToString()
             }).ToList()
         });
     }
+
 }
