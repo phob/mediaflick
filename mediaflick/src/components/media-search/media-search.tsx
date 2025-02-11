@@ -67,8 +67,7 @@ export function MediaSearch({ mediaType, onMediaSelect, className, label = "Sear
         <PopoverTrigger asChild>
           <Button 
             variant="outline" 
-            type="button"
-            aria-haspopup="listbox"
+            role="combobox"
             aria-expanded={open}
             className="w-full justify-between"
           >
@@ -95,16 +94,16 @@ export function MediaSearch({ mediaType, onMediaSelect, className, label = "Sear
                   ) : (
                     searchResults.map((item) => (
                       <CommandItem
-                        key={item.TmdbId}
-                        value={item.TmdbId.toString()}
-                        onSelect={() => handleMediaSelect(item.TmdbId, item.Title)}
+                        key={item.tmdbId}
+                        value={item.tmdbId.toString()}
+                        onSelect={() => handleMediaSelect(item.tmdbId, item.title)}
                         className="flex items-center gap-2 p-2"
                       >
-                        {item.PosterPath && (
+                        {item.posterPath && (
                           <div className="relative h-[69px] w-[46px] shrink-0">
                             <Image
-                              src={getTMDBImageUrl(item.PosterPath, "w92") ?? ""}
-                              alt={item.Title}
+                              src={getTMDBImageUrl(item.posterPath, "w92") ?? ""}
+                              alt={item.title}
                               fill
                               sizes="46px"
                               className="rounded object-cover"
@@ -112,9 +111,9 @@ export function MediaSearch({ mediaType, onMediaSelect, className, label = "Sear
                           </div>
                         )}
                         <div className="flex flex-col">
-                          <span className="font-medium">{item.Title}</span>
-                          {item.Year && (
-                            <span className="text-sm text-muted-foreground">({item.Year})</span>
+                          <span className="font-medium">{item.title}</span>
+                          {item.year && (
+                            <span className="text-sm text-muted-foreground">({item.year})</span>
                           )}
                         </div>
                       </CommandItem>

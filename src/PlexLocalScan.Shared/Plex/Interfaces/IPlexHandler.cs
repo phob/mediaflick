@@ -1,7 +1,15 @@
 namespace PlexLocalScan.Shared.Plex.Interfaces;
 
+public enum FolderAction
+{
+    Refresh,
+    Delete,
+}
+
 public interface IPlexHandler
 {
-    Task AddFolderForScanningAsync(string folderPath, string baseFolder);
-    Task DeleteFolderFromPlexAsync(string folderPath);
+    Task UpdateFolderForScanningAsync(
+        string folderPath,
+        FolderAction action = FolderAction.Refresh
+    );
 }

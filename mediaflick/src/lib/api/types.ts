@@ -1,14 +1,14 @@
 export interface MediaSearchResult {
-  Title: string
-  Year?: number
-  Genres: string[]
-  TmdbId: number
-  PosterPath: string
-  BackdropPath: string
-  Overview: string
-  ReleaseDate: string
-  Runtime: number
-  Rating: number
+  title: string
+  year?: number
+  genres: string[]
+  tmdbId: number
+  posterPath: string
+  backdropPath: string
+  overview: string
+  releaseDate: string
+  runtime: number
+  rating: number
 }
 
 export interface MediaInfo {

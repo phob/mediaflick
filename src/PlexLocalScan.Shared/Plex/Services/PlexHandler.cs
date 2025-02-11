@@ -1,4 +1,3 @@
-using System.Web;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PlexLocalScan.Shared.Configuration.Options;
@@ -18,8 +17,8 @@ public class PlexHandler(
     {
         try
         {
-            var url = $"{_options.ApiEndpoint}/library/sections?X-Plex-Token={_options.PlexToken}";
-            var response = await httpClient.GetStringAsync(new Uri(url));
+            var url = $"/library/sections?X-Plex-Token={_options.PlexToken}";
+            var response = await httpClient.GetStringAsync(url);
 
             var doc = new System.Xml.XmlDocument();
             doc.LoadXml(response);
@@ -64,7 +63,19 @@ public class PlexHandler(
         return "all";
     }
 
-    public async Task AddFolderForScanningAsync(string folderPath, string baseFolder)
+    private string FindBasePath(string folderPath)
+    {
+        return _options
+                .FolderMappings.FirstOrDefault(m =>
+                    folderPath.StartsWith(m.DestinationFolder, StringComparison.OrdinalIgnoreCase)
+                )
+                ?.DestinationFolder ?? folderPath;
+    }
+
+    public async Task UpdateFolderForScanningAsync(
+        string folderPath,
+        FolderAction action = FolderAction.Refresh
+    )
     {
         try
         {
@@ -77,40 +88,79 @@ public class PlexHandler(
                 return;
             }
 
-            logger.LogInformation("Adding folder to Plex: {FolderPath}", folderPath);
+            logger.LogInformation("{Action} folder in Plex: {FolderPath}", action, folderPath);
 
-            var sectionId = await GetSectionIdForPathAsync(baseFolder);
+            var basePath = FindBasePath(folderPath);
+            var sectionId = await GetSectionIdForPathAsync(basePath);
             logger.LogDebug(
                 "Found section ID: {SectionId} for base folder: {BaseFolder}",
                 sectionId,
-                baseFolder
+                basePath
             );
 
             var encodedPath = Uri.EscapeDataString(folderPath);
             var url =
-                $"{_options.ApiEndpoint}/library/sections/{sectionId}/refresh?path={encodedPath}&X-Plex-Token={_options.PlexToken}";
+                $"/library/sections/{sectionId}/refresh"
+                + $"?path={encodedPath}"
+                + $"&async=1"
+                + $"&X-Plex-Token={_options.PlexToken}";
 
             logger.LogDebug(
                 "Request URL: {Url}",
                 url.Replace(_options.PlexToken, "REDACTED", StringComparison.OrdinalIgnoreCase)
             );
 
-            var response = await httpClient.GetAsync(new Uri(url));
+            var response = await httpClient.GetAsync(url);
 
             if (response.IsSuccessStatusCode)
             {
                 logger.LogInformation(
-                    "Successfully initiated scan for folder: {FolderPath}",
+                    "Successfully initiated {Action} for folder: {FolderPath}",
+                    action,
                     folderPath
                 );
             }
             else
             {
                 logger.LogWarning(
-                    "Failed to initiate Plex scan for folder: {FolderPath}. Status code: {StatusCode}",
+                    "Failed to initiate Plex {Action} for folder: {FolderPath}. Status code: {StatusCode}",
+                    action,
                     folderPath,
                     response.StatusCode
                 );
+            }
+
+            // Only execute empty trash for Delete action
+            if (action == FolderAction.Delete)
+            {
+                // wait 10 seconds
+                await Task.Delay(10000);
+                var urlTrash =
+                    $"/library/sections/{sectionId}/emptyTrash"
+                    + $"?X-Plex-Token={_options.PlexToken}";
+
+
+                logger.LogDebug(
+                    "Request URL: {Url}",
+                    urlTrash.Replace(
+                        _options.PlexToken,
+                        "REDACTED",
+                        StringComparison.OrdinalIgnoreCase
+                    )
+                );
+
+                var responseTrash = await httpClient.PutAsync(urlTrash, null);
+                if (responseTrash.IsSuccessStatusCode)
+                {
+                    logger.LogInformation("Successfully emptied trash");
+                }
+                else
+                {
+                    logger.LogWarning(
+                        "Failed to empty trash: {StatusCode}",
+                        responseTrash.StatusCode
+                    );
+                }
             }
         }
         catch (HttpRequestException ex)
@@ -121,71 +171,8 @@ public class PlexHandler(
         {
             logger.LogWarning(
                 ex,
-                "Failed to add folder for scanning: {FolderPath}. Error: {Message}",
-                folderPath,
-                ex.Message
-            );
-        }
-    }
-
-    public async Task DeleteFolderFromPlexAsync(string folderPath)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(_options.PlexToken))
-            {
-                logger.LogWarning(
-                    "Plex token is not set, skipping folder for deletion: {FolderPath}",
-                    folderPath
-                );
-                return;
-            }
-
-            logger.LogInformation("Deleting folder from Plex: {FolderPath}", folderPath);
-
-            var sectionId = await GetSectionIdForPathAsync(folderPath);
-            logger.LogDebug(
-                "Found section ID: {SectionId} for folder: {FolderPath}",
-                sectionId,
-                folderPath
-            );
-
-            var encodedPath = Uri.EscapeDataString(folderPath);
-            var url =
-                $"{_options.ApiEndpoint}/library/sections/{sectionId}/refresh?path={encodedPath}&X-Plex-Token={_options.PlexToken}&type=1";
-
-            logger.LogDebug(
-                "Request URL: {Url}",
-                url.Replace(_options.PlexToken, "REDACTED", StringComparison.OrdinalIgnoreCase)
-            );
-
-            var response = await httpClient.DeleteAsync(new Uri(url));
-
-            if (response.IsSuccessStatusCode)
-            {
-                logger.LogInformation(
-                    "Successfully deleted folder from Plex: {FolderPath}",
-                    folderPath
-                );
-            }
-            else
-            {
-                logger.LogWarning(
-                    "Failed to delete folder from Plex: {FolderPath}. Status code: {StatusCode}",
-                    folderPath,
-                    response.StatusCode
-                );
-            }
-        }
-        catch (HttpRequestException ex)
-        {
-            logger.LogWarning(ex, "Could not connect to Plex server: {Message}", ex.Message);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(
-                ex,
-                "Failed to delete folder from Plex: {FolderPath}. Error: {Message}",
+                "Failed to process {Action} for folder: {FolderPath}. Error: {Message}",
+                action,
                 folderPath,
                 ex.Message
             );

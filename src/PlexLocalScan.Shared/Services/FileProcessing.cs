@@ -6,14 +6,12 @@ using PlexLocalScan.Data.Data;
 using PlexLocalScan.Shared.Configuration.Options;
 using PlexLocalScan.Shared.DbContext.Interfaces;
 using PlexLocalScan.Shared.MediaDetection.Interfaces;
-using PlexLocalScan.Shared.Plex.Interfaces;
 using PlexLocalScan.Shared.Symlinks.Interfaces;
 
 namespace PlexLocalScan.Shared.Services;
 
 public class FileProcessing(
     ILogger<FileProcessing> logger,
-    IPlexHandler plexHandler,
     PlexScanContext dbContext,
     ICleanupHandler cleanupHandler,
     ISymlinkHandler symlinkHandler,
@@ -107,6 +105,7 @@ public class FileProcessing(
                             "Deleted destination file: {DestFile}",
                             trackedFile.DestFile
                         );
+
                     }
                     catch (Exception ex)
                     {
@@ -227,12 +226,6 @@ public class FileProcessing(
                         await ProcessSingleFileAsync(file, destinationFolder, mapping);
                     }
                 }
-
-                // Trigger Plex scan after processing each folder
-                await plexHandler.AddFolderForScanningAsync(
-                    destinationFolder,
-                    mapping.DestinationFolder
-                );
             }
         }
         catch (Exception ex)

@@ -8,6 +8,8 @@ using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Data.Data;
 using PlexLocalScan.Shared.Configuration.Options;
 using PlexLocalScan.Shared.Symlinks.Interfaces;
+using PlexLocalScan.Shared.Plex.Interfaces;
+using PlexLocalScan.Shared.Plex.Services;
 
 namespace PlexLocalScan.Api.ScannedFiles;
 
@@ -370,15 +372,41 @@ internal static class ScannedFilesController
 
     internal static async Task<IResult> RecreateSymlinks(
         ISymlinkRecreationService symlinkRecreationService,
+        IOptionsSnapshot<PlexOptions> plexOptions,
+        IPlexHandler plexHandler,
         ILogger<Program> logger
     )
     {
         logger.LogInformation("Starting recreation of all symlinks");
+
+        Dictionary<string, HashSet<string>> beforeFiles = PlexPrepare.SnapshotBefore(plexOptions.Value.FolderMappings);
+
+        // Recreate symlinks
         var successCount = await symlinkRecreationService.RecreateAllSymlinksAsync();
+
+        Dictionary<string, FolderAction> directoryChanges = PlexPrepare.SnapshotAfter(plexOptions.Value.FolderMappings, beforeFiles);
+
+        // Notify Plex about directory changes
+        foreach (var change in directoryChanges)
+        {
+            await plexHandler.UpdateFolderForScanningAsync(change.Key, change.Value);
+        }
+
         logger.LogInformation(
-            "Completed recreation of symlinks. Success count: {SuccessCount}",
-            successCount
+            "Completed recreation of symlinks. Success count: {SuccessCount}, Directory changes: {DirectoryChanges}",
+            successCount,
+            directoryChanges.Count
         );
-        return Results.Ok(new { SuccessCount = successCount });
+
+        return Results.Ok(new
+        {
+            SuccessCount = successCount,
+            DirectoryChanges = directoryChanges.Select(dc => new
+            {
+                Directory = dc.Key,
+                Action = dc.Value.ToString()
+            }).ToList()
+        });
     }
+
 }

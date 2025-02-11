@@ -2,13 +2,18 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using PlexLocalScan.Core.Helper;
 using PlexLocalScan.Data.Data;
+
 using PlexLocalScan.Shared.Symlinks.Interfaces;
 
 namespace PlexLocalScan.Shared.Symlinks.Services;
 
-public class CleanupHandler(ILogger<CleanupHandler> logger, PlexScanContext dbContext)
-    : ICleanupHandler
+public class CleanupHandler(
+    ILogger<CleanupHandler> logger,
+    PlexScanContext dbContext
+) : ICleanupHandler
+
 {
+
     public async Task CleanupDeadSymlinksAsync(string baseFolder)
     {
         try

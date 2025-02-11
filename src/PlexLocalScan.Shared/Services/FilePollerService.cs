@@ -3,6 +3,7 @@ using Coravel.Invocable;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PlexLocalScan.Shared.Configuration.Options;
+using PlexLocalScan.Shared.Plex.Interfaces;
 
 namespace PlexLocalScan.Shared.Services;
 
@@ -11,7 +12,8 @@ public class FilePollerService(
     IOptionsMonitor<PlexOptions> options,
     IOptionsMonitor<TmDbOptions> tmDbOptions,
     IOptionsMonitor<ZurgOptions> zurgOptions,
-    IFileProcessing fileProcessing
+    IFileProcessing fileProcessing,
+    IPlexHandler plexHandler
 ) : IInvocable
 {
     private readonly ConcurrentDictionary<string, HashSet<string>> _knownFolders = [];
@@ -24,8 +26,15 @@ public class FilePollerService(
         {
             if (File.Exists(zurgOptions.CurrentValue.VersionLocation))
             {
+                var prepare = PlexPrepare.SnapshotBefore(options.CurrentValue.FolderMappings);
                 await InitializeFoldersAsync();
                 await ProcessFilesAsync();
+                var after = PlexPrepare.SnapshotAfter(options.CurrentValue.FolderMappings, prepare);
+
+                foreach (var change in after)
+                {
+                    await plexHandler.UpdateFolderForScanningAsync(change.Key, change.Value);
+                }
             }
             else
             {

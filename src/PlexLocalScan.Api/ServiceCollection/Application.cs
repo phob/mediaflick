@@ -1,10 +1,13 @@
 using System.Text.Json.Serialization;
+
 using Coravel;
+
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
+
 using PlexLocalScan.Abstractions;
 using PlexLocalScan.Api.Config;
-using PlexLocalScan.Api.Logging;
 using PlexLocalScan.Data.Data;
 using PlexLocalScan.Shared.Configuration.Options;
 using PlexLocalScan.Shared.DbContext.Interfaces;
@@ -19,6 +22,8 @@ using PlexLocalScan.Shared.Symlinks.Services;
 using PlexLocalScan.Shared.TmDbMediaSearch.Interfaces;
 using PlexLocalScan.Shared.TmDbMediaSearch.Services;
 using PlexLocalScan.SignalR.Services;
+
+using Polly;
 
 namespace PlexLocalScan.Api.ServiceCollection;
 
@@ -70,6 +75,10 @@ public static class Application
             )
         );
 
+        // Configure HttpClient for Plex
+
+
+
         // Add scoped services
         services
             .AddScoped<INotificationService, NotificationService>()
@@ -87,10 +96,11 @@ public static class Application
             .AddScoped<ISymlinkRecreationService, SymlinkRecreationService>()
             .AddScoped<IContextService, ContextService>()
             .AddScoped<IFileProcessing, FileProcessing>()
-            .AddScoped<IPlexHandler, PlexHandler>()
+            //.AddScoped<IPlexHandler, PlexHandler>()
             .AddScoped<FilePollerService>()
             .AddScoped<ZurgService>()
-            .AddScoped<HeartbeatService>();
+            .AddScoped<HeartbeatService>()
+            .AddScoped<PlexPrepare>();
 
         // Add database context
         services.AddDbContext<PlexScanContext>(
@@ -104,7 +114,16 @@ public static class Application
         // Add Coravel services
         services.AddQueue();
 
-        // Add additional services
+        services
+            .AddHttpClient<IPlexHandler, PlexHandler>("Plex", (serviceProvider, client) =>
+            {
+                var options = serviceProvider.GetRequiredService<IOptionsMonitor<PlexOptions>>().CurrentValue;
+                client.BaseAddress = new Uri(options.ApiEndpoint);
+                client.DefaultRequestHeaders.ConnectionClose = true;
+            })
+            .AddStandardResilienceHandler();
+
+
         services.AddHttpClient().AddMemoryCache();
     }
 }
