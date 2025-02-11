@@ -58,6 +58,8 @@ ENV NODE_ENV=production
 EXPOSE 3000
 EXPOSE 5000
 
+RUN apk add --no-cache icu-libs nodejs
+
 # Start both services using a shell script
 COPY start.sh .
 

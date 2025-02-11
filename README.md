@@ -148,6 +148,9 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=Etc/UTC
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5000
+      - NODE_ENV=production
     networks:
       - saltbox
     labels:
@@ -165,8 +168,8 @@ services:
       traefik.http.routers.mediaflick.tls.options: securetls@file
       traefik.http.services.mediaflick.loadbalancer.server.port: 3000
     volumes:
-      - /opt/mediaflick/config:/config
-      - /opt/mediaflick/logs:/logs
+      - /opt/mediaflick:/app/config
+      - /opt/mediaflick/logs:/app/logs
       - /mnt/unionfs:/mnt/unionfs
       - /etc/localtime:/etc/localtime:ro
       - /mnt/zurg:/mnt/zurg
@@ -180,7 +183,7 @@ networks:
 Then create the necessary directories and set permissions:
 
 ```bash
-mkdir -p /opt/mediaflick/{config,logs}
+mkdir -p /opt/mediaflick/logs
 chown -R 1000:1000 /opt/mediaflick
 ```
 
