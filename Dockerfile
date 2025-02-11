@@ -49,8 +49,6 @@ ENV NODE_ENV=production
 EXPOSE 3000
 EXPOSE 5000
 
-RUN rm -rf ./node_modules
-
 # Start both services using a shell script
 COPY start.sh .
 
