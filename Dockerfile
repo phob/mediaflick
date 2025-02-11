@@ -28,10 +28,7 @@ RUN pnpm run build
 FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine
 WORKDIR /app
 
-# Install required dependencies
-# RUN apk add --no-cache icu-libs nodejs npm && npm install -g pnpm
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
+RUN apk add --no-cache icu-libs nodejs
 
 # Create necessary directories
 RUN mkdir -p config/logs && mkdir -p /mnt/zurg/tvseries && mkdir -p /mnt/zurg/movies \
@@ -43,12 +40,6 @@ COPY --from=backend-build /app/publish .
 # Copy the built frontend app
 COPY --from=frontend-build /mediaflick/.next/standalone ./
 COPY --from=frontend-build /mediaflick/.next/static ./.next/static
-#COPY --from=frontend-build /mediaflick/package*.json ./
-#COPY --from=frontend-build /mediaflick/next.config.* ./
-#COPY --from=frontend-build /mediaflick/pnpm-lock.yaml ./
-
-# Install production dependencies for frontend
-# RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile
 
 # Set environment variable for timezone and globalization
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
@@ -58,7 +49,7 @@ ENV NODE_ENV=production
 EXPOSE 3000
 EXPOSE 5000
 
-RUN apk add --no-cache icu-libs nodejs
+RUN rm -rf ./node_modules
 
 # Start both services using a shell script
 COPY start.sh .

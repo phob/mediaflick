@@ -4,11 +4,11 @@ public static class Cors
 {
     public static IServiceCollection AddCorsPolicy(this IServiceCollection services)
     {
+        var corsOrigins = Environment.GetEnvironmentVariable("CORS_ORIGINS")?.Split(',') ?? new[] { "http://localhost:3000" };
         services.AddCors(options =>
             options.AddDefaultPolicy(policy =>
                 policy
-                    .WithOrigins("http://localhost:3000")
-                    .WithOrigins("http://localhost:5000")
+                    .WithOrigins(corsOrigins)
                     .AllowAnyMethod()
                     .AllowAnyHeader()
                     .AllowCredentials()
