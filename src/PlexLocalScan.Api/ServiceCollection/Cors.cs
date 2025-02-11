@@ -1,14 +1,21 @@
-using Serilog;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace PlexLocalScan.Api.ServiceCollection;
 
 public static class Cors
 {
-    public static IServiceCollection AddCorsPolicy(this IServiceCollection services)
+    public class CorsConfiguration { } // Category type for logger
+
+    public static IServiceCollection AddCorsPolicy(this IServiceCollection services, IConfiguration configuration)
     {
-        var corsOrigins = Environment.GetEnvironmentVariable("CORS_ORIGINS")?.Split(',') ?? new[] { "http://localhost:3000" };
+        var corsOrigins = configuration.GetValue<string>("CORS_ORIGINS")?.Split(',') ?? new[] { "http://localhost:3000" };
         
-        Log.Information("Configuring CORS policy with origins: {@CorsOrigins}", corsOrigins);
+        // Get logger from service provider
+        var serviceProvider = services.BuildServiceProvider();
+        var logger = serviceProvider.GetRequiredService<ILogger<CorsConfiguration>>();
+        
+        logger.LogInformation("Configuring CORS policy with origins: {@CorsOrigins}", corsOrigins);
         
         services.AddCors(options =>
             options.AddDefaultPolicy(policy =>

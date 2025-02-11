@@ -7,7 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Configuration and logging setup
 builder.AddConfiguration();
-builder.Services.AddCorsPolicy();
+builder.Services.AddCorsPolicy(builder.Configuration);
 builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddSignalRService();
 
