@@ -151,6 +151,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5000
       - NODE_ENV=production
+      - CORS_ORIGINS=http://localhost:3000
     networks:
       - saltbox
     labels:
