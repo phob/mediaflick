@@ -103,8 +103,8 @@ importers:
         specifier: ^10.0.1
         version: 10.0.1(eslint@9.31.0(jiti@1.21.7))
       eslint-plugin-check-file:
-        specifier: ^3.0.0
-        version: 3.0.0(eslint@9.31.0(jiti@1.21.7))
+        specifier: ^3.3.0
+        version: 3.3.0(eslint@9.31.0(jiti@1.21.7))
       eslint-plugin-react-hooks:
         specifier: ^5.1.0
         version: 5.1.0(eslint@9.31.0(jiti@1.21.7))
@@ -1654,8 +1654,8 @@ packages:
       eslint-import-resolver-webpack:
         optional: true
 
-  eslint-plugin-check-file@3.0.0:
-    resolution: {integrity: sha512-WCkGSE5bA1er0r8Hin7DL8GjHT09WSsO/1AwoCWpaDrvDd4dfXaYXJxHYP08J2wPYA4KqiVJ78U9bG/SZ1+qdw==}
+  eslint-plugin-check-file@3.3.0:
+    resolution: {integrity: sha512-D57NBJRZt/8KzROsYgvRJzzItztWsP5B/9TssGhLHrrZzOMIFDn3RLnZN4kD7i5B4FduR040eOEqzKEcfFA9mQ==}
     engines: {node: '>=18'}
     peerDependencies:
       eslint: '>=9.0.0'
@@ -4401,7 +4401,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-check-file@3.0.0(eslint@9.31.0(jiti@1.21.7)):
+  eslint-plugin-check-file@3.3.0(eslint@9.31.0(jiti@1.21.7)):
     dependencies:
       eslint: 9.31.0(jiti@1.21.7)
       is-glob: 4.0.3
