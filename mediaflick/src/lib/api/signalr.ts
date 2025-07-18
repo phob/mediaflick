@@ -1,7 +1,7 @@
 import { HubConnectionBuilder, HubConnection } from '@microsoft/signalr'
 import { ScannedFile, MediaType, MediaStatus } from '../api/types'
 
-const SIGNALR_BASE = process.env.NEXT_PUBLIC_SIGNALR_URL || 'http://mediaflick:5000/hubs'
+const SIGNALR_BASE = process.env.NEXT_PUBLIC_SIGNALR_URL || 'http://localhost:5000/hubs'
 
 interface ScannedFileDto {
     id: number

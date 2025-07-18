@@ -157,18 +157,6 @@ services:
     labels:
       com.github.saltbox.saltbox_managed: true
       traefik.enable: true
-      traefik.http.routers.mediaflick-api-http.entrypoints: web
-      traefik.http.routers.mediaflick-api-http.middlewares: globalHeaders@file,redirect-to-https@docker,robotHeaders@file,cloudflarewarp@docker
-      traefik.http.routers.mediaflick-api-http.priority: 99
-      traefik.http.routers.mediaflick-api-http.rule: Host(`mediaflick.yourdomain.com`) && (PathPrefix(`/api`) || PathPrefix(`/ping`))
-      traefik.http.routers.mediaflick-api-http.service: mediaflick
-      traefik.http.routers.mediaflick-api.entrypoints: websecure
-      traefik.http.routers.mediaflick-api.middlewares: globalHeaders@file,secureHeaders@file,robotHeaders@file,cloudflarewarp@docker
-      traefik.http.routers.mediaflick-api.priority: 99
-      traefik.http.routers.mediaflick-api.rule: Host(`mediaflick.yourdomain.com`) && (PathPrefix(`/api`) || PathPrefix(`/ping`))
-      traefik.http.routers.mediaflick-api.service: mediaflick
-      traefik.http.routers.mediaflick-api.tls.certresolver: cfdns
-      traefik.http.routers.mediaflick-api.tls.options: securetls@file
       traefik.http.routers.mediaflick-http.entrypoints: web
       traefik.http.routers.mediaflick-http.middlewares: globalHeaders@file,redirect-to-https@docker,robotHeaders@file,cloudflarewarp@docker,authelia@docker
       traefik.http.routers.mediaflick-http.rule: Host(`mediaflick.yourdomain.com`)
