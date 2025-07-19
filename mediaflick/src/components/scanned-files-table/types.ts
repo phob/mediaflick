@@ -16,6 +16,7 @@ export type Row = {
   seasonNumber?: number
   episodeNumber?: number
   episodeNumber2?: number
+  ignoreEpisodeIncrement?: boolean
   status: string | ReactNode
   createdAt: string
   updatedAt: string
