@@ -1,5 +1,8 @@
 // Base API client setup
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
+const FALLBACK_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
+
+let runtimeApiBase: string | null = null
+let configPromise: Promise<string> | null = null
 
 export class ApiError extends Error {
     constructor(
@@ -11,9 +14,37 @@ export class ApiError extends Error {
     }
 }
 
+async function getApiBase(): Promise<string> {
+    if (runtimeApiBase) {
+        return runtimeApiBase
+    }
+
+    if (!configPromise) {
+        configPromise = fetchRuntimeApiBase()
+    }
+
+    try {
+        runtimeApiBase = await configPromise
+        return runtimeApiBase
+    } catch (error) {
+        console.warn('Failed to load runtime API config, using fallback:', error)
+        return FALLBACK_API_BASE
+    }
+}
+
+async function fetchRuntimeApiBase(): Promise<string> {
+    const response = await fetch('/api/config')
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+    const config = await response.json()
+    return config.apiUrl || FALLBACK_API_BASE
+}
+
 export async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
     try {
-        const response = await fetch(`${API_BASE}${endpoint}`, {
+        const apiBase = await getApiBase()
+        const response = await fetch(`${apiBase}${endpoint}`, {
             ...options,
             headers: {
                 'Content-Type': 'application/json',
@@ -44,9 +75,10 @@ export async function fetchApi<T>(endpoint: string, options?: RequestInit): Prom
 
         // Check if it's a network error
         if (error instanceof TypeError && error.message === 'Failed to fetch') {
+            const apiBase = runtimeApiBase || FALLBACK_API_BASE
             throw new ApiError(
                 0,
-                `Unable to connect to the API server at ${API_BASE}. Please check if the server is running.`
+                `Unable to connect to the API server at ${apiBase}. Please check if the server is running.`
             )
         }
 

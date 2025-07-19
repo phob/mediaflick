@@ -1,7 +1,37 @@
 import { HubConnectionBuilder, HubConnection } from '@microsoft/signalr'
 import { ScannedFile, MediaType, MediaStatus } from '../api/types'
 
-const SIGNALR_BASE = process.env.NEXT_PUBLIC_SIGNALR_URL || 'http://localhost:5000/hubs'
+const FALLBACK_SIGNALR_BASE = process.env.NEXT_PUBLIC_SIGNALR_URL || 'http://localhost:5000/hubs'
+
+let runtimeSignalrBase: string | null = null
+let configPromise: Promise<string> | null = null
+
+async function getSignalrBase(): Promise<string> {
+    if (runtimeSignalrBase) {
+        return runtimeSignalrBase
+    }
+
+    if (!configPromise) {
+        configPromise = fetchRuntimeSignalrBase()
+    }
+
+    try {
+        runtimeSignalrBase = await configPromise
+        return runtimeSignalrBase
+    } catch (error) {
+        console.warn('Failed to load runtime SignalR config, using fallback:', error)
+        return FALLBACK_SIGNALR_BASE
+    }
+}
+
+async function fetchRuntimeSignalrBase(): Promise<string> {
+    const response = await fetch('/api/config')
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+    const config = await response.json()
+    return config.signalrUrl || FALLBACK_SIGNALR_BASE
+}
 
 interface ScannedFileDto {
     id: number
@@ -54,15 +84,26 @@ class FileTrackingSignalR {
     private isConnected: boolean = false
     private lastHeartbeat: number = 0
     private lastZurgVersion: number = 0
+    private initializationPromise: Promise<void> | null = null
+
     constructor() {
         if (typeof window !== 'undefined') {
+            this.initializationPromise = this.initialize()
+        }
+    }
+
+    private async initialize(): Promise<void> {
+        try {
+            const signalrBase = await getSignalrBase()
             this.connection = new HubConnectionBuilder()
-                .withUrl(`${SIGNALR_BASE}/filetracking`)
+                .withUrl(`${signalrBase}/filetracking`)
                 .withAutomaticReconnect()
                 .build()
                 
             this.setupEventHandlers()
-            this.startConnection()
+            await this.startConnection()
+        } catch (error) {
+            console.error('Failed to initialize SignalR connection:', error)
         }
     }
 
@@ -121,6 +162,9 @@ class FileTrackingSignalR {
     public subscribe(eventType: 'OnHeartbeat', handler: HeartbeatHandler): () => void
     public subscribe(eventType: 'OnZurgVersion', handler: ZurgVersionHandler): () => void
     public subscribe(eventType: FileEventType, handler: FileEventHandler | HeartbeatHandler | ZurgVersionHandler): () => void {
+        // Ensure initialization is complete before subscribing
+        this.initializationPromise?.catch(console.error)
+        
         const handlers = this.eventHandlers.get(eventType)
         if (handlers) {
             handlers.add(handler)

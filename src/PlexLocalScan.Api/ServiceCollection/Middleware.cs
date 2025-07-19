@@ -65,8 +65,13 @@ public static class Middleware
         app.MapApiEndpoints();
 
         app.MapOpenApi();
-        app.MapScalarApiReference(options => options.Theme = ScalarTheme.Mars);
-        app.MapGet("/", () => Results.Redirect("/scalar/v1"));
+        if (app.Environment.IsDevelopment())
+        {
+            app.MapScalarApiReference(options => options.Theme = ScalarTheme.Mars);
+            app.MapGet("/", () => Results.Redirect("/scalar/v1"));
+        } else {
+            app.MapGet("/", () => Results.Ok("PlexLocalScan API is running"));
+        }
 
         return app;
     }
