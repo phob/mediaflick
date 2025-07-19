@@ -203,11 +203,9 @@ services:
       com.github.saltbox.saltbox_managed: true
       traefik.enable: true
       traefik.http.routers.mediaflick-api-http.entrypoints: web
-      traefik.http.routers.mediaflick-api-http.middlewares: globalHeaders@file,redirect-to-https@docker,robotHeaders@file,cloudflarewarp@docker,authelia@docker
       traefik.http.routers.mediaflick-api-http.rule: Host(`api.mediaflick.yourdomain.com`)
       traefik.http.routers.mediaflick-api-http.service: mediaflick-backend
       traefik.http.routers.mediaflick-api.entrypoints: websecure
-      traefik.http.routers.mediaflick-api.middlewares: globalHeaders@file,secureHeaders@file,robotHeaders@file,cloudflarewarp@docker,authelia@docker
       traefik.http.routers.mediaflick-api.rule: Host(`api.mediaflick.yourdomain.com`)
       traefik.http.routers.mediaflick-api.service: mediaflick-backend
       traefik.http.routers.mediaflick-api.tls.certresolver: cfdns
