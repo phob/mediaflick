@@ -23,19 +23,50 @@ interface TvShowEditTableProps {
 export function TvShowEditTable({ loading, editableRows, onRowsChange }: Readonly<TvShowEditTableProps>) {
   const handleSeasonChange = (index: number, value: string) => {
     const newRows = [...editableRows]
+    const seasonNumber = value === "" ? undefined : Number(value)
+    
     newRows[index] = {
       ...newRows[index],
-      seasonNumber: value === "" ? undefined : Number(value),
+      seasonNumber,
     }
+    
+    // Update all subsequent rows to have the same season number
+    for (let i = index + 1; i < newRows.length; i++) {
+      newRows[i] = {
+        ...newRows[i],
+        seasonNumber,
+      }
+    }
+    
     onRowsChange(newRows)
   }
 
   const handleEpisodeChange = (index: number, value: string) => {
     const newRows = [...editableRows]
+    const episodeNumber = value === "" ? undefined : Number(value)
+    
     newRows[index] = {
       ...newRows[index],
-      episodeNumber: value === "" ? undefined : Number(value),
+      episodeNumber,
     }
+    
+    // If episode number is set, increment episode numbers for subsequent rows in same season with empty episode fields
+    if (episodeNumber !== undefined) {
+      const currentSeason = newRows[index].seasonNumber
+      let nextEpisode = episodeNumber + 1
+      
+      for (let i = index + 1; i < newRows.length; i++) {
+        // Only update if same season and episode field is empty
+        if (newRows[i].seasonNumber === currentSeason && newRows[i].episodeNumber === undefined) {
+          newRows[i] = {
+            ...newRows[i],
+            episodeNumber: nextEpisode,
+          }
+          nextEpisode++
+        }
+      }
+    }
+    
     onRowsChange(newRows)
   }
 
