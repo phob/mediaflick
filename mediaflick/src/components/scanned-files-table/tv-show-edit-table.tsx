@@ -9,6 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2 } from "lucide-react"
 
 import type { Row } from "@/components/scanned-files-table/types"
@@ -50,14 +51,14 @@ export function TvShowEditTable({ loading, editableRows, onRowsChange }: Readonl
       episodeNumber,
     }
     
-    // If episode number is set, increment episode numbers for subsequent rows in same season with empty episode fields
+    // If episode number is set, increment episode numbers for subsequent rows in same season that don't have ignore checkbox checked
     if (episodeNumber !== undefined) {
       const currentSeason = newRows[index].seasonNumber
       let nextEpisode = episodeNumber + 1
       
       for (let i = index + 1; i < newRows.length; i++) {
-        // Only update if same season and episode field is empty
-        if (newRows[i].seasonNumber === currentSeason && newRows[i].episodeNumber === undefined) {
+        // Only update if same season and ignore checkbox is not checked
+        if (newRows[i].seasonNumber === currentSeason && !newRows[i].ignoreEpisodeIncrement) {
           newRows[i] = {
             ...newRows[i],
             episodeNumber: nextEpisode,
@@ -75,6 +76,15 @@ export function TvShowEditTable({ loading, editableRows, onRowsChange }: Readonl
     newRows[index] = {
       ...newRows[index],
       episodeNumber2: value === "" ? undefined : Number(value),
+    }
+    onRowsChange(newRows)
+  }
+
+  const handleIgnoreChange = (index: number, checked: boolean) => {
+    const newRows = [...editableRows]
+    newRows[index] = {
+      ...newRows[index],
+      ignoreEpisodeIncrement: checked,
     }
     onRowsChange(newRows)
   }
@@ -115,13 +125,19 @@ export function TvShowEditTable({ loading, editableRows, onRowsChange }: Readonl
                 />
               </TableCell>
               <TableCell>
-                <Input
-                  type="number"
-                  className="w-20"
-                  value={item.episodeNumber?.toString() ?? ""}
-                  onChange={(e) => handleEpisodeChange(index, e.target.value)}
-                  min={1}
-                />
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={item.ignoreEpisodeIncrement ?? false}
+                    onCheckedChange={(checked) => handleIgnoreChange(index, checked as boolean)}
+                  />
+                  <Input
+                    type="number"
+                    className="w-20"
+                    value={item.episodeNumber?.toString() ?? ""}
+                    onChange={(e) => handleEpisodeChange(index, e.target.value)}
+                    min={1}
+                  />
+                </div>
               </TableCell>
               <TableCell>
                 <Input
