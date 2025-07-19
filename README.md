@@ -131,11 +131,104 @@ After installation, you'll need to configure both components:
 
 2. Frontend configuration can be done through the web interface under Settings.
 
+3. Runtime API configuration can be set via environment variables:
+   - `API_URL`: Backend API endpoint URL (default: `http://localhost:5000/api`)
+   - `SIGNALR_URL`: SignalR hub URL (default: `http://localhost:5000/hubs`)
+
+   These variables can be changed without rebuilding the Docker image and are useful for deployment scenarios where the backend is accessed through a proxy or different hostname.
+
 For detailed configuration options, please refer to the [Configuration Guide](docs/configuration.md).
 
 ### Saltbox Installation
 
-For Saltbox users, you can integrate MediaFlick with Authelia authentication and Traefik. Create a `docker-compose.yml` file in your `/opt/mediaflick/` directory:
+For Saltbox users, you can integrate MediaFlick with Authelia authentication and Traefik. MediaFlick can be deployed as either a single container (monolithic) or separate frontend and backend containers for better scalability and separation of concerns.
+
+#### Option 1: Separated Frontend and Backend Containers (Recommended)
+
+Create a `docker-compose.yml` file in your `/opt/mediaflick/` directory:
+
+```yaml
+services:
+  mediaflick-frontend:
+    restart: unless-stopped
+    container_name: mediaflick-frontend
+    image: ghcr.io/phob/mediaflick:latest
+    hostname: mediaflick-frontend
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - NODE_ENV=production
+      - SERVICE_MODE=frontend
+      # Runtime configuration for API endpoints (can be changed without rebuilding)
+      - API_URL=https://api.mediaflick.yourdomain.com/api
+      - SIGNALR_URL=https://api.mediaflick.yourdomain.com/hubs
+    networks:
+      - saltbox
+    labels:
+      com.github.saltbox.saltbox_managed: true
+      traefik.enable: true
+      traefik.http.routers.mediaflick-http.entrypoints: web
+      traefik.http.routers.mediaflick-http.middlewares: globalHeaders@file,redirect-to-https@docker,robotHeaders@file,cloudflarewarp@docker,authelia@docker
+      traefik.http.routers.mediaflick-http.rule: Host(`mediaflick.yourdomain.com`)
+      traefik.http.routers.mediaflick-http.service: mediaflick-frontend
+      traefik.http.routers.mediaflick.entrypoints: websecure
+      traefik.http.routers.mediaflick.middlewares: globalHeaders@file,secureHeaders@file,robotHeaders@file,cloudflarewarp@docker,authelia@docker
+      traefik.http.routers.mediaflick.rule: Host(`mediaflick.yourdomain.com`)
+      traefik.http.routers.mediaflick.service: mediaflick-frontend
+      traefik.http.routers.mediaflick.tls.certresolver: cfdns
+      traefik.http.routers.mediaflick.tls.options: securetls@file
+      traefik.http.services.mediaflick-frontend.loadbalancer.server.port: 3000
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    depends_on:
+      - mediaflick-backend
+
+  mediaflick-backend:
+    restart: unless-stopped
+    container_name: mediaflick-backend
+    image: ghcr.io/phob/mediaflick:latest
+    hostname: mediaflick-backend
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5000
+      - SERVICE_MODE=backend
+      - CORS_ORIGINS=https://mediaflick.yourdomain.com
+    networks:
+      - saltbox
+    labels:
+      com.github.saltbox.saltbox_managed: true
+      traefik.enable: true
+      traefik.http.routers.mediaflick-api-http.entrypoints: web
+      traefik.http.routers.mediaflick-api-http.middlewares: globalHeaders@file,redirect-to-https@docker,robotHeaders@file,cloudflarewarp@docker,authelia@docker
+      traefik.http.routers.mediaflick-api-http.rule: Host(`api.mediaflick.yourdomain.com`)
+      traefik.http.routers.mediaflick-api-http.service: mediaflick-backend
+      traefik.http.routers.mediaflick-api.entrypoints: websecure
+      traefik.http.routers.mediaflick-api.middlewares: globalHeaders@file,secureHeaders@file,robotHeaders@file,cloudflarewarp@docker,authelia@docker
+      traefik.http.routers.mediaflick-api.rule: Host(`api.mediaflick.yourdomain.com`)
+      traefik.http.routers.mediaflick-api.service: mediaflick-backend
+      traefik.http.routers.mediaflick-api.tls.certresolver: cfdns
+      traefik.http.routers.mediaflick-api.tls.options: securetls@file
+      traefik.http.services.mediaflick-backend.loadbalancer.server.port: 5000
+    volumes:
+      - /opt/mediaflick:/app/config
+      - /opt/mediaflick/logs:/app/logs
+      - /mnt/unionfs:/mnt/unionfs
+      - /etc/localtime:/etc/localtime:ro
+      - /mnt/zurg:/mnt/zurg
+      - /mnt/organized:/mnt/organized
+
+networks:
+  saltbox:
+    external: true
+```
+
+#### Option 2: Single Container (Monolithic)
+
+Alternatively, you can use a single container for both frontend and backend:
 
 ```yaml
 services:
@@ -151,7 +244,11 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5000
       - NODE_ENV=production
+      - SERVICE_MODE=full
       - CORS_ORIGINS=http://localhost:3000
+      # Runtime configuration for API endpoints (can be changed without rebuilding)
+      - API_URL=http://localhost:5000/api
+      - SIGNALR_URL=http://localhost:5000/hubs
     networks:
       - saltbox
     labels:

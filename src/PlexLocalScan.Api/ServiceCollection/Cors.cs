@@ -9,7 +9,7 @@ public static class Cors
 
     public static IServiceCollection AddCorsPolicy(this IServiceCollection services, IConfiguration configuration)
     {
-        var corsOrigins = configuration.GetValue<string>("CORS_ORIGINS")?.Split(',') ?? new[] { "http://localhost:3000" };
+        var corsOrigins = configuration.GetValue<string>("CORS_ORIGINS")?.Split(',') ?? ["http://localhost:3000"];
         
         // Get logger from service provider
         var serviceProvider = services.BuildServiceProvider();
