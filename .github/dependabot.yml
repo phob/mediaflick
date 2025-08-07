@@ -10,9 +10,6 @@ updates:
     schedule:
       interval: "daily"
     target-branch: "main"
-    ignore:
-      - dependency-name: "tailwindcss"
-        versions: ">=4.0.0"
   - package-ecosystem: "nuget" # See documentation for possible values
     directory: "/src" # Location of package manifests
     schedule:
