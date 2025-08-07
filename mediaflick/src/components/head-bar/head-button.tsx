@@ -76,7 +76,7 @@ const HeadButton = ({ icon: Icon, href, label, className, isSettings }: HeadButt
     "relative",
     "after:absolute after:inset-0",
     "after:rounded-lg after:opacity-0",
-    "after:bg-gradient-to-br after:from-gray-500/20 after:to-gray-700/20",
+    "after:bg-linear-to-br after:from-gray-500/20 after:to-gray-700/20",
     "hover:after:opacity-100 after:transition-opacity",
     className
   )
