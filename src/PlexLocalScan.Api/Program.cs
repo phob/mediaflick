@@ -9,6 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddConfiguration();
 builder.Services.AddCorsPolicy(builder.Configuration);
 builder.Services.AddApplication(builder.Configuration);
+builder.Services.AddEnhancedCaching();
 builder.Services.AddSignalRService();
 
 var app = builder.Build();

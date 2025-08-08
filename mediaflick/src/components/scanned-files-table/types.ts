@@ -22,6 +22,18 @@ export type Row = {
   updatedAt: string | ReactNode
 }
 
+export type ColumnKey =
+  | 'sourceFile'
+  | 'destFile'
+  | 'genres'
+  | 'mediaType'
+  | 'tmdbId'
+  | 'imdbId'
+  | 'episode'
+  | 'status'
+  | 'createdAt'
+  | 'updatedAt'
+
 export const statusOptions = [
   { uid: "Processing", name: "Processing" },
   { uid: "Success", name: "Success" },

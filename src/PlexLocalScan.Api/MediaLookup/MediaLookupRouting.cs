@@ -17,6 +17,7 @@ internal static class MediaLookupRouting
 
         MapMovieEndpoints(group);
         MapTvShowEndpoints(group);
+        MapCacheManagementEndpoints(group);
     }
 
     private static void MapMovieEndpoints(RouteGroupBuilder group)
@@ -68,5 +69,39 @@ internal static class MediaLookupRouting
             .WithDescription("Gets detailed information about a TV episode by TMDb ID")
             .Produces<EpisodeInfo>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound);
+    }
+
+    private static void MapCacheManagementEndpoints(RouteGroupBuilder group)
+    {
+        var cacheGroup = group.MapGroup("cache")
+            .WithTags("Cache Management")
+            .WithDescription("Cache management operations");
+
+        cacheGroup
+            .MapDelete("movies/{tmdbId}", CacheManagementEndpoints.InvalidateMovieCache)
+            .WithName("InvalidateMovieCache")
+            .WithDescription("Invalidates cache for a specific movie")
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status500InternalServerError);
+
+        cacheGroup
+            .MapDelete("tvshows/{tmdbId}", CacheManagementEndpoints.InvalidateTvShowCache)
+            .WithName("InvalidateTvShowCache")
+            .WithDescription("Invalidates cache for a specific TV show")
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status500InternalServerError);
+
+        cacheGroup
+            .MapDelete("search", CacheManagementEndpoints.InvalidateSearchCache)
+            .WithName("InvalidateSearchCache")
+            .WithDescription("Invalidates search cache for a specific title and media type")
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status500InternalServerError);
+
+        cacheGroup
+            .MapGet("stats", CacheManagementEndpoints.GetCacheStats)
+            .WithName("GetCacheStats")
+            .WithDescription("Gets cache statistics and information")
+            .Produces<object>(StatusCodes.Status200OK);
     }
 }

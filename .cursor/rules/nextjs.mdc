@@ -4,15 +4,14 @@ globs: *.tsx, *.ts
 ---
 # The Mediaflick Web Project
 
-- is a nextjs 15 Application 
-- using pnpm
-- using shadcn
-- shadcn is already initialized with pnpm dlx shadcn@latest init
-- shadcn components installed: button card select input table
-- the command to install new components is pnpm dlx shadcn@latest and NOT pnpm dlx shadcn-ui@latest
-- using tailwindcss for styling
-- using tailwindcss-motion for animations
-- Endpoints are located in mediaflick/src/lib/api/endpoints.ts
+- is a Next.js 15 application (React 19)
+- uses pnpm
+- uses shadcn UI (Radix under the hood)
+- shadcn is initialized with: `pnpm dlx shadcn@latest init`
+- install new components with: `pnpm dlx shadcn@latest add <component>` (NOT `shadcn-ui`)
+- styling with Tailwind CSS v4
+- animations with `tailwindcss-motion`
+- API endpoints helper located at `mediaflick/src/lib/api/endpoints.ts`
 
 ## Filestructure
 ```
@@ -20,18 +19,66 @@ mediaflick
 └── src
     ├── app
     │   ├── (organizer)
+    │   │   ├── logs
     │   │   ├── mediainfo
     │   │   └── medialibrary
-    │   └── fonts
+    │   ├── api
+    │   ├── fonts
+    │   │   ├── GeistMonoVF.woff
+    │   │   └── GeistVF.woff
+    │   ├── globals.css
+    │   ├── layout.tsx
+    │   └── page.tsx
     ├── components
     │   ├── head-bar
     │   ├── media-info
     │   ├── media-search
     │   ├── scanned-files-table
-    │   └── settings
+    │   ├── settings
+    │   ├── heartbeat-status.tsx
+    │   ├── logo-module.tsx
+    │   ├── theme-provider.tsx
+    │   └── ui
+    │       ├── accordion.tsx
+    │       ├── badge.tsx
+    │       ├── button.tsx
+    │       ├── card.tsx
+    │       ├── checkbox.tsx
+    │       ├── command.tsx
+    │       ├── dialog.tsx
+    │       ├── input.tsx
+    │       ├── pagination.tsx
+    │       ├── popover.tsx
+    │       ├── progress.tsx
+    │       ├── select.tsx
+    │       ├── separator.tsx
+    │       ├── table.tsx
+    │       └── tooltip.tsx
     ├── config
+    │   ├── fonts.ts
+    │   ├── nav-config.ts
+    │   └── site.ts
     ├── hooks
+    │   └── use-page-title.ts
     ├── lib
-    │   └── api
+    │   ├── api
+    │   │   ├── client.ts
+    │   │   ├── endpoints.ts
+    │   │   ├── signalr.ts
+    │   │   └── tmdb.ts
+    │   ├── files-folders.ts
+    │   ├── format-helper.ts
+    │   ├── hooks
+    │   │   └── useRuntimeConfig.ts
+    │   └── utils.ts
     └── types
+        └── tailwindcss-motion.d.ts
 ```
+
+## shadcn components currently installed
+- accordion, badge, button, card, checkbox, command (cmdk), dialog, input, pagination, popover, progress, select, separator, table, tooltip
+
+## Conventions
+- Only change things in this directory if absolutely necessary because this is part of ShadCN components installation `src/components/ui`
+- prefer importing from local `ui` wrappers instead of raw Radix packages
+- use `mediaApi` from `src/lib/api/endpoints.ts` for frontend API calls

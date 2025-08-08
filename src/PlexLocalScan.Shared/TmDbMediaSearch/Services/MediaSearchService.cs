@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using PlexLocalScan.Core.Media;
@@ -19,8 +20,16 @@ public class MediaSearchService(
 {
     public async Task<IEnumerable<MediaSearchResult>> SearchMovieTmdbIdsAsync(string title)
     {
+        var cacheKey = $"movie_search_{title.ToLowerInvariant()}";
+        if (cache.TryGetValue<List<MediaSearchResult>>(cacheKey, out var cachedResults))
+        {
+            logger.LogInformation("Returning cached movie search results for: {Title}", title);
+            return cachedResults;
+        }
+
+        logger.LogInformation("Fetching movie search results from TMDb for: {Title}", title);
         var searchResults = await tmdbClient.SearchMovieAsync(title);
-        return searchResults
+        var results = searchResults
             .Results.Select(r => new MediaSearchResult(
                 r.Id,
                 r.Title,
@@ -28,11 +37,26 @@ public class MediaSearchService(
                 r.PosterPath
             ))
             .ToList();
+
+        // Cache search results for 1 hour - search results are relatively stable
+        cache.Set(cacheKey, results, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1),
+            Size = 1 // Each search result list counts as 1 unit
+        });
+        return results;
     }
 
     public async Task<IEnumerable<MediaSearchResult>> SearchTvShowTmdbIdsAsync(string title)
     {
-        logger.LogInformation("Searching for TV show with title: {Title}", title);
+        var cacheKey = $"tvshow_search_{title.ToLowerInvariant()}";
+        if (cache.TryGetValue<List<MediaSearchResult>>(cacheKey, out var cachedResults))
+        {
+            logger.LogInformation("Returning cached TV show search results for: {Title}", title);
+            return cachedResults;
+        }
+
+        logger.LogInformation("Fetching TV show search results from TMDb for: {Title}", title);
         var searchResults = await tmdbClient.SearchTvShowAsync(title);
 
         if (searchResults.Results == null)
@@ -51,6 +75,12 @@ public class MediaSearchService(
             .ToList();
         logger.LogInformation("Found {Count} TV show results", results.Count);
 
+        // Cache search results for 1 hour - search results are relatively stable
+        cache.Set(cacheKey, results, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1),
+            Size = 1 // Each search result list counts as 1 unit
+        });
         return results;
     }
 
@@ -76,7 +106,12 @@ public class MediaSearchService(
             Status = movie.Status,
             Genres = movie.Genres.Select(g => g.Name).ToList().AsReadOnly(),
         };
-        cache.Set(cacheKey, mediaInfo, TimeSpan.FromSeconds(10));
+        // Cache movie info for 24 hours - movie data rarely changes
+        cache.Set(cacheKey, mediaInfo, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24),
+            Size = 2 // Movie info is larger than search results
+        });
         return mediaInfo;
     }
 
@@ -88,16 +123,25 @@ public class MediaSearchService(
             return cachedInfo;
         }
 
-        var tvShow = await tmdbClient.GetTvShowAsync(tmdbId);
-        var externalIds = await tmdbClient.GetTvShowExternalIdsAsync(tmdbId);
-        // Get episodes and seasons from database
-        var episodesScannedFiles = dbContext
+        // Execute TMDb API calls in parallel to reduce latency
+        var tvShowTask = tmdbClient.GetTvShowAsync(tmdbId);
+        var externalIdsTask = tmdbClient.GetTvShowExternalIdsAsync(tmdbId);
+        
+        // Get episodes count from database with a more efficient query
+        var episodesScannedFilesTask = dbContext
             .ScannedFiles.Where(f =>
                 f.TmdbId == tmdbId
                 && f.MediaType == MediaType.TvShows
                 && f.Status == FileStatus.Success
             )
-            .Count();
+            .CountAsync();
+
+        // Await all tasks concurrently
+        await Task.WhenAll(tvShowTask, externalIdsTask, episodesScannedFilesTask);
+        
+        var tvShow = await tvShowTask;
+        var externalIds = await externalIdsTask;
+        var episodesScannedFiles = await episodesScannedFilesTask;
 
         var episodeCount = tvShow.NumberOfEpisodes;
         var seasonCount = tvShow.NumberOfSeasons;
@@ -120,7 +164,12 @@ public class MediaSearchService(
             SeasonCountScanned = 0,
         };
 
-        cache.Set(cacheKey, info, TimeSpan.FromSeconds(10));
+        // Cache TV show info for 6 hours - episode counts can change more frequently
+        cache.Set(cacheKey, info, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(6),
+            Size = 2 // TV show info is similar size to movie info
+        });
         return info;
     }
 
@@ -136,24 +185,39 @@ public class MediaSearchService(
             return cachedSeason;
         }
 
-        var season = await tmdbClient.GetTvSeasonAsync(tmdbId, seasonNumber);
-        var episodes = new List<EpisodeInfo>();
-        var episodeCount = season.Episodes.Count;
-        var episodeCountScanned = dbContext
+        // Execute TMDb API call and database queries in parallel
+        var seasonTask = tmdbClient.GetTvSeasonAsync(tmdbId, seasonNumber);
+        var episodeCountScannedTask = dbContext
             .ScannedFiles.Where(f => f.TmdbId == tmdbId && f.SeasonNumber == seasonNumber)
-            .Count();
+            .CountAsync();
 
+        // For detailed view, get scanned episodes info
+        Task<List<(int EpisodeNumber, int SeasonNumber)>>? episodesScannedFilesTask = null;
         if (includeDetails)
         {
-            var episodesScannedFiles = dbContext
-                .ScannedFiles.Select(e => new
-                {
-                    e.TmdbId,
-                    e.SeasonNumber,
-                    e.EpisodeNumber,
-                })
+            episodesScannedFilesTask = dbContext
+                .ScannedFiles
                 .Where(e => e.TmdbId == tmdbId && e.SeasonNumber == seasonNumber)
-                .ToList();
+                .Select(e => new ValueTuple<int, int>(e.EpisodeNumber ?? 0, e.SeasonNumber ?? 0))
+                .ToListAsync();
+        }
+
+        // Await all tasks
+        var season = await seasonTask;
+        var episodeCountScanned = await episodeCountScannedTask;
+        var episodesScannedFiles = episodesScannedFilesTask != null ? await episodesScannedFilesTask : null;
+
+        var episodes = new List<EpisodeInfo>();
+        var episodeCount = season.Episodes.Count;
+
+        if (includeDetails && episodesScannedFiles != null)
+        {
+            // Create a HashSet for faster lookup performance
+            var scannedEpisodeNumbers = new HashSet<int>(
+                episodesScannedFiles.Where(e => e.SeasonNumber == seasonNumber)
+                                   .Select(e => e.EpisodeNumber)
+            );
+
             episodes.AddRange(
                 season.Episodes.Select(episode => new EpisodeInfo
                 {
@@ -162,9 +226,7 @@ public class MediaSearchService(
                     Overview = episode.Overview,
                     StillPath = episode.StillPath,
                     AirDate = episode.AirDate,
-                    IsScanned = episodesScannedFiles.Any(e =>
-                        e.EpisodeNumber == episode.EpisodeNumber && e.SeasonNumber == seasonNumber
-                    ),
+                    IsScanned = scannedEpisodeNumbers.Contains(episode.EpisodeNumber),
                 })
             );
         }
@@ -181,8 +243,12 @@ public class MediaSearchService(
             EpisodeCountScanned = episodeCountScanned,
         };
 
-        // Cache the season data
-        cache.Set(cacheKey, seasonInfo, TimeSpan.FromSeconds(10));
+        // Cache season data for 2 hours - episode scan status can change
+        cache.Set(cacheKey, seasonInfo, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(2),
+            Size = 3 // Season info with episodes is larger
+        });
         return seasonInfo;
     }
 
@@ -214,7 +280,12 @@ public class MediaSearchService(
         episodeInfo.Overview = episode.Overview;
         episodeInfo.StillPath = episode.StillPath;
         episodeInfo.AirDate = episode.AirDate;
-        cache.Set(cacheKey, episodeInfo, TimeSpan.FromMinutes(10));
+        // Cache episode info for 2 hours - episode data is relatively stable
+        cache.Set(cacheKey, episodeInfo, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(2),
+            Size = 1 // Episode info is smaller
+        });
         return episodeInfo;
     }
 

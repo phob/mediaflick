@@ -8,6 +8,9 @@ import { cn } from "@/lib/utils"
 
 import type { MediaInfo, MediaType } from "@/lib/api/types"
 import { MediaType as MediaTypeEnum } from "@/lib/api/types"
+import { type CardSize, cardSizeConfig } from "@/hooks/use-card-size"
+import { useMediaInfo } from "@/hooks/use-media-queries"
+import { LoadingIndicator } from "@/components/ui/loading-indicator"
 
 export interface UniqueMediaEntry {
   tmdbId: number
@@ -20,6 +23,7 @@ export interface MediaCardProps {
   media: UniqueMediaEntry
   mediaType: MediaType
   href?: string
+  cardSize?: CardSize
 }
 
 const getStatusColor = (status: string): "default" | "destructive" | "secondary" | "outline" => {
@@ -41,14 +45,16 @@ const getStatusColor = (status: string): "default" | "destructive" | "secondary"
   }
 }
 
-const getImageUrlSync = (path: string) => {
+const getImageUrlSync = (path: string, size: CardSize = "medium") => {
   if (!path) return "/placeholder-image.jpg"
-  return `https://image.tmdb.org/t/p/w500${path}`
+  const imageSize = cardSizeConfig[size].imageSize
+  return `https://image.tmdb.org/t/p/${imageSize}${path}`
 }
 
-export function MediaCard({ media, mediaType, href }: Readonly<MediaCardProps>) {
+export function MediaCard({ media, mediaType, href, cardSize = "medium" }: Readonly<MediaCardProps>) {
   const router = useRouter()
-  console.log(media)
+  const { data: mediaInfo, isLoading, isFetching, isStale } = useMediaInfo(media.tmdbId, mediaType)
+  
   const handleClick = () => {
     if (href) {
       router.push(href)
@@ -56,41 +62,47 @@ export function MediaCard({ media, mediaType, href }: Readonly<MediaCardProps>) 
   }
 
   const getProgressColor = () => {
-    return (media.mediaInfo?.episodeCountScanned ?? 0) >= (media.mediaInfo?.episodeCount ?? 0)
+    return (mediaInfo?.episodeCountScanned ?? 0) >= (mediaInfo?.episodeCount ?? 0)
       ? "bg-primary/20"
       : "bg-destructive/20"
   }
 
   const renderContent = () => {
-    if (media.isLoading) {
+    if (isLoading || !mediaInfo) {
       return (
         <div className="flex justify-center">
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <LoadingIndicator 
+            isLoading={isLoading}
+            isFetching={isFetching}
+            isStale={isStale}
+            size="sm"
+            showText={false}
+          />
         </div>
       )
     }
 
-    if (media.mediaInfo) {
+    if (mediaInfo) {
       return (
         <div className="flex flex-col gap-2">
-          {media.mediaInfo.genres && media.mediaInfo.genres.length > 0 && (
+          {mediaInfo.genres && mediaInfo.genres.length > 0 && (
             <p className="text-tiny text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
-              {media.mediaInfo.genres.join(", ")}
+              {mediaInfo.genres.join(", ")}
             </p>
           )}
-          {media.mediaInfo.summary && (
+          {mediaInfo.summary && (
             <p className="line-clamp-3 text-tiny text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
-              {media.mediaInfo.summary}
+              {mediaInfo.summary}
             </p>
           )}
-          {mediaType === MediaTypeEnum.TvShows && media.mediaInfo?.episodeCount && (
+          {mediaType === MediaTypeEnum.TvShows && mediaInfo?.episodeCount && (
             <div className="mt-2">
               <Progress
-                value={((media.mediaInfo?.episodeCountScanned ?? 0) / media.mediaInfo.episodeCount) * 100}
+                value={((mediaInfo?.episodeCountScanned ?? 0) / mediaInfo.episodeCount) * 100}
                 className={cn("h-2", getProgressColor())}
               />
               <p className="mt-1 text-[10px] font-bold text-white text-center [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
-                {media.mediaInfo?.episodeCountScanned ?? 0} / {media.mediaInfo.episodeCount} Episodes
+                {mediaInfo?.episodeCountScanned ?? 0} / {mediaInfo.episodeCount} Episodes
               </p>
             </div>
           )}
@@ -105,12 +117,15 @@ export function MediaCard({ media, mediaType, href }: Readonly<MediaCardProps>) 
     )
   }
 
+  const config = cardSizeConfig[cardSize]
+
   return (
     <article>
       <Card
         onClick={handleClick}
         className={cn(
-          "group relative h-[400px] overflow-hidden cursor-pointer",
+          "group relative overflow-hidden cursor-pointer",
+          config.height,
           "border-[1px] border-transparent ring-1 ring-white/10",
           "transition-transform duration-200",
           "[background:linear-gradient(theme(colors.background),theme(colors.background))_padding-box,linear-gradient(to_bottom_right,rgba(255,255,255,0.2),transparent_50%)_border-box]",
@@ -120,15 +135,15 @@ export function MediaCard({ media, mediaType, href }: Readonly<MediaCardProps>) 
           "hover:scale-[1.02] hover:shadow-xl"
         )}
         aria-label={[
-          media.mediaInfo?.title ?? media.title,
-          media.mediaInfo?.year ? `(${media.mediaInfo.year})` : null,
+          mediaInfo?.title ?? media.title,
+          mediaInfo?.year ? `(${mediaInfo.year})` : null,
           "- Click to view details"
         ].filter(Boolean).join(" ")}
       >
-        {media.mediaInfo?.posterPath && (
+        {mediaInfo?.posterPath && (
           <div className="absolute inset-0">
             <Image
-              src={getImageUrlSync(media.mediaInfo.posterPath)}
+              src={getImageUrlSync(mediaInfo.posterPath, cardSize)}
               alt={media.title}
               fill
               className="object-cover transition-all duration-200 group-hover:scale-105 group-hover:brightness-[0.80]"
@@ -138,23 +153,35 @@ export function MediaCard({ media, mediaType, href }: Readonly<MediaCardProps>) 
           </div>
         )}
         <CardHeader className="absolute z-20 flex flex-col items-start space-y-2">
-          {mediaType === MediaTypeEnum.TvShows && media.mediaInfo?.status && (
+          {mediaType === MediaTypeEnum.TvShows && mediaInfo?.status && (
             <Badge
-              variant={getStatusColor(media.mediaInfo.status)}
+              variant={getStatusColor(mediaInfo.status)}
               className="shadow-lg"
-              aria-label={`Show status: ${media.mediaInfo.status}`}
+              aria-label={`Show status: ${mediaInfo.status}`}
             >
-              {media.mediaInfo.status}
+              {mediaInfo.status}
             </Badge>
           )}
-          <h4 className="text-xl font-medium text-white [text-shadow:0_2px_4px_rgba(0,0,0,0.8)] hover:text-white">
-            {media.mediaInfo?.title ?? media.title}
+          <h4 className={cn(config.titleSize, "font-medium text-white [text-shadow:0_2px_4px_rgba(0,0,0,0.8)] hover:text-white")}>
+            {mediaInfo?.title ?? media.title}
           </h4>
           <p className="text-tiny text-white/80 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
-            {media.mediaInfo?.year && `(${media.mediaInfo.year})`}
+            {mediaInfo?.year && `(${mediaInfo.year})`}
           </p>
+          {/* Show cache status indicator */}
+          {isFetching && (
+            <div className="absolute top-2 right-2">
+              <LoadingIndicator 
+                isLoading={isLoading}
+                isFetching={isFetching}
+                isStale={isStale}
+                size="sm"
+                showText={false}
+              />
+            </div>
+          )}
         </CardHeader>
-        <CardContent className="absolute bottom-0 z-20 max-h-[200px] w-full overflow-y-auto border-t-1 border-default-600/50 bg-black/50 bg-linear-to-t from-black/50 via-black/30 to-transparent backdrop-blur-sm dark:border-default-100/50">
+        <CardContent className={cn("absolute bottom-0 z-20 w-full overflow-y-auto border-t-1 border-default-600/50 bg-black/50 bg-linear-to-t from-black/50 via-black/30 to-transparent backdrop-blur-sm dark:border-default-100/50", config.contentMaxHeight)}>
           {renderContent()}
         </CardContent>
       </Card>

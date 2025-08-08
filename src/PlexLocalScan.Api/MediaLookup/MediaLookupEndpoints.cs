@@ -59,32 +59,49 @@ internal static class MediaLookupEndpoints
     internal static async Task<Results<Ok<MediaInfo>, NotFound>> GetMovieInfo(
         int tmdbId,
         IMediaSearchService mediaLookupService,
-        ILogger<Program> logger
+        ILogger<Program> logger,
+        HttpContext context
     )
     {
         logger.LogInformation("Getting movie info for TMDb ID: {TmdbId}", tmdbId);
         var movieInfo = await mediaLookupService.GetMovieMediaInfoAsync(tmdbId);
 
-        return movieInfo is null ? TypedResults.NotFound() : TypedResults.Ok(movieInfo);
+        if (movieInfo is null)
+            return TypedResults.NotFound();
+
+        // Set cache headers for 24 hours - movie data rarely changes
+        context.Response.Headers.CacheControl = "public, max-age=86400"; // 24 hours
+        context.Response.Headers.ETag = $"\"{tmdbId}\"";
+        
+        return TypedResults.Ok(movieInfo);
     }
 
     internal static async Task<Results<Ok<MediaInfo>, NotFound>> GetTvShowInfo(
         int tmdbId,
         IMediaSearchService mediaLookupService,
-        ILogger<Program> logger
+        ILogger<Program> logger,
+        HttpContext context
     )
     {
         logger.LogInformation("Getting TV show info for TMDb ID: {TmdbId}", tmdbId);
         var tvShowInfo = await mediaLookupService.GetTvShowMediaInfoAsync(tmdbId);
 
-        return tvShowInfo is null ? TypedResults.NotFound() : TypedResults.Ok(tvShowInfo);
+        if (tvShowInfo is null)
+            return TypedResults.NotFound();
+
+        // Set cache headers for 6 hours - TV show episode counts can change
+        context.Response.Headers.CacheControl = "public, max-age=21600"; // 6 hours
+        context.Response.Headers.ETag = $"\"{tmdbId}\"";
+        
+        return TypedResults.Ok(tvShowInfo);
     }
 
     internal static async Task<Results<Ok<SeasonInfo>, NotFound>> GetTvSeasonInfo(
         int tmdbId,
         int seasonNumber,
         IMediaSearchService mediaLookupService,
-        ILogger<Program> logger
+        ILogger<Program> logger,
+        HttpContext context
     )
     {
         logger.LogInformation(
@@ -99,7 +116,14 @@ internal static class MediaLookupEndpoints
             includeDetails: true
         );
 
-        return tvSeasonInfo is null ? TypedResults.NotFound() : TypedResults.Ok(tvSeasonInfo);
+        if (tvSeasonInfo is null)
+            return TypedResults.NotFound();
+
+        // Set cache headers for 2 hours - season scan status can change
+        context.Response.Headers.CacheControl = "public, max-age=7200"; // 2 hours
+        context.Response.Headers.ETag = $"\"{tmdbId}_{seasonNumber}\"";
+        
+        return TypedResults.Ok(tvSeasonInfo);
     }
 
     internal static async Task<Results<Ok<EpisodeInfo>, NotFound>> GetTvEpisodeInfo(
@@ -107,7 +131,8 @@ internal static class MediaLookupEndpoints
         int seasonNumber,
         int episodeNumber,
         IMediaSearchService mediaLookupService,
-        ILogger<Program> logger
+        ILogger<Program> logger,
+        HttpContext context
     )
     {
         logger.LogInformation(
@@ -124,6 +149,13 @@ internal static class MediaLookupEndpoints
             includeDetails: true
         );
 
-        return tvEpisodeInfo is null ? TypedResults.NotFound() : TypedResults.Ok(tvEpisodeInfo);
+        if (tvEpisodeInfo is null)
+            return TypedResults.NotFound();
+
+        // Set cache headers for 2 hours - episode data is relatively stable
+        context.Response.Headers.CacheControl = "public, max-age=7200"; // 2 hours
+        context.Response.Headers.ETag = $"\"{tmdbId}_{seasonNumber}_{episodeNumber}\"";
+        
+        return TypedResults.Ok(tvEpisodeInfo);
     }
 }

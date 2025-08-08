@@ -52,6 +52,8 @@ export async function fetchApi<T>(endpoint: string, options?: RequestInit): Prom
                 ...options?.headers,
             },
             credentials: 'include', // Include cookies if needed
+            // Enable browser caching to work with our HTTP cache headers
+            cache: options?.cache || 'default',
         })
 
         if (!response.ok) {
