@@ -8,7 +8,7 @@ export type Row = {
   destFile: string | ReactNode
   tmdbId: number
   imdbId: string
-  genres?: string
+  genres?: string | ReactNode
   title?: string
   year?: number
   mediaType: string
@@ -18,8 +18,8 @@ export type Row = {
   episodeNumber2?: number
   ignoreEpisodeIncrement?: boolean
   status: string | ReactNode
-  createdAt: string
-  updatedAt: string
+  createdAt: string | ReactNode
+  updatedAt: string | ReactNode
 }
 
 export const statusOptions = [

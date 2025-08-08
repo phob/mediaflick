@@ -1,20 +1,15 @@
 import Image from "next/image"
-import React, { useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { Loader2, Search } from "lucide-react"
 
 import {
-  Command,
+  CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 
 import { mediaApi } from "@/lib/api/endpoints"
@@ -33,6 +28,9 @@ export function MediaSearch({ mediaType, onMediaSelect, className, label = "Sear
   const [searchResults, setSearchResults] = useState<MediaSearchResult[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
   const [selectedTitle, setSelectedTitle] = useState<string>("")
+  const [query, setQuery] = useState("")
+  const [debouncedQuery, setDebouncedQuery] = useState("")
+  const latestRequestIdRef = useRef(0)
 
   const handleSearch = async (value: string) => {
     if (!value) {
@@ -42,17 +40,38 @@ export function MediaSearch({ mediaType, onMediaSelect, className, label = "Sear
 
     setSearchLoading(true)
     try {
+      const requestId = ++latestRequestIdRef.current
       const results = await (mediaType === MediaType.Movies
         ? mediaApi.searchMovies(value)
         : mediaApi.searchTvShows(value))
-      setSearchResults(results)
+      // Ignore out-of-order responses
+      if (requestId === latestRequestIdRef.current) {
+        setSearchResults(results)
+      }
     } catch (error) {
       console.error("Failed to search:", error)
       setSearchResults([])
     } finally {
+      // Only clear loading if this is the latest request
       setSearchLoading(false)
     }
   }
+
+  // Debounce the input to reduce flicker and API spam
+  useEffect(() => {
+    const timeoutId = setTimeout(() => setDebouncedQuery(query), 250)
+    return () => clearTimeout(timeoutId)
+  }, [query])
+
+  // Trigger search when debounced query changes
+  useEffect(() => {
+    if (debouncedQuery !== "") {
+      void handleSearch(debouncedQuery)
+    } else {
+      setSearchResults([])
+      setSearchLoading(false)
+    }
+  }, [debouncedQuery])
 
   const handleMediaSelect = (tmdbId: number, title: string) => {
     onMediaSelect(tmdbId)
@@ -63,68 +82,63 @@ export function MediaSearch({ mediaType, onMediaSelect, className, label = "Sear
 
   return (
     <div className={className}>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button 
-            variant="outline" 
-            role="combobox"
-            aria-expanded={open}
-            className="w-full justify-between"
-          >
-            {selectedTitle || label}
-            <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[400px] p-0" align="start">
-          <Command shouldFilter={false}>
-            <CommandInput 
-              placeholder={`Search ${mediaType === MediaType.Movies ? 'movies' : 'TV shows'}...`}
-              onValueChange={handleSearch}
-              className="h-9"
-            />
-            <CommandList className="max-h-[300px] overflow-y-auto">
-              {searchLoading ? (
-                <div className="flex items-center justify-center p-4">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                </div>
-              ) : (
-                <CommandGroup>
-                  {searchResults.length === 0 ? (
-                    <CommandEmpty>No results found.</CommandEmpty>
-                  ) : (
-                    searchResults.map((item) => (
-                      <CommandItem
-                        key={item.tmdbId}
-                        value={item.tmdbId.toString()}
-                        onSelect={() => handleMediaSelect(item.tmdbId, item.title)}
-                        className="flex items-center gap-2 p-2"
-                      >
-                        {item.posterPath && (
-                          <div className="relative h-[69px] w-[46px] shrink-0">
-                            <Image
-                              src={getTMDBImageUrl(item.posterPath, "w92") ?? ""}
-                              alt={item.title}
-                              fill
-                              sizes="46px"
-                              className="rounded object-cover"
-                            />
-                          </div>
-                        )}
-                        <div className="flex flex-col">
-                          <span className="font-medium">{item.title}</span>
-                          {item.year && (
-                            <span className="text-sm text-muted-foreground">({item.year})</span>
-                          )}
-                        </div>
-                      </CommandItem>
-                    ))
+      <Button 
+        variant="outline" 
+        onClick={() => setOpen(true)}
+        className="w-full justify-between"
+      >
+        {selectedTitle || label}
+        <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+      </Button>
+      
+      <CommandDialog open={open} onOpenChange={setOpen} shouldFilter={false}>
+        <CommandInput 
+          placeholder={`Search ${mediaType === MediaType.Movies ? 'movies' : 'TV shows'}...`}
+          onValueChange={setQuery}
+        />
+        <CommandList>
+          {searchResults.length === 0 && !searchLoading && (
+            <CommandEmpty>No results found.</CommandEmpty>
+          )}
+
+          {searchLoading && (
+            <div className="flex items-center justify-center p-3">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          )}
+
+          {searchResults.length > 0 && (
+            <CommandGroup>
+              {searchResults.map((item) => (
+                <CommandItem
+                  key={item.tmdbId}
+                  value={item.tmdbId.toString()}
+                  onSelect={() => handleMediaSelect(item.tmdbId, item.title)}
+                  className="flex items-center gap-2 p-2"
+                >
+                  {item.posterPath && (
+                    <div className="relative h-[69px] w-[46px] shrink-0">
+                      <Image
+                        src={getTMDBImageUrl(item.posterPath, "w92") ?? ""}
+                        alt={item.title}
+                        fill
+                        sizes="46px"
+                        className="rounded object-cover"
+                      />
+                    </div>
                   )}
-                </CommandGroup>
-              )}
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+                  <div className="flex flex-col">
+                    <span className="font-medium">{item.title}</span>
+                    {item.year && (
+                      <span className="text-sm text-muted-foreground">({item.year})</span>
+                    )}
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+        </CommandList>
+      </CommandDialog>
     </div>
   )
 }

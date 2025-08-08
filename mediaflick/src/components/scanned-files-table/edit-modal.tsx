@@ -130,7 +130,7 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave, initialMediaT
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-5xl">
+      <DialogContent className="sm:max-w-6xl w-[min(1200px,calc(100vw-2rem))] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Selected Files</DialogTitle>
         </DialogHeader>

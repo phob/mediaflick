@@ -76,7 +76,7 @@ const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open: boolean) => !open && onClose()}>
-      <DialogContent className="max-w-4xl bg-[#202020] border-gray-800 shadow-2xl">
+      <DialogContent className="bg-[#202020] border-gray-800 shadow-2xl sm:max-w-6xl w-[min(1200px,calc(100vw-2rem))] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-gray-100">Settings</DialogTitle>
           <DialogDescription className="text-sm text-gray-400">

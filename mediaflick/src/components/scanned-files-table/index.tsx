@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react"
+import React, { useCallback, useEffect, useRef, useState } from "react"
 
 import {
   Table,
@@ -24,7 +24,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Loader2, Edit, Search, Trash2 } from "lucide-react"
+import { Loader2, Edit, Search, Trash2, Columns3 } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 
@@ -36,6 +36,7 @@ import { MediaStatus, MediaType, PagedResult, PlexConfig, ScannedFile } from "@/
 import { getFileName, stripFolderPrefix } from "@/lib/files-folders"
 import { formatEpisodeNumber, getMediaTypeLabel, getStatusClass, getStatusLabel } from "@/lib/format-helper"
 import { Separator } from "../ui/separator"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
   Pagination,
   PaginationContent,
@@ -86,6 +87,28 @@ export function ScannedFilesTable({
   const [selectedKeys, setSelectedKeys] = useState<Set<number>>(new Set())
   const [newEntries, setNewEntries] = useState<Set<number>>(new Set())
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  type ColumnKey = 'sourceFile' | 'destFile' | 'genres' | 'mediaType' | 'tmdbId' | 'imdbId' | 'episode' | 'status' | 'createdAt' | 'updatedAt'
+  const DEFAULT_VISIBLE_COLUMNS: Record<ColumnKey, boolean> = {
+    sourceFile: true,
+    destFile: true,
+    genres: false,
+    mediaType: true,
+    tmdbId: false,
+    imdbId: false,
+    episode: true,
+    status: true,
+    createdAt: false,
+    updatedAt: false,
+  }
+  const [visibleColumns, setVisibleColumns] = useState<Record<ColumnKey, boolean>>(DEFAULT_VISIBLE_COLUMNS)
+  const [columnsPopoverOpen, setColumnsPopoverOpen] = useState(false)
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStartIndex, setDragStartIndex] = useState<number | null>(null)
+  const [preDragSelectedKeys, setPreDragSelectedKeys] = useState<Set<number>>(new Set())
+  const [dragMode, setDragMode] = useState<"select" | "deselect">("select")
+  const isDraggingRef = useRef(false)
+  const didDragRef = useRef(false)
 
   // Clear animation after delay
   useEffect(() => {
@@ -97,6 +120,26 @@ export function ScannedFilesTable({
 
     return () => clearTimeout(timeoutId)
   }, [newEntries])
+
+  // Load and persist column visibility settings
+  useEffect(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem('scannedFilesTable.visibleColumns') : null
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        setVisibleColumns({ ...DEFAULT_VISIBLE_COLUMNS, ...parsed })
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('scannedFilesTable.visibleColumns', JSON.stringify(visibleColumns))
+      }
+    } catch {}
+  }, [visibleColumns])
 
   const filteredItems = React.useMemo(() => {
     const hasSearchFilter = Boolean(filterValue)
@@ -124,13 +167,18 @@ export function ScannedFilesTable({
       (file): Row => ({
         key: file.id,
         sourceFile: (
-          <div className="flex flex-col">
+          <div className="flex flex-col whitespace-nowrap">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="cursor-help font-medium">{getFileName(file.sourceFile)}</span>
+                  <div
+                    className="max-w-[32rem] overflow-hidden"
+                    style={{ WebkitMaskImage: "linear-gradient(to right, black 80%, transparent)", maskImage: "linear-gradient(to right, black 80%, transparent)" }}
+                  >
+                    <span className="cursor-help font-medium">{getFileName(file.sourceFile)}</span>
+                  </div>
                 </TooltipTrigger>
-                <TooltipContent side="right" className="max-w-lg break-all">
+                <TooltipContent side="right" className="max-w-2xl break-all">
                   <p>{stripFolderPrefix(file.sourceFile, file.mediaType, plexConfig)}</p>
                 </TooltipContent>
               </Tooltip>
@@ -138,14 +186,19 @@ export function ScannedFilesTable({
           </div>
         ),
         destFile: (
-          <div className="flex flex-col">
+          <div className="flex flex-col whitespace-nowrap">
             {file.destFile ? (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="cursor-help font-medium">{getFileName(file.destFile)}</span>
+                    <div
+                      className="max-w-[28rem] overflow-hidden"
+                      style={{ WebkitMaskImage: "linear-gradient(to right, black 80%, transparent)", maskImage: "linear-gradient(to right, black 80%, transparent)" }}
+                    >
+                      <span className="cursor-help font-medium">{getFileName(file.destFile)}</span>
+                    </div>
                   </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-lg break-all">
+                  <TooltipContent side="right" className="max-w-2xl break-all">
                     <p>{stripFolderPrefix(file.destFile, file.mediaType, plexConfig)}</p>
                   </TooltipContent>
                 </Tooltip>
@@ -155,7 +208,11 @@ export function ScannedFilesTable({
             )}
           </div>
         ),
-        genres: file.genres?.join(", "),
+        genres: (
+          <span className="block max-w-[20rem] truncate whitespace-nowrap" title={file.genres?.join(", ") || undefined}>
+            {file.genres?.join(", ")}
+          </span>
+        ),
         tmdbId: file.tmdbId ?? 0,
         imdbId: file.imdbId ?? "-",
         mediaType: getMediaTypeLabel(file.mediaType),
@@ -165,11 +222,43 @@ export function ScannedFilesTable({
             {getStatusLabel(file.status)}
           </span>
         ),
-        createdAt: format(new Date(file.createdAt), "MMM d, yyyy HH:mm"),
-        updatedAt: format(new Date(file.updatedAt), "MMM d, yyyy HH:mm"),
+        createdAt: (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="whitespace-nowrap">
+                  {format(new Date(file.createdAt), "MMM d, HH:mm")}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>{format(new Date(file.createdAt), "yyyy-MM-dd HH:mm:ss")}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ),
+        updatedAt: (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="whitespace-nowrap">
+                  {format(new Date(file.updatedAt), "MMM d, HH:mm")}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>{format(new Date(file.updatedAt), "yyyy-MM-dd HH:mm:ss")}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ),
       })
     )
   }, [data, filteredItems, plexConfig])
+
+  const keyToIndex = React.useMemo(() => {
+    const map = new Map<number, number>()
+    rows.forEach((row, index) => map.set(row.key, index))
+    return map
+  }, [rows])
 
   const handleDeleteSelected = useCallback(async () => {
     const selectedIds = Array.from(selectedKeys)
@@ -198,15 +287,60 @@ export function ScannedFilesTable({
     return rows.filter((row) => selectedKeys.has(row.key))
   }, [selectedKeys, rows])
 
-  const handleRowClick = useCallback((key: number) => {
-    const newKeys = new Set(selectedKeys)
-    if (newKeys.has(key)) {
-      newKeys.delete(key)
-    } else {
-      newKeys.add(key)
+  const handleRowClick = useCallback((e: React.MouseEvent, key: number) => {
+    // If a drag just happened, skip click toggle
+    if (didDragRef.current) {
+      didDragRef.current = false
+      return
     }
-    setSelectedKeys(newKeys)
-  }, [selectedKeys])
+
+    const clickedIndex = keyToIndex.get(key) ?? null
+
+    if (e.shiftKey && lastSelectedIndex !== null && clickedIndex !== null) {
+      const start = Math.min(lastSelectedIndex, clickedIndex)
+      const end = Math.max(lastSelectedIndex, clickedIndex)
+      const rangeKeys = rows.slice(start, end + 1).map((r) => r.key)
+      const newKeys = new Set(selectedKeys)
+      rangeKeys.forEach((k) => newKeys.add(k))
+      setSelectedKeys(newKeys)
+    } else {
+      const newKeys = new Set(selectedKeys)
+      if (newKeys.has(key)) {
+        newKeys.delete(key)
+      } else {
+        newKeys.add(key)
+      }
+      setSelectedKeys(newKeys)
+      if (clickedIndex !== null) setLastSelectedIndex(clickedIndex)
+    }
+  }, [keyToIndex, lastSelectedIndex, rows, selectedKeys])
+
+  const updateDragSelection = useCallback((currentIndex: number) => {
+    if (dragStartIndex === null) return
+    const start = Math.min(dragStartIndex, currentIndex)
+    const end = Math.max(dragStartIndex, currentIndex)
+    const rangeKeys = rows.slice(start, end + 1).map((r) => r.key)
+    const newSet = new Set(preDragSelectedKeys)
+    if (dragMode === "select") {
+      rangeKeys.forEach((k) => newSet.add(k))
+    } else {
+      rangeKeys.forEach((k) => newSet.delete(k))
+    }
+    setSelectedKeys(newSet)
+  }, [dragStartIndex, dragMode, preDragSelectedKeys, rows])
+
+  useEffect(() => {
+    const handleMouseUp = () => {
+      if (isDraggingRef.current) {
+        isDraggingRef.current = false
+        setIsDragging(false)
+        setDragStartIndex(null)
+        setPreDragSelectedKeys(new Set())
+      }
+    }
+    window.addEventListener("mouseup", handleMouseUp)
+    return () => window.removeEventListener("mouseup", handleMouseUp)
+  }, [])
 
   const handleEditSelected = useCallback(() => {
     setIsEditModalOpen(true)
@@ -258,6 +392,43 @@ export function ScannedFilesTable({
                 <SelectItem value="200">200</SelectItem>
               </SelectContent>
             </Select>
+            <Popover open={columnsPopoverOpen} onOpenChange={setColumnsPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Columns3 className="mr-2 h-4 w-4" /> Columns
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64" align="end">
+                <div className="space-y-2">
+                  {(
+                    [
+                      { key: 'sourceFile', label: 'Source File' },
+                      { key: 'destFile', label: 'Destination' },
+                      { key: 'genres', label: 'Genres' },
+                      { key: 'mediaType', label: 'Media Type' },
+                      { key: 'tmdbId', label: 'TMDB ID' },
+                      { key: 'imdbId', label: 'IMDb ID' },
+                      { key: 'episode', label: 'Episode (TV Shows)' },
+                      { key: 'status', label: 'Status' },
+                      { key: 'createdAt', label: 'Created' },
+                      { key: 'updatedAt', label: 'Updated' },
+                    ] as { key: ColumnKey; label: string }[]
+                  ).map(({ key, label }) => (
+                    <label key={key} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-muted-foreground/40 bg-transparent"
+                        checked={visibleColumns[key]}
+                        onChange={(e) =>
+                          setVisibleColumns((prev) => ({ ...prev, [key]: e.target.checked }))
+                        }
+                      />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
         <div className="flex items-center justify-between gap-3">
@@ -346,6 +517,8 @@ export function ScannedFilesTable({
     onStatusChange,
     onMediaTypeChange,
     onSearchChange,
+    columnsPopoverOpen,
+    visibleColumns,
   ])
 
   const handleSort = React.useCallback(
@@ -361,11 +534,23 @@ export function ScannedFilesTable({
   )
 
   const tableComponent = React.useMemo(() => {
+    const visibleHeadersCount = (
+      (visibleColumns.sourceFile ? 1 : 0) +
+      (visibleColumns.destFile ? 1 : 0) +
+      (visibleColumns.genres ? 1 : 0) +
+      (visibleColumns.mediaType ? 1 : 0) +
+      (visibleColumns.tmdbId ? 1 : 0) +
+      (visibleColumns.imdbId ? 1 : 0) +
+      (visibleColumns.status ? 1 : 0) +
+      (visibleColumns.createdAt ? 1 : 0) +
+      (visibleColumns.updatedAt ? 1 : 0) +
+      ((mediaTypeFilter === MediaType.TvShows && visibleColumns.episode) ? 1 : 0)
+    ) + 1 // checkbox column
     return (
       <div>
         <Separator className="my-4" />
         <div className="rounded-md border">
-          <Table>
+          <Table className="whitespace-nowrap">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12">
@@ -378,42 +563,62 @@ export function ScannedFilesTable({
                     aria-label="Select all"
                   />
                 </TableHead>
-                <TableHead onClick={() => handleSort("sourceFile")} className="cursor-pointer">
-                  Source File {sortBy === "sourceFile" && (sortOrder === "asc" ? "↑" : "↓")}
-                </TableHead>
-                <TableHead onClick={() => handleSort("destFile")} className="cursor-pointer">
-                  Destination {sortBy === "destFile" && (sortOrder === "asc" ? "↑" : "↓")}
-                </TableHead>
-                <TableHead onClick={() => handleSort("genres")} className="cursor-pointer">
-                  Genres {sortBy === "genres" && (sortOrder === "asc" ? "↑" : "↓")}
-                </TableHead>
-                <TableHead onClick={() => handleSort("mediaType")} className="cursor-pointer">
-                  Media Type {sortBy === "mediaType" && (sortOrder === "asc" ? "↑" : "↓")}
-                </TableHead>
-                <TableHead onClick={() => handleSort("tmdbId")} className="cursor-pointer">
-                  TMDB ID {sortBy === "tmdbId" && (sortOrder === "asc" ? "↑" : "↓")}
-                </TableHead>
-                <TableHead onClick={() => handleSort("imdbId")} className="cursor-pointer">
-                  IMDb ID {sortBy === "imdbId" && (sortOrder === "asc" ? "↑" : "↓")}
-                </TableHead>
-                <TableHead onClick={() => handleSort("episode")} className="cursor-pointer">
-                  Episode {sortBy === "episode" && (sortOrder === "asc" ? "↑" : "↓")}
-                </TableHead>
-                <TableHead onClick={() => handleSort("status")} className="cursor-pointer">
-                  Status {sortBy === "status" && (sortOrder === "asc" ? "↑" : "↓")}
-                </TableHead>
-                <TableHead onClick={() => handleSort("createdAt")} className="cursor-pointer">
-                  Created {sortBy === "createdAt" && (sortOrder === "asc" ? "↑" : "↓")}
-                </TableHead>
-                <TableHead onClick={() => handleSort("updatedAt")} className="cursor-pointer">
-                  Updated {sortBy === "updatedAt" && (sortOrder === "asc" ? "↑" : "↓")}
-                </TableHead>
+                {visibleColumns.sourceFile && (
+                  <TableHead onClick={() => handleSort("sourceFile")} className="cursor-pointer">
+                    Source File {sortBy === "sourceFile" && (sortOrder === "asc" ? "↑" : "↓")}
+                  </TableHead>
+                )}
+                {visibleColumns.destFile && (
+                  <TableHead onClick={() => handleSort("destFile")} className="cursor-pointer">
+                    Destination {sortBy === "destFile" && (sortOrder === "asc" ? "↑" : "↓")}
+                  </TableHead>
+                )}
+                {visibleColumns.genres && (
+                  <TableHead onClick={() => handleSort("genres")} className="cursor-pointer">
+                    Genres {sortBy === "genres" && (sortOrder === "asc" ? "↑" : "↓")}
+                  </TableHead>
+                )}
+                {visibleColumns.mediaType && (
+                  <TableHead onClick={() => handleSort("mediaType")} className="cursor-pointer">
+                    Media Type {sortBy === "mediaType" && (sortOrder === "asc" ? "↑" : "↓")}
+                  </TableHead>
+                )}
+                {visibleColumns.tmdbId && (
+                  <TableHead onClick={() => handleSort("tmdbId")} className="cursor-pointer">
+                    TMDB ID {sortBy === "tmdbId" && (sortOrder === "asc" ? "↑" : "↓")}
+                  </TableHead>
+                )}
+                {visibleColumns.imdbId && (
+                  <TableHead onClick={() => handleSort("imdbId")} className="cursor-pointer">
+                    IMDb ID {sortBy === "imdbId" && (sortOrder === "asc" ? "↑" : "↓")}
+                  </TableHead>
+                )}
+                {mediaTypeFilter === MediaType.TvShows && visibleColumns.episode && (
+                  <TableHead onClick={() => handleSort("episode")} className="cursor-pointer">
+                    Episode {sortBy === "episode" && (sortOrder === "asc" ? "↑" : "↓")}
+                  </TableHead>
+                )}
+                {visibleColumns.status && (
+                  <TableHead onClick={() => handleSort("status")} className="cursor-pointer">
+                    Status {sortBy === "status" && (sortOrder === "asc" ? "↑" : "↓")}
+                  </TableHead>
+                )}
+                {visibleColumns.createdAt && (
+                  <TableHead onClick={() => handleSort("createdAt")} className="cursor-pointer">
+                    Created {sortBy === "createdAt" && (sortOrder === "asc" ? "↑" : "↓")}
+                  </TableHead>
+                )}
+                {visibleColumns.updatedAt && (
+                  <TableHead onClick={() => handleSort("updatedAt")} className="cursor-pointer">
+                    Updated {sortBy === "updatedAt" && (sortOrder === "asc" ? "↑" : "↓")}
+                  </TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="h-24 text-center">
+                  <TableCell colSpan={visibleHeadersCount} className="h-24 text-center">
                     <Loader2 className="mx-auto h-6 w-6 animate-spin" />
                   </TableCell>
                 </TableRow>
@@ -428,6 +633,33 @@ export function ScannedFilesTable({
                       "hover:bg-muted/30"
                     )}
                     data-selected={selectedKeys.has(item.key)}
+                    onMouseDown={(e) => {
+                      // Only left button
+                      if (e.button !== 0) return
+                      // Don't start drag if interacting with controls
+                      if (
+                        e.target instanceof HTMLElement &&
+                        (e.target.closest("button") || e.target.closest("a") || e.target.closest("input"))
+                      ) {
+                        return
+                      }
+                      const index = keyToIndex.get(item.key)
+                      if (index === undefined) return
+                      isDraggingRef.current = true
+                      didDragRef.current = false
+                      setIsDragging(true)
+                      setDragStartIndex(index)
+                      setPreDragSelectedKeys(new Set(selectedKeys))
+                      setDragMode(selectedKeys.has(item.key) ? "deselect" : "select")
+                      setLastSelectedIndex(index)
+                    }}
+                    onMouseEnter={() => {
+                      if (!isDraggingRef.current) return
+                      const index = keyToIndex.get(item.key)
+                      if (index === undefined || dragStartIndex === null) return
+                      if (index !== dragStartIndex) didDragRef.current = true
+                      updateDragSelection(index)
+                    }}
                     onClick={(e) => {
                       // Don't trigger row selection if clicking the checkbox
                       if (e.target instanceof HTMLElement && 
@@ -435,7 +667,7 @@ export function ScannedFilesTable({
                           e.target.closest('a'))) { // For any links
                         return
                       }
-                      handleRowClick(item.key)
+                      handleRowClick(e, item.key)
                     }}
                   >
                     <TableCell onClick={(e) => e.stopPropagation()}>
@@ -453,16 +685,18 @@ export function ScannedFilesTable({
                         aria-label={`Select row ${item.key}`}
                       />
                     </TableCell>
-                    <TableCell>{item.sourceFile}</TableCell>
-                    <TableCell>{item.destFile}</TableCell>
-                    <TableCell>{item.genres}</TableCell>
-                    <TableCell>{item.mediaType}</TableCell>
-                    <TableCell>{item.tmdbId}</TableCell>
-                    <TableCell>{item.imdbId}</TableCell>
-                    <TableCell>{item.episode}</TableCell>
-                    <TableCell>{item.status}</TableCell>
-                    <TableCell>{item.createdAt}</TableCell>
-                    <TableCell>{item.updatedAt}</TableCell>
+                    {visibleColumns.sourceFile && (<TableCell>{item.sourceFile}</TableCell>)}
+                    {visibleColumns.destFile && (<TableCell>{item.destFile}</TableCell>)}
+                    {visibleColumns.genres && (<TableCell>{item.genres}</TableCell>)}
+                    {visibleColumns.mediaType && (<TableCell>{item.mediaType}</TableCell>)}
+                    {visibleColumns.tmdbId && (<TableCell>{item.tmdbId}</TableCell>)}
+                    {visibleColumns.imdbId && (<TableCell>{item.imdbId}</TableCell>)}
+                    {mediaTypeFilter === MediaType.TvShows && visibleColumns.episode && (
+                      <TableCell>{item.episode}</TableCell>
+                    )}
+                    {visibleColumns.status && (<TableCell>{item.status}</TableCell>)}
+                    {visibleColumns.createdAt && (<TableCell>{item.createdAt}</TableCell>)}
+                    {visibleColumns.updatedAt && (<TableCell>{item.updatedAt}</TableCell>)}
                   </TableRow>
                 ))
               )}
@@ -480,6 +714,8 @@ export function ScannedFilesTable({
     selectedKeys,
     newEntries,
     handleRowClick,
+    mediaTypeFilter,
+    visibleColumns,
   ])
 
   useEffect(() => {
