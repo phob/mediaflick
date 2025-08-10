@@ -11,20 +11,14 @@ import {
 import { EditModal } from "@/components/scanned-files-table/edit-modal"
 import { TableComponent } from "@/components/scanned-files-table/table-component"
 import { createRowMapper } from "@/components/scanned-files-table/row-mapper"
-import { mediaTypeOptions, statusOptions, Row } from "@/components/scanned-files-table/types"
-import { useColumnVisibility } from "@/components/scanned-files-table/hooks/useColumnVisibility"
-import { useRowSelection } from "@/components/scanned-files-table/hooks/useRowSelection"
-import { useSignalRHandlers } from "@/components/scanned-files-table/hooks/useSignalRHandlers"
+import { TablePagination } from "@/components/scanned-files-table/pagination"
+import { useColumnVisibility } from "@/hooks/useColumnVisibility"
+import { useRowSelection } from "@/hooks/useRowSelection"
+import { useSignalRHandlers } from "@/hooks/useSignalRHandlers"
 import { ScannedFilesToolbar } from "@/components/scanned-files-table/toolbar"
 import { mediaApi } from "@/lib/api/endpoints"
-import { MediaStatus, MediaType, PagedResult, PlexConfig, ScannedFile } from "@/lib/api/types"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
+import { MediaStatus, MediaType, PagedResult, PlexConfig, ScannedFile, Row, mediaTypeOptions, statusOptions } from "@/lib/api/types"
+
 
 interface ScannedFilesTableProps {
   readonly page?: number
@@ -41,6 +35,7 @@ interface ScannedFilesTableProps {
   readonly onStatusChange?: (status: MediaStatus) => void
   readonly onMediaTypeChange?: (mediaType: MediaType) => void
   readonly onSearchChange?: (search: string) => void
+  readonly onParamsChange?: (updates: Record<string, string>) => void
 }
 
 export function ScannedFilesTable({
@@ -58,6 +53,7 @@ export function ScannedFilesTable({
   onStatusChange,
   onMediaTypeChange,
   onSearchChange,
+  onParamsChange,
 }: ScannedFilesTableProps) {
   const [data, setData] = useState<PagedResult<ScannedFile> | null>(null)
   const [loading, setLoading] = useState(true)
@@ -82,31 +78,13 @@ export function ScannedFilesTable({
     return () => clearTimeout(timeoutId)
   }, [newEntries])
 
-  const filteredItems = React.useMemo(() => {
-    const hasSearchFilter = Boolean(filterValue)
-    let filteredData = [...(data?.items || [])]
-
-    if (hasSearchFilter) {
-      filteredData = filteredData.filter(
-        (item) =>
-          item.sourceFile.toLowerCase().includes(filterValue.toLowerCase()) ||
-          item.destFile?.toLowerCase()?.includes(filterValue.toLowerCase())
-      )
-    }
-
-    if (statusFilter) {
-      filteredData = filteredData.filter((item) => item.status === statusFilter)
-    }
-
-    return filteredData
-  }, [data?.items, filterValue, statusFilter])
-
   const rowMapper = React.useMemo(() => createRowMapper({ plexConfig }), [plexConfig])
   
   const rows = React.useMemo(() => {
     if (!data) return []
-    return filteredItems.map(rowMapper)
-  }, [data, filteredItems, rowMapper])
+    // Use the data directly from the backend - it's already filtered and sorted
+    return data.items.map(rowMapper)
+  }, [data, rowMapper])
 
   // Use custom hooks
   const {
@@ -188,12 +166,13 @@ export function ScannedFilesTable({
 
   const topContent = (
     <ScannedFilesToolbar
-      totalResults={filteredItems.length}
+      totalResults={data?.totalItems || 0}
       filterValue={filterValue}
       onChangeFilterValue={(v) => {
         setFilterValue(v)
         setSelectedKeys(new Set())
         onSearchChange?.(v)
+        onPageChange?.(1) // Reset to first page when search changes
       }}
       pageSize={pageSize}
       onPageSizeChange={onPageSizeChange}
@@ -223,15 +202,38 @@ export function ScannedFilesTable({
 
   const handleSort = React.useCallback(
     (column: string) => {
-      if (sortBy === column) {
-        onSortOrderChange?.(sortOrder === "asc" ? "desc" : "asc")
+      if (onParamsChange) {
+        // Use the new batch update method
+        if (sortBy === column) {
+          const newOrder = sortOrder === "asc" ? "desc" : "asc"
+          onParamsChange({
+            sortOrder: newOrder,
+            page: "1" // Reset to first page when sorting changes
+          })
+        } else {
+          onParamsChange({
+            sortBy: column,
+            sortOrder: "asc",
+            page: "1" // Reset to first page when sorting changes
+          })
+        }
       } else {
-        onSortByChange?.(column)
-        onSortOrderChange?.("asc")
+        // Fallback to individual callbacks (for backward compatibility)
+        if (sortBy === column) {
+          const newOrder = sortOrder === "asc" ? "desc" : "asc"
+          onSortOrderChange?.(newOrder)
+        } else {
+          onSortByChange?.(column)
+          onSortOrderChange?.("asc")
+        }
+        // Reset to first page when sorting changes
+        onPageChange?.(1)
       }
     },
-    [sortBy, sortOrder, onSortOrderChange, onSortByChange]
+    [sortBy, sortOrder, onParamsChange, onSortOrderChange, onSortByChange, onPageChange]
   )
+
+
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -305,31 +307,11 @@ export function ScannedFilesTable({
           </SelectContent>
         </Select>
       </div>
-      {data && data.totalPages > 1 && (
-        <div className="mt-4 flex justify-center">
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious 
-                  onClick={() => onPageChange?.(Math.max(1, page - 1))}
-                  aria-disabled={page === 1}
-                />
-              </PaginationItem>
-              <PaginationItem>
-                <span className="px-4">
-                  Page {page} of {data.totalPages}
-                </span>
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationNext 
-                  onClick={() => onPageChange?.(Math.min(data.totalPages, page + 1))}
-                  aria-disabled={page === data.totalPages}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        </div>
-      )}
+      <TablePagination
+        currentPage={page}
+        totalPages={data?.totalPages || 0}
+        onPageChange={onPageChange}
+      />
       <EditModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}

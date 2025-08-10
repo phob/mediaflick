@@ -16,6 +16,10 @@ public sealed class PlexScanContext : DbContext
 
         modelBuilder.Entity<ScannedFile>().HasIndex(f => f.DestFile);
 
+        modelBuilder.Entity<ScannedFile>().Property(f => f.FileSize).HasConversion<long>();
+
+        modelBuilder.Entity<ScannedFile>().Property(f => f.FileHash).HasConversion<string>();
+
         modelBuilder
             .Entity<ScannedFile>()
             .HasIndex(f => new

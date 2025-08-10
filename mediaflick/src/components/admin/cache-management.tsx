@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast"
 export function CacheManagement() {
   const [tmdbId, setTmdbId] = useState("")
   const [searchTitle, setSearchTitle] = useState("")
-  const [searchMediaType, setSearchMediaType] = useState<MediaType>("Movies")
+  const [searchMediaType, setSearchMediaType] = useState<MediaType>(MediaType.Movies)
   const [isLoading, setIsLoading] = useState(false)
   const [cacheStats, setCacheStats] = useState<any>(null)
   

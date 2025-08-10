@@ -23,8 +23,11 @@ public class MediaSearchService(
         var cacheKey = $"movie_search_{title.ToLowerInvariant()}";
         if (cache.TryGetValue<List<MediaSearchResult>>(cacheKey, out var cachedResults))
         {
-            logger.LogInformation("Returning cached movie search results for: {Title}", title);
-            return cachedResults;
+            if (cachedResults != null)
+            {
+                logger.LogInformation("Returning cached movie search results for: {Title}", title);
+                return cachedResults;
+            }
         }
 
         logger.LogInformation("Fetching movie search results from TMDb for: {Title}", title);
@@ -52,8 +55,11 @@ public class MediaSearchService(
         var cacheKey = $"tvshow_search_{title.ToLowerInvariant()}";
         if (cache.TryGetValue<List<MediaSearchResult>>(cacheKey, out var cachedResults))
         {
-            logger.LogInformation("Returning cached TV show search results for: {Title}", title);
-            return cachedResults;
+            if (cachedResults != null)
+            {
+                logger.LogInformation("Returning cached TV show search results for: {Title}", title);
+                return cachedResults;
+            }
         }
 
         logger.LogInformation("Fetching TV show search results from TMDb for: {Title}", title);

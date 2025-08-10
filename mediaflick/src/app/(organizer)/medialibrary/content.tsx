@@ -69,6 +69,7 @@ export function MediaLibraryContent() {
             onStatusChange={(newStatus: MediaStatus) => updateUrl({ status: newStatus })}
             onMediaTypeChange={(newType: MediaType) => updateUrl({ mediaType: newType })}
             onSearchChange={(newSearch: string) => updateUrl({ search: newSearch || '' })}
+            onParamsChange={updateUrl}
         />
     )
 } 

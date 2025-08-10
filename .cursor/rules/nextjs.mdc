@@ -1,6 +1,6 @@
 ---
-description: components
-globs: *.tsx, *.ts
+globs: mediaflick/src/**/*.tsx,mediaflick/src/**/*.ts
+alwaysApply: false
 ---
 # The Mediaflick Web Project
 

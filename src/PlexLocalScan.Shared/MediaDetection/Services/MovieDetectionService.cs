@@ -54,7 +54,11 @@ public class MovieDetectionService(
             var mediaInfo = await SearchTmDbForMovie(title, year, emptyMediaInfo);
             mediaInfo.MediaType = MediaType.Movies;
 
-            cache.Set(cacheKey, mediaInfo, TimeSpan.FromSeconds(_options.CacheDuration));
+            cache.Set(cacheKey, mediaInfo, new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(_options.CacheDuration),
+                Size = 1 // Each search result list counts as 1 unit
+            });
             return mediaInfo;
         }
         catch (Exception ex)
@@ -136,7 +140,11 @@ public class MovieDetectionService(
                 MediaType = MediaType.Movies,
             };
 
-            cache.Set(cacheKey, mediaInfo, TimeSpan.FromSeconds(_options.CacheDuration));
+            cache.Set(cacheKey, mediaInfo, new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(_options.CacheDuration),
+                Size = 1 // Each search result list counts as 1 unit
+            });
             return mediaInfo;
         }
         catch (Exception ex)

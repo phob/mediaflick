@@ -19,9 +19,8 @@ import {
 import { MediaSearch } from "@/components/media-search/media-search"
 import { MovieEditTable } from "@/components/scanned-files-table/movie-edit-table"
 import { TvShowEditTable } from "@/components/scanned-files-table/tv-show-edit-table"
-import type { Row } from "@/components/scanned-files-table/types"
+import { MediaType, ScannedFile, Row } from "@/lib/api/types"
 import { mediaApi } from "@/lib/api/endpoints"
-import { MediaType, ScannedFile } from "@/lib/api/types"
 
 interface EditModalProps {
   readonly isOpen: boolean

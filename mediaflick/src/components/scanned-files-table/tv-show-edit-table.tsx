@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2 } from "lucide-react"
 
-import type { Row } from "@/components/scanned-files-table/types"
+import { Row } from "@/lib/api/types"
 import { getFileName } from "@/lib/files-folders"
 
 interface TvShowEditTableProps {

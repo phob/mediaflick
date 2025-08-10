@@ -68,33 +68,42 @@ internal static class ScannedFilesController
         }
 
         // Apply sorting
-        query = filter.SortBy?.ToUpperInvariant() switch
+        query = filter.SortBy?.ToLowerInvariant() switch
         {
-            "createdat" => filter.SortOrder?.ToUpperInvariant() == "desc"
+            "createdat" => filter.SortOrder?.ToLowerInvariant() == "desc"
                 ? query.OrderByDescending(f => f.CreatedAt)
                 : query.OrderBy(f => f.CreatedAt),
-            "updatedat" => filter.SortOrder?.ToUpperInvariant() == "desc"
+            "updatedat" => filter.SortOrder?.ToLowerInvariant() == "desc"
                 ? query.OrderByDescending(f => f.UpdatedAt)
                 : query.OrderBy(f => f.UpdatedAt),
-            "sourcefile" => filter.SortOrder?.ToUpperInvariant() == "desc"
+            "sourcefile" => filter.SortOrder?.ToLowerInvariant() == "desc"
                 ? query.OrderByDescending(f => f.SourceFile)
                 : query.OrderBy(f => f.SourceFile),
-            "destfile" => filter.SortOrder?.ToUpperInvariant() == "desc"
+            "destfile" => filter.SortOrder?.ToLowerInvariant() == "desc"
                 ? query.OrderByDescending(f => f.DestFile)
                 : query.OrderBy(f => f.DestFile),
-            "status" => filter.SortOrder?.ToUpperInvariant() == "desc"
+            "filesize" => filter.SortOrder?.ToLowerInvariant() == "desc"
+                ? query.OrderByDescending(f => f.FileSize)
+                : query.OrderBy(f => f.FileSize),
+            "filehash" => filter.SortOrder?.ToLowerInvariant() == "desc"
+                ? query.OrderByDescending(f => f.FileHash)
+                : query.OrderBy(f => f.FileHash),
+            "status" => filter.SortOrder?.ToLowerInvariant() == "desc"
                 ? query.OrderByDescending(f => f.Status)
                 : query.OrderBy(f => f.Status),
-            "mediatype" => filter.SortOrder?.ToUpperInvariant() == "desc"
+            "mediatype" => filter.SortOrder?.ToLowerInvariant() == "desc"
                 ? query.OrderByDescending(f => f.MediaType)
                 : query.OrderBy(f => f.MediaType),
-            "seasonnumber" => filter.SortOrder?.ToUpperInvariant() == "desc"
+            "seasonnumber" => filter.SortOrder?.ToLowerInvariant() == "desc"
                 ? query.OrderByDescending(f => f.SeasonNumber)
                 : query.OrderBy(f => f.SeasonNumber),
-            "episodenumber" => filter.SortOrder?.ToUpperInvariant() == "desc"
+            "episodenumber" => filter.SortOrder?.ToLowerInvariant() == "desc"
                 ? query.OrderByDescending(f => f.EpisodeNumber)
                 : query.OrderBy(f => f.EpisodeNumber),
-            "title" => filter.SortOrder?.ToUpperInvariant() == "desc"
+            "episode" => filter.SortOrder?.ToLowerInvariant() == "desc"
+                ? query.OrderByDescending(f => f.SeasonNumber * 100 + f.EpisodeNumber)
+                : query.OrderBy(f => f.SeasonNumber * 100 + f.EpisodeNumber),
+            "title" => filter.SortOrder?.ToLowerInvariant() == "desc"
                 ? query.OrderByDescending(f => f.Title)
                 : query.OrderBy(f => f.Title),
             _ => query.OrderBy(f => f.SourceFile), // Default sorting

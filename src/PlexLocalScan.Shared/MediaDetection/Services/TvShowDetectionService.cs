@@ -23,7 +23,7 @@ public class TvShowDetectionService(
     private readonly MediaDetectionOptions _options = options.Value;
     private readonly Regex _tvShowPattern = BasicSeasonEpisodeRegex;
     private readonly Regex _titleCleanupPattern = FinerTitleRegex;
-    private readonly MediaInfo _emptyMediaInfo = new MediaInfo { MediaType = MediaType.TvShows };
+    private readonly MediaInfo _emptyMediaInfo = new() { MediaType = MediaType.TvShows };
 
     public async Task<MediaInfo> DetectTvShowAsync(string fileName, string filePath)
     {
@@ -85,7 +85,11 @@ public class TvShowDetectionService(
                 EpisodeTmdbId = episodeInfo?.Id,
                 Genres = tvShowDetails.Genres?.Select(g => g.Name).ToList().AsReadOnly(),
             };
-            cache.Set(cacheKey, mediaInfo, TimeSpan.FromSeconds(_options.CacheDuration));
+            cache.Set(cacheKey, mediaInfo, new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(_options.CacheDuration),
+                Size = 1 // Each search result list counts as 1 unit
+            });
             return mediaInfo;
         }
         catch (Exception ex)
@@ -151,7 +155,11 @@ public class TvShowDetectionService(
                 Genres = tvShowDetails.Genres?.Select(g => g.Name).ToList().AsReadOnly(),
             };
 
-            cache.Set(cacheKey, mediaInfo, TimeSpan.FromSeconds(_options.CacheDuration));
+            cache.Set(cacheKey, mediaInfo, new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(_options.CacheDuration),
+                Size = 1 // Each search result list counts as 1 unit
+            });
             return mediaInfo;
         }
         catch (Exception ex)

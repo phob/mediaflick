@@ -1,8 +1,7 @@
 import React from "react"
 import { FilePathTooltip } from "./file-path-tooltip"
 import { DateTooltip } from "./date-tooltip"
-import { Row } from "./types"
-import { ScannedFile, PlexConfig } from "@/lib/api/types"
+import { ScannedFile, PlexConfig, Row } from "@/lib/api/types"
 import { formatEpisodeNumber, getMediaTypeLabel, getStatusClass, getStatusLabel } from "@/lib/format-helper"
 
 interface RowMapperOptions {

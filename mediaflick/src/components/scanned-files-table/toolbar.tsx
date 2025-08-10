@@ -7,8 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
 import { Columns3, Edit, Search, Trash2 } from "lucide-react"
-import type { ColumnKey } from "./types"
-import type { MediaStatus, MediaType } from "@/lib/api/types"
+import type { MediaStatus, MediaType, ColumnKey } from "@/lib/api/types"
 
 type ToolbarProps = {
   totalResults: number

@@ -157,7 +157,14 @@ public class FileProcessing(
     {
         try
         {
-            var trackedFile = await contextService.AddStatusAsync(file, null, mapping.MediaType);
+            var (fileSize, fileHash) = GetFileInfo(file);
+            var trackedFile = await contextService.AddStatusAsync(
+                file,
+                null,
+                mapping.MediaType,
+                fileSize,
+                fileHash
+            );
             if (trackedFile == null)
             {
                 return;
@@ -186,6 +193,12 @@ public class FileProcessing(
         {
             logger.LogError(ex, "Error processing file: {File}", file);
         }
+    }
+
+    private static (long fileSize, string fileHash) GetFileInfo(string file)
+    {
+        var fileInfo = new FileInfo(file);
+        return (fileInfo.Length, fileInfo.GetHashCode().ToString());
     }
 
     private async Task ScanForUntrackedFilesAsync(

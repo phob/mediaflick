@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import type { ColumnKey } from "../types"
+import { ColumnKey } from "@/lib/api/types"
 
 const STORAGE_KEY = "scannedFilesTable.visibleColumns"
 

@@ -52,7 +52,9 @@ public class ContextService(
     public async Task<ScannedFile?> AddStatusAsync(
         string sourceFile,
         string? destFile,
-        MediaType mediaType
+        MediaType mediaType,
+        long? fileSize,
+        string? fileHash
     )
     {
         var scannedFile = await GetExistingScannedFileAsync(sourceFile, "add");
@@ -69,6 +71,8 @@ public class ContextService(
             Status = FileStatus.Processing,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
+            FileSize = fileSize,
+            FileHash = fileHash,
         };
 
         await dbContext.ScannedFiles.AddAsync(scannedFile);

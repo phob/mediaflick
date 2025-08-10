@@ -1,4 +1,4 @@
-import { BookHeart, Home, Library, Settings, Bug } from "lucide-react";
+import { BookHeart, Home, Library, Settings, Bug, Shield } from "lucide-react";
 
 export const navigationItems = [
   {
@@ -20,6 +20,11 @@ export const navigationItems = [
     icon: Bug,
     label: "Logs",
     href: "/logs",
+  },
+  {
+    icon: Shield,
+    label: "Admin",
+    href: "/admin",
   },
 ]
 

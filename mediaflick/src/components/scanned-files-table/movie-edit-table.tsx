@@ -11,8 +11,7 @@ import {
 import { Loader2 } from "lucide-react"
 
 import { MediaSearch } from "@/components/media-search/media-search"
-import type { Row } from "@/components/scanned-files-table/types"
-import { MediaType } from "@/lib/api/types"
+import { MediaType, Row } from "@/lib/api/types"
 import { getFileName } from "@/lib/files-folders"
 
 interface MovieEditTableProps {

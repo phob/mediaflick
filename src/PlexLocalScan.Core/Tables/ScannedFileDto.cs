@@ -7,6 +7,8 @@ public class ScannedFileDto
     public int Id { get; init; }
     public string SourceFile { get; init; } = string.Empty;
     public string? DestFile { get; init; }
+    public long? FileSize { get; init; }
+    public string? FileHash { get; init; }
     public string? MediaType { get; init; }
     public int? TmdbId { get; init; }
     public string? ImdbId { get; init; }
@@ -46,6 +48,8 @@ public class ScannedFileDto
             Id = file.Id,
             SourceFile = file.SourceFile,
             DestFile = file.DestFile,
+            FileSize = file.FileSize,
+            FileHash = file.FileHash,
             MediaType = file.MediaType?.ToString(),
             TmdbId = file.TmdbId,
             ImdbId = file.ImdbId,

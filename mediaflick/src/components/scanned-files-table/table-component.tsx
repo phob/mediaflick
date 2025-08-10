@@ -10,8 +10,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Row } from "./types"
-import { MediaType } from "@/lib/api/types"
+import { MediaType, Row } from "@/lib/api/types"
 
 interface TableComponentProps {
   loading: boolean

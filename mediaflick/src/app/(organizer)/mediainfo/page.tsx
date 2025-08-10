@@ -11,17 +11,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Loader2 } from "lucide-react"
-import { 
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
+
 
 import { MediaCard, type UniqueMediaEntry } from "@/components/media-info/media-card"
 import { MediaInfoContent as MediaInfoView } from "@/components/media-info/media-info-content"
 import { CardSizeSelector } from "@/components/media-info/card-size-selector"
+import { TablePagination } from "@/components/scanned-files-table/pagination"
 import type { MediaType } from "@/lib/api/types"
 import { MediaType as MediaTypeEnum } from "@/lib/api/types"
 import { useCardSize, cardSizeConfig } from "@/hooks/use-card-size"
@@ -151,31 +146,11 @@ function MediaGrid() {
               />
             ))}
           </div>
-          {totalPages > 1 && (
-            <div className="mt-4 flex justify-center">
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious 
-                      onClick={() => setPage(p => Math.max(1, p - 1))}
-                      aria-disabled={page === 1}
-                    />
-                  </PaginationItem>
-                  <PaginationItem>
-                    <span className="px-4">
-                      Page {page} of {totalPages}
-                    </span>
-                  </PaginationItem>
-                  <PaginationItem>
-                    <PaginationNext 
-                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                      aria-disabled={page === totalPages}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          )}
+          <TablePagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
         </>
       )}
     </div>

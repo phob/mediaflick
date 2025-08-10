@@ -9,9 +9,9 @@ public class ScannedFile
 
     [Required]
     public string SourceFile { get; init; } = string.Empty;
-
     public string? DestFile { get; set; } = string.Empty;
-
+    public long? FileSize { get; set; }
+    public string? FileHash { get; set; }
     public MediaType? MediaType { get; set; }
     public int? TmdbId { get; set; }
     public string? ImdbId { get; set; }
