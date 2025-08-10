@@ -2,7 +2,7 @@
 
 public static class SymlinkHelper
 {
-    private static readonly string[] SourceArray = [".mkv", ".mp4", ".avi"];
+    private static readonly string[] SourceArray = [".mkv", ".mp4", ".avi", ".m2ts", ".ts", ".m4v"];
 
     public static bool IsSymlink(string path)
     {

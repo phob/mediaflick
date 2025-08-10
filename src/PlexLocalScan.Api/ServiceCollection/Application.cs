@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 using PlexLocalScan.Abstractions;
 using PlexLocalScan.Api.Config;
 using PlexLocalScan.Data.Data;
+using PlexLocalScan.Api.ScannedFiles;
 using PlexLocalScan.Shared.Configuration.Options;
 using PlexLocalScan.Shared.DbContext.Interfaces;
 using PlexLocalScan.Shared.DbContext.Services;
@@ -125,5 +126,8 @@ public static class Application
 
 
         services.AddHttpClient().AddMemoryCache();
+
+        // Background services
+        services.AddHostedService<BackfillMissingFileInfoService>();
     }
 }

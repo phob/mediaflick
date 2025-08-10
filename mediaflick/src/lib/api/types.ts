@@ -74,6 +74,8 @@ export interface ScannedFile {
   id: number
   sourceFile: string
   destFile: string
+  fileSize?: number
+  fileHash?: string
   mediaType: MediaType
   tmdbId?: number
   imdbId?: string
@@ -107,6 +109,9 @@ export interface UpdateScannedFileRequest {
 
 export interface ScannedFileStats {
   totalFiles: number
+  totalSuccessfulFiles: number
+  totalFileSize: number
+  totalSuccessfulFileSize: number
   byStatus: StatusCount[]
   byMediaType: MediaTypeCount[]
 }
@@ -174,6 +179,8 @@ export type Row = {
   key: number
   sourceFile: string | ReactNode
   destFile: string | ReactNode
+  fileSize?: string | ReactNode
+  fileHash?: string | ReactNode
   tmdbId: number
   imdbId: string
   genres?: string | ReactNode
@@ -193,6 +200,8 @@ export type Row = {
 export type ColumnKey =
   | 'sourceFile'
   | 'destFile'
+  | 'fileSize'
+  | 'fileHash'
   | 'genres'
   | 'mediaType'
   | 'tmdbId'

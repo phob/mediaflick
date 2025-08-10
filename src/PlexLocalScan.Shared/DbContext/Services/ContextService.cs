@@ -270,6 +270,8 @@ public class ContextService(
                                 Genres = scannedFile.Genres,
                                 Title = scannedFile.Title,
                                 Year = scannedFile.Year,
+                                FileSize = scannedFile.FileSize,
+                                FileHash = scannedFile.FileHash,
                                 CreatedAt = DateTime.UtcNow,
                                 UpdatedAt = DateTime.UtcNow,
                             };

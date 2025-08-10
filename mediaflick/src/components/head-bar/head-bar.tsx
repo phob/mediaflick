@@ -1,6 +1,8 @@
 "use client"
 
 import HeadButton from "@/components/head-bar/head-button"
+import Stats from "@/components/head-bar/stats"
+import { HeartbeatStatus } from "@/components/heartbeat-status"
 
 import { navigationItems, settingsItems } from "../../config/nav-config"
 
@@ -19,7 +21,9 @@ export default function HeadBar() {
             ))}
           </div>
         </div>
-        <div className="flex flex-1 justify-end">
+        <div className="flex flex-1 justify-end items-center gap-6">
+          <Stats />
+          <HeartbeatStatus />
           {settingsItems.map((item) => (
             <HeadButton 
               key={item.label} 

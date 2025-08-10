@@ -23,6 +23,8 @@ interface TableComponentProps {
   visibleColumns: {
     sourceFile: boolean
     destFile: boolean
+    fileSize: boolean
+    fileHash: boolean
     genres: boolean
     mediaType: boolean
     tmdbId: boolean
@@ -63,6 +65,8 @@ export function TableComponent({
   const visibleHeadersCount = (
     (visibleColumns.sourceFile ? 1 : 0) +
     (visibleColumns.destFile ? 1 : 0) +
+    (visibleColumns.fileSize ? 1 : 0) +
+    (visibleColumns.fileHash ? 1 : 0) +
     (visibleColumns.genres ? 1 : 0) +
     (visibleColumns.mediaType ? 1 : 0) +
     (visibleColumns.tmdbId ? 1 : 0) +
@@ -107,6 +111,22 @@ export function TableComponent({
                   className="cursor-pointer min-w-[20rem] sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
                 >
                   Destination {sortBy === "destFile" && (sortOrder === "asc" ? "↑" : "↓")}
+                </TableHead>
+              )}
+              {visibleColumns.fileSize && (
+                <TableHead
+                  onClick={() => onSort("fileSize")}
+                  className="cursor-pointer w-[7rem] text-right sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+                >
+                  Size {sortBy === "fileSize" && (sortOrder === "asc" ? "↑" : "↓")}
+                </TableHead>
+              )}
+              {visibleColumns.fileHash && (
+                <TableHead
+                  onClick={() => onSort("fileHash")}
+                  className="cursor-pointer w-[14rem] sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+                >
+                  Hash {sortBy === "fileHash" && (sortOrder === "asc" ? "↑" : "↓")}
                 </TableHead>
               )}
               {visibleColumns.genres && (
@@ -196,6 +216,8 @@ export function TableComponent({
                   </TableCell>
                   {visibleColumns.sourceFile && (<TableCell className="min-w-[24rem]">{item.sourceFile}</TableCell>)}
                   {visibleColumns.destFile && (<TableCell className="min-w-[20rem]">{item.destFile}</TableCell>)}
+                  {visibleColumns.fileSize && (<TableCell className="w-[7rem] text-right">{item.fileSize}</TableCell>)}
+                  {visibleColumns.fileHash && (<TableCell className="w-[14rem]">{item.fileHash}</TableCell>)}
                   {visibleColumns.genres && (<TableCell className="w-[16rem]">{item.genres}</TableCell>)}
                   {visibleColumns.mediaType && (<TableCell className="w-[10rem]">{item.mediaType}</TableCell>)}
                   {visibleColumns.tmdbId && (<TableCell className="w-[6rem] text-right font-mono">{item.tmdbId}</TableCell>)}

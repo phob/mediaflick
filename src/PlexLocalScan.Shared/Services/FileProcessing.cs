@@ -195,10 +195,11 @@ public class FileProcessing(
         }
     }
 
-    private static (long fileSize, string fileHash) GetFileInfo(string file)
+    private static (long fileSize, string? fileHash) GetFileInfo(string file)
     {
         var fileInfo = new FileInfo(file);
-        return (fileInfo.Length, fileInfo.GetHashCode().ToString());
+        // Only return size to meet performance constraints on network files
+        return (fileInfo.Length, null);
     }
 
     private async Task ScanForUntrackedFilesAsync(

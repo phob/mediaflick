@@ -2,7 +2,7 @@ import React from "react"
 import { FilePathTooltip } from "./file-path-tooltip"
 import { DateTooltip } from "./date-tooltip"
 import { ScannedFile, PlexConfig, Row } from "@/lib/api/types"
-import { formatEpisodeNumber, getMediaTypeLabel, getStatusClass, getStatusLabel } from "@/lib/format-helper"
+import { formatEpisodeNumber, getMediaTypeLabel, getStatusClass, getStatusLabel, formatBytes } from "@/lib/format-helper"
 
 interface RowMapperOptions {
   plexConfig: PlexConfig | null
@@ -48,6 +48,14 @@ export function createRowMapper({ plexConfig }: RowMapperOptions) {
       <span className={`rounded-full px-2 py-1 text-xs font-medium ${getStatusClass(file.status)}`}>
         {getStatusLabel(file.status)}
       </span>
+    ),
+    fileSize: <span className="font-mono">{formatBytes(file.fileSize)}</span>,
+    fileHash: file.fileHash ? (
+      <span className="font-mono" title={file.fileHash}>
+        {file.fileHash.slice(0, 10)}…{file.fileHash.slice(-6)}
+      </span>
+    ) : (
+      <span>-</span>
     ),
     createdAt: <DateTooltip date={file.createdAt} />,
     updatedAt: <DateTooltip date={file.updatedAt} />,

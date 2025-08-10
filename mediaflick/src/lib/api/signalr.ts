@@ -37,6 +37,8 @@ interface ScannedFileDto {
     id: number
     sourceFile: string
     destFile: string | null
+    fileSize: number | null
+    fileHash: string | null
     mediaType: string
     tmdbId: number | null
     imdbId: string | null
@@ -57,6 +59,8 @@ const convertDtoToScannedFile = (dto: ScannedFileDto): ScannedFile => ({
     id: dto.id,
     sourceFile: dto.sourceFile,
     destFile: dto.destFile || '',
+    fileSize: dto.fileSize ?? undefined,
+    fileHash: dto.fileHash ?? undefined,
     mediaType: dto.mediaType as MediaType,
     tmdbId: dto.tmdbId || undefined,
     imdbId: dto.imdbId || undefined,

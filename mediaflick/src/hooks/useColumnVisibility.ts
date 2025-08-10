@@ -8,6 +8,8 @@ const STORAGE_KEY = "scannedFilesTable.visibleColumns"
 const DEFAULT_VISIBLE_COLUMNS: Record<ColumnKey, boolean> = {
   sourceFile: true,
   destFile: true,
+  fileSize: true,
+  fileHash: false,
   genres: false,
   mediaType: true,
   tmdbId: false,

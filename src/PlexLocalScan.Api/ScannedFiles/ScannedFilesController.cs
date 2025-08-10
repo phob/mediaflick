@@ -197,6 +197,9 @@ internal static class ScannedFilesController
         var stats = new ScannedFileStats
         {
             TotalFiles = await context.ScannedFiles.CountAsync(),
+            TotalSuccessfulFiles = await context.ScannedFiles.CountAsync(f => f.Status == FileStatus.Success),
+            TotalFileSize = await context.ScannedFiles.SumAsync(f => f.FileSize ?? 0),
+            TotalSuccessfulFileSize = await context.ScannedFiles.Where(f => f.Status == FileStatus.Success).SumAsync(f => f.FileSize ?? 0),
             ByStatus = await context
                 .ScannedFiles.GroupBy(f => f.Status)
                 .Select(g => new StatusCount { Status = g.Key, Count = g.Count() })

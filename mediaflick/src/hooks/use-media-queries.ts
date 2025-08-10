@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient, UseQueryResult } from "@tanstack/react-query"
 import { mediaApi } from "@/lib/api/endpoints"
-import type { MediaInfo, MediaSearchResult, MediaType } from "@/lib/api/types"
+import type { MediaInfo, MediaSearchResult } from "@/lib/api/types"
+import { MediaType } from "@/lib/api/types"
 
 // Query key factories for consistent cache keys
 export const mediaQueries = {
@@ -39,17 +40,17 @@ export function useTvShowInfo(tmdbId: number): UseQueryResult<MediaInfo, Error> 
 
 export function useMediaInfo(tmdbId: number, mediaType: MediaType): UseQueryResult<MediaInfo, Error> {
   return useQuery({
-    queryKey: mediaType === "Movies" ? mediaQueries.movie(tmdbId) : mediaQueries.tvShow(tmdbId),
-    queryFn: () => mediaType === "Movies" ? mediaApi.getMovie(tmdbId) : mediaApi.getTvShow(tmdbId),
-    staleTime: mediaType === "Movies" ? 24 * 60 * 60 * 1000 : 6 * 60 * 60 * 1000,
-    gcTime: mediaType === "Movies" ? 7 * 24 * 60 * 60 * 1000 : 2 * 24 * 60 * 60 * 1000,
+    queryKey: mediaType === MediaType.Movies ? mediaQueries.movie(tmdbId) : mediaQueries.tvShow(tmdbId),
+    queryFn: () => mediaType === MediaType.Movies ? mediaApi.getMovie(tmdbId) : mediaApi.getTvShow(tmdbId),
+    staleTime: mediaType === MediaType.Movies ? 24 * 60 * 60 * 1000 : 6 * 60 * 60 * 1000,
+    gcTime: mediaType === MediaType.Movies ? 7 * 24 * 60 * 60 * 1000 : 2 * 24 * 60 * 60 * 1000,
     enabled: !!tmdbId,
   })
 }
 
 export function useMovieSearch(title: string): UseQueryResult<MediaSearchResult[], Error> {
   return useQuery({
-    queryKey: mediaQueries.search(title, "Movies"),
+    queryKey: mediaQueries.search(title, MediaType.Movies),
     queryFn: () => mediaApi.searchMovies(title),
     staleTime: 60 * 60 * 1000, // 1 hour - aligns with backend cache
     gcTime: 4 * 60 * 60 * 1000, // 4 hours
@@ -59,7 +60,7 @@ export function useMovieSearch(title: string): UseQueryResult<MediaSearchResult[
 
 export function useTvShowSearch(title: string): UseQueryResult<MediaSearchResult[], Error> {
   return useQuery({
-    queryKey: mediaQueries.search(title, "TvShows"),
+    queryKey: mediaQueries.search(title, MediaType.TvShows),
     queryFn: () => mediaApi.searchTvShows(title),
     staleTime: 60 * 60 * 1000, // 1 hour - aligns with backend cache
     gcTime: 4 * 60 * 60 * 1000, // 4 hours

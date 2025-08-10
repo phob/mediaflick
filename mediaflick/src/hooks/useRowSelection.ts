@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Row } from "../types"
+import { Row } from "@/lib/api/types"
 
 export function useRowSelection(rows: Row[]) {
   const [selectedKeys, setSelectedKeys] = useState<Set<number>>(new Set())

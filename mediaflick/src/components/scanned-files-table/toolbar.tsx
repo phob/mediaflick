@@ -82,6 +82,8 @@ export function ScannedFilesToolbar(props: ToolbarProps) {
                 {([
                   { key: 'sourceFile', label: 'Source File' },
                   { key: 'destFile', label: 'Destination' },
+                  { key: 'fileSize', label: 'Size' },
+                  { key: 'fileHash', label: 'Hash' },
                   { key: 'genres', label: 'Genres' },
                   { key: 'mediaType', label: 'Media Type' },
                   { key: 'tmdbId', label: 'TMDB ID' },

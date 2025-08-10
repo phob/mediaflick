@@ -50,3 +50,11 @@ export const formatEpisodeNumber = (seasonNumber?: number, episodeNumber?: numbe
   return `S${seasonNumber.toString().padStart(2, "0")}E${episodeNumber.toString().padStart(2, "0")}`
 }
 
+export const formatBytes = (bytes?: number): string => {
+  if (!bytes || bytes <= 0) return '-'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+  const i = Math.floor(Math.log(bytes) / Math.log(1024))
+  const value = bytes / Math.pow(1024, i)
+  return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[i]}`
+}
+

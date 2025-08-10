@@ -11,7 +11,8 @@ alwaysApply: false
 - install new components with: `pnpm dlx shadcn@latest add <component>` (NOT `shadcn-ui`)
 - styling with Tailwind CSS v4
 - animations with `tailwindcss-motion`
-- API endpoints helper located at `mediaflick/src/lib/api/endpoints.ts`
+- API endpoints helper located at [endpoints.ts](mdc:mediaflick/src/lib/api/endpoints.ts)
+- uses @tanstack/react-query for data fetching and caching
 
 ## Filestructure
 ```
@@ -59,18 +60,25 @@ mediaflick
     │   ├── nav-config.ts
     │   └── site.ts
     ├── hooks
-    │   └── use-page-title.ts
+    │   ├── use-page-title.ts
+    │   ├── useColumnVisibility.ts
+    │   ├── use-media-queries.ts
+    │   ├── useRowSelection.ts
+    │   └── useSignalRHandlers.ts
     ├── lib
     │   ├── api
     │   │   ├── client.ts
     │   │   ├── endpoints.ts
     │   │   ├── signalr.ts
+    │   │   ├── types.ts
     │   │   └── tmdb.ts
     │   ├── files-folders.ts
     │   ├── format-helper.ts
     │   ├── hooks
     │   │   └── useRuntimeConfig.ts
     │   └── utils.ts
+    ├── providers
+    │   └── query-provider.tsx
     └── types
         └── tailwindcss-motion.d.ts
 ```
@@ -78,7 +86,37 @@ mediaflick
 ## shadcn components currently installed
 - accordion, badge, button, card, checkbox, command (cmdk), dialog, input, pagination, popover, progress, select, separator, table, tooltip
 
+## Key Components & Architecture
+
+### Scanned Files System
+- Main table component: [ScannedFilesTable](mdc:mediaflick/src/components/scanned-files-table/index.tsx)
+- Row mapping with file size/hash: [row-mapper.tsx](mdc:mediaflick/src/components/scanned-files-table/row-mapper.tsx)
+- Table columns include: sourceFile, destFile, fileSize, fileHash, genres, mediaType, tmdbId, imdbId, episode, status, createdAt, updatedAt
+- Column visibility managed by [useColumnVisibility](mdc:mediaflick/src/hooks/useColumnVisibility.ts)
+- Real-time updates via [useSignalRHandlers](mdc:mediaflick/src/hooks/useSignalRHandlers.ts)
+
+### Header Bar System
+- Main header: [head-bar.tsx](mdc:mediaflick/src/components/head-bar/head-bar.tsx)
+- Always-visible stats: [stats.tsx](mdc:mediaflick/src/components/head-bar/stats.tsx)
+- Backend status indicator: [heartbeat-status.tsx](mdc:mediaflick/src/components/heartbeat-status.tsx)
+- Stats show: Total Files, Successful Files, Total Size, Successful Size
+
+### Data Layer
+- API types: [types.ts](mdc:mediaflick/src/lib/api/types.ts) - includes ScannedFile, ScannedFileStats, Row, ColumnKey
+- API endpoints: [endpoints.ts](mdc:mediaflick/src/lib/api/endpoints.ts) - mediaApi.getScannedFiles(), mediaApi.getScannedFileStats()
+- SignalR integration: [signalr.ts](mdc:mediaflick/src/lib/api/signalr.ts) - real-time file updates
+- React Query provider: [query-provider.tsx](mdc:mediaflick/src/providers/query-provider.tsx)
+
+### Formatting & Utils
+- File size formatting: `formatBytes()` in [format-helper.ts](mdc:mediaflick/src/lib/format-helper.ts)
+- Status/media type labels and styling helpers in [format-helper.ts](mdc:mediaflick/src/lib/format-helper.ts)
+
 ## Conventions
 - Only change things in this directory if absolutely necessary because this is part of ShadCN components installation `src/components/ui`
 - prefer importing from local `ui` wrappers instead of raw Radix packages
-- use `mediaApi` from `src/lib/api/endpoints.ts` for frontend API calls
+- use `mediaApi` from [endpoints.ts](mdc:mediaflick/src/lib/api/endpoints.ts) for frontend API calls
+- use React Query for data fetching with proper cache invalidation
+- SignalR events: `OnFileAdded`, `OnFileUpdated`, `OnFileRemoved`, `OnHeartbeat`, `OnZurgVersion`
+- File size/hash are optional fields - handle null/undefined gracefully
+- Column visibility defaults: fileSize=true (visible), fileHash=false (hidden)
+- Use `formatBytes()` for displaying file sizes in human-readable format
