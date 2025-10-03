@@ -28,7 +28,7 @@ RUN pnpm run build
 FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine
 WORKDIR /app
 
-RUN apk add --no-cache icu-libs nodejs
+RUN apk add --no-cache icu-libs nodejs wget
 
 # Create necessary directories
 RUN mkdir -p config/logs && mkdir -p /mnt/zurg/tvseries && mkdir -p /mnt/zurg/movies \
@@ -45,9 +45,8 @@ COPY --from=frontend-build /mediaflick/.next/static ./.next/static
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 ENV NODE_ENV=production
 
-# Expose only the frontend port
+# Expose only the frontend port (backend is internal only)
 EXPOSE 3000
-EXPOSE 5000
 
 # Start both services using a shell script
 COPY start.sh .
