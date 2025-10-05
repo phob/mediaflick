@@ -32,31 +32,6 @@ export function MediaSearch({ mediaType, onMediaSelect, className, label = "Sear
   const [debouncedQuery, setDebouncedQuery] = useState("")
   const latestRequestIdRef = useRef(0)
 
-  const handleSearch = async (value: string) => {
-    if (!value) {
-      setSearchResults([])
-      return
-    }
-
-    setSearchLoading(true)
-    try {
-      const requestId = ++latestRequestIdRef.current
-      const results = await (mediaType === MediaType.Movies
-        ? mediaApi.searchMovies(value)
-        : mediaApi.searchTvShows(value))
-      // Ignore out-of-order responses
-      if (requestId === latestRequestIdRef.current) {
-        setSearchResults(results)
-      }
-    } catch (error) {
-      console.error("Failed to search:", error)
-      setSearchResults([])
-    } finally {
-      // Only clear loading if this is the latest request
-      setSearchLoading(false)
-    }
-  }
-
   // Debounce the input to reduce flicker and API spam
   useEffect(() => {
     const timeoutId = setTimeout(() => setDebouncedQuery(query), 250)
@@ -65,13 +40,38 @@ export function MediaSearch({ mediaType, onMediaSelect, className, label = "Sear
 
   // Trigger search when debounced query changes
   useEffect(() => {
+    const handleSearch = async (value: string) => {
+      if (!value) {
+        setSearchResults([])
+        return
+      }
+
+      setSearchLoading(true)
+      try {
+        const requestId = ++latestRequestIdRef.current
+        const results = await (mediaType === MediaType.Movies
+          ? mediaApi.searchMovies(value)
+          : mediaApi.searchTvShows(value))
+        // Ignore out-of-order responses
+        if (requestId === latestRequestIdRef.current) {
+          setSearchResults(results)
+        }
+      } catch (error) {
+        console.error("Failed to search:", error)
+        setSearchResults([])
+      } finally {
+        // Only clear loading if this is the latest request
+        setSearchLoading(false)
+      }
+    }
+
     if (debouncedQuery !== "") {
       void handleSearch(debouncedQuery)
     } else {
       setSearchResults([])
       setSearchLoading(false)
     }
-  }, [debouncedQuery])
+  }, [debouncedQuery, mediaType])
 
   const handleMediaSelect = (tmdbId: number, title: string) => {
     onMediaSelect(tmdbId)

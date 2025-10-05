@@ -18,7 +18,7 @@ export function CacheManagement() {
   const [searchTitle, setSearchTitle] = useState("")
   const [searchMediaType, setSearchMediaType] = useState<MediaType>(MediaType.Movies)
   const [isLoading, setIsLoading] = useState(false)
-  const [cacheStats, setCacheStats] = useState<any>(null)
+  const [cacheStats, setCacheStats] = useState<Record<string, unknown> | null>(null)
   
   const { invalidateMovie, invalidateTvShow, invalidateSearch, invalidateAllMedia } = useInvalidateMediaCache()
   const { toast } = useToast()
@@ -35,7 +35,7 @@ export function CacheManagement() {
         description: `Movie cache cleared for TMDb ID: ${tmdbId}`,
       })
       setTmdbId("")
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to clear movie cache",
@@ -58,7 +58,7 @@ export function CacheManagement() {
         description: `TV show cache cleared for TMDb ID: ${tmdbId}`,
       })
       setTmdbId("")
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to clear TV show cache",
@@ -83,7 +83,7 @@ export function CacheManagement() {
         description: `Search cache cleared for: ${searchTitle} (${searchMediaType})`,
       })
       setSearchTitle("")
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to clear search cache",
@@ -104,7 +104,7 @@ export function CacheManagement() {
         description: "All media caches have been cleared",
         variant: "default",
       })
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to clear all caches",
@@ -118,13 +118,13 @@ export function CacheManagement() {
   const handleGetCacheStats = async () => {
     setIsLoading(true)
     try {
-      const stats = await fetchApi("/medialookup/cache/stats")
+      const stats = await fetchApi<Record<string, unknown>>("/medialookup/cache/stats")
       setCacheStats(stats)
       toast({
         title: "Cache Stats Retrieved",
         description: "Cache statistics loaded successfully",
       })
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to retrieve cache stats",

@@ -95,7 +95,6 @@ export function ScannedFilesTable({
     handleMouseEnter,
     handleSelectAll,
     handleCheckboxChange,
-    didDragRef,
   } = useRowSelection(rows)
 
   useSignalRHandlers({
@@ -290,7 +289,6 @@ export function ScannedFilesTable({
         onMouseDown={handleMouseDown}
         onMouseEnter={handleMouseEnter}
         onRowClick={handleRowClick}
-        didDragRef={didDragRef}
       />
       <div className="mt-2 flex items-center justify-end gap-2 text-xs text-muted-foreground">
         <span>Density:</span>

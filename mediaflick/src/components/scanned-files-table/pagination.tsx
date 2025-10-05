@@ -23,7 +23,6 @@ export function TablePagination({
   // Helper function to generate pagination items
   const generatePaginationItems = React.useCallback((currentPage: number, totalPages: number) => {
     const items: React.ReactNode[] = []
-    const maxVisiblePages = 5 // Show up to 5 page numbers
     
     // Always show first page
     if (totalPages > 1) {
