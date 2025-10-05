@@ -6,10 +6,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - /mnt/zurg/tvseries:/mnt/zurg/tvseries
-      - /mnt/zurg/movies:/mnt/zurg/movies
-      - /mnt/organized/tvseries:/mnt/organized/tvseries
-      - /mnt/organized/movies:/mnt/organized/movies
+      - /mnt/zurg:/mnt/zurg
+      - /mnt/organized:/mnt/organized
       - /opt/mediaflick:/app/config
       - /opt/mediaflick/logs:/app/logs
     environment:
