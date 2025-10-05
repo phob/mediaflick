@@ -126,7 +126,7 @@ export function ScannedFilesToolbar(props: ToolbarProps) {
           <Select
             value={statusFilter}
             onValueChange={(value) => {
-              onStatusChange?.(value as any)
+              onStatusChange?.(value as MediaStatus)
             }}
           >
             <SelectTrigger className="w-36">
@@ -141,7 +141,7 @@ export function ScannedFilesToolbar(props: ToolbarProps) {
           <Select
             value={mediaTypeFilter}
             onValueChange={(value) => {
-              onMediaTypeChange?.(value as any)
+              onMediaTypeChange?.(value as MediaType)
             }}
           >
             <SelectTrigger className="w-36">

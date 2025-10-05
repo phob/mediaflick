@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Row } from "@/lib/api/types"
 
 export function useRowSelection(rows: Row[]) {
@@ -11,8 +11,11 @@ export function useRowSelection(rows: Row[]) {
   const isDraggingRef = useRef(false)
   const didDragRef = useRef(false)
 
-  const keyToIndex = new Map<number, number>()
-  rows.forEach((row, index) => keyToIndex.set(row.key, index))
+  const keyToIndex = useMemo(() => {
+    const map = new Map<number, number>()
+    rows.forEach((row, index) => map.set(row.key, index))
+    return map
+  }, [rows])
 
   const handleRowClick = useCallback((e: React.MouseEvent, key: number) => {
     // If a drag just happened, skip click toggle

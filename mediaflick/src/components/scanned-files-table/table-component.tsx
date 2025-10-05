@@ -41,7 +41,6 @@ interface TableComponentProps {
   onMouseDown: (e: React.MouseEvent, itemKey: number) => void
   onMouseEnter: (itemKey: number) => void
   onRowClick: (e: React.MouseEvent, key: number) => void
-  didDragRef: React.MutableRefObject<boolean>
 }
 
 export function TableComponent({
@@ -60,7 +59,6 @@ export function TableComponent({
   onMouseDown,
   onMouseEnter,
   onRowClick,
-  didDragRef,
 }: TableComponentProps) {
   const visibleHeadersCount = (
     (visibleColumns.sourceFile ? 1 : 0) +

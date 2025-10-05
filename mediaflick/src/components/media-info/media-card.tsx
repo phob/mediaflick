@@ -3,7 +3,6 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 import type { MediaInfo, MediaType } from "@/lib/api/types"
