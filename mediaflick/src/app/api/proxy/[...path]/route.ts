@@ -68,7 +68,7 @@ async function handleRequest(
     }
 
     // Add body for methods that support it
-    if (['POST', 'PUT', 'PATCH'].includes(method)) {
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
       try {
         const body = await request.text()
         if (body) {
