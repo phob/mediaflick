@@ -14,8 +14,17 @@ case $SERVICE_MODE in
     ;;
   "full")
     echo "Starting both frontend and backend..."
-    dotnet PlexLocalScan.Api.dll & node server.js
-    wait
+
+    # Start backend in background
+    dotnet PlexLocalScan.Api.dll &
+    BACKEND_PID=$!
+
+    # Start frontend
+    node server.js &
+    FRONTEND_PID=$!
+
+    # Wait for both processes
+    wait $BACKEND_PID $FRONTEND_PID
     ;;
   *)
     echo "Invalid SERVICE_MODE: $SERVICE_MODE. Use 'frontend', 'backend', or 'full'"

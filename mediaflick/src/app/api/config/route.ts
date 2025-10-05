@@ -7,9 +7,11 @@ export interface RuntimeConfig {
 
 export async function GET() {
   try {
+    // Return proxy endpoints for browser-side communication
+    // Backend communication happens server-side via environment variables
     const config: RuntimeConfig = {
-      apiUrl: process.env.API_URL || 'http://localhost:5000/api',
-      signalrUrl: process.env.SIGNALR_URL || 'http://localhost:5000/hubs'
+      apiUrl: '/api/proxy',
+      signalrUrl: '/api/signalr'
     }
 
     return NextResponse.json(config)

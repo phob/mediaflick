@@ -1,37 +1,8 @@
 import { HubConnectionBuilder, HubConnection } from '@microsoft/signalr'
 import { ScannedFile, MediaType, MediaStatus } from '../api/types'
 
-const FALLBACK_SIGNALR_BASE = process.env.NEXT_PUBLIC_SIGNALR_URL || 'http://localhost:5000/hubs'
-
-let runtimeSignalrBase: string | null = null
-let configPromise: Promise<string> | null = null
-
-async function getSignalrBase(): Promise<string> {
-    if (runtimeSignalrBase) {
-        return runtimeSignalrBase
-    }
-
-    if (!configPromise) {
-        configPromise = fetchRuntimeSignalrBase()
-    }
-
-    try {
-        runtimeSignalrBase = await configPromise
-        return runtimeSignalrBase
-    } catch (error) {
-        console.warn('Failed to load runtime SignalR config, using fallback:', error)
-        return FALLBACK_SIGNALR_BASE
-    }
-}
-
-async function fetchRuntimeSignalrBase(): Promise<string> {
-    const response = await fetch('/api/config')
-    if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-    }
-    const config = await response.json()
-    return config.signalrUrl || FALLBACK_SIGNALR_BASE
-}
+// Use Next.js proxy for SignalR to avoid direct backend access from browser
+const SIGNALR_BASE = '/api/signalr'
 
 interface ScannedFileDto {
     id: number
@@ -98,12 +69,11 @@ class FileTrackingSignalR {
 
     private async initialize(): Promise<void> {
         try {
-            const signalrBase = await getSignalrBase()
             this.connection = new HubConnectionBuilder()
-                .withUrl(`${signalrBase}/filetracking`)
+                .withUrl(`${SIGNALR_BASE}/filetracking`)
                 .withAutomaticReconnect()
                 .build()
-                
+
             this.setupEventHandlers()
             await this.startConnection()
         } catch (error) {
