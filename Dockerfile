@@ -48,6 +48,11 @@ ENV NODE_ENV=production
 # Expose only the frontend port (backend is internal only)
 EXPOSE 3000
 
+# Set environment variables for PUID and PGID
+ENV PUID=1000
+ENV PGID=1000
+ENV TZ=UTC
+
 # Start both services using a shell script
 COPY start.sh .
 
