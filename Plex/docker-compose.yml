@@ -56,6 +56,7 @@ services:
     container_name: mediaflick
     build: ../
     user: 1000:1000
+    
     ports:
       - "3000:3000"
     volumes:
@@ -64,6 +65,7 @@ services:
       - /opt/mediaflick:/app/config
       - /opt/mediaflick/logs:/app/logs
     environment:
+      - TZ=Europe/Berlin
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://localhost:5000
       - NODE_ENV=production
