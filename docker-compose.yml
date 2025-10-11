@@ -1,12 +1,12 @@
 services:
-  mediaflick-plexlocalscan-api:
+  mediaflick:
+    container_name: mediaflick
     build: .
     user: 1000:1000
-    container_name: mediaflick-plexlocalscan-api
     ports:
       - "3000:3000"
     volumes:
-      - /mnt/zurg:/mnt/zurg
+      - /mnt/zurg:/mnt/zurg:rshared
       - /mnt/organized:/mnt/organized
       - /opt/mediaflick:/app/config
       - /opt/mediaflick/logs:/app/logs
@@ -17,4 +17,9 @@ services:
       - CORS_ORIGINS=http://localhost:3000
       - API_URL=http://localhost:5000/api
       - SIGNALR_URL=http://localhost:5000/hubs
-    restart: unless-stopped
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "test", "-f", "/mnt/zurg/version.txt"]
+      interval: 5s
+      timeout: 2s
+      retries: 30

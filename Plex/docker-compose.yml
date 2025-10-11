@@ -1,4 +1,36 @@
 services:
+  zurg:
+    # image: ghcr.io/debridmediamanager/zurg-testing:latest
+    build: ../../zurg
+    restart: unless-stopped
+    ports:
+      - 9999:9999
+    volumes:
+      - ../../zurg/config.yml:/app/config.yml
+      - ../../zurg/logs:/app/logs
+      - ../../zurg/data:/app/data
+      - ../../zurg/dump:/app/dump
+      - ../../zurg/strm:/app/strm
+      - ../../zurg/plex_update.sh:/app/plex_update.sh
+
+  rclone:
+    image: rclone/rclone:latest
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Berlin
+      PUID: 1000
+      PGID: 1000
+    volumes:
+      - /mnt/zurg:/data:rshared
+      - ../../zurg/rclone.conf:/config/rclone/rclone.conf
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    devices:
+      - /dev/fuse
+    command: "mount zurg: /data --allow-non-empty --allow-other --attr-timeout 10y --buffer-size 64M --dir-cache-time 120s --poll-interval 60s --vfs-cache-max-age 2M --vfs-cache-max-size 30G --vfs-cache-min-free-space 1G --vfs-cache-mode full --vfs-cache-poll-interval 30s --vfs-disk-space-total-size 32G --vfs-fast-fingerprint --vfs-read-ahead 64M --vfs-read-chunk-size 1M --vfs-read-chunk-size-limit 32M --vfs-read-wait 40ms --vfs-refresh --transfers 16 --checkers 16 --multi-thread-streams 8 --uid=1000 --gid=1000 --umask=002"
+
   plex:
     container_name: plex
     image: plexinc/pms-docker
@@ -10,11 +42,42 @@ services:
       - /opt/plex/config:/config
       - /opt/plex/transcode:/transcode
       - /opt/plex/media:/data
-      - /mnt/organized/tvseries:/mnt/organized/tvseries
-      - /mnt/organized/movies:/mnt/organized/movies
-      - /mnt/zurg/tvseries:/mnt/zurg/tvseries
-      - /mnt/zurg/movies:/mnt/zurg/movies
+      - /mnt:/mnt
     restart: unless-stopped
+    depends_on:
+      - rclone
+    healthcheck:
+      test: ["CMD", "test", "-f", "/mnt/zurg/version.txt"]
+      interval: 5s
+      timeout: 2s
+      retries: 30
+
+  mediaflick:
+    container_name: mediaflick
+    build: ../
+    user: 1000:1000
+    ports:
+      - "3000:3000"
+    volumes:
+      - /mnt/zurg:/mnt/zurg:rshared
+      - /mnt/organized:/mnt/organized
+      - /opt/mediaflick:/app/config
+      - /opt/mediaflick/logs:/app/logs
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://localhost:5000
+      - NODE_ENV=production
+      - CORS_ORIGINS=http://localhost:3000
+      - API_URL=http://localhost:5000/api
+      - SIGNALR_URL=http://localhost:5000/hubs
+    restart: unless-stopped
+    depends_on:
+      - rclone
+    healthcheck:
+      test: ["CMD", "test", "-f", "/mnt/zurg/version.txt"]
+      interval: 5s
+      timeout: 2s
+      retries: 30
 
 # Note: Before running, ensure directories exist and have correct permissions:
 #   sudo mkdir -p /opt/plex/{config,transcode,media}
