@@ -49,9 +49,11 @@ export function MediaSearch({ mediaType, onMediaSelect, className, label = "Sear
       setSearchLoading(true)
       try {
         const requestId = ++latestRequestIdRef.current
+        // Normalize search query by replacing dots and underscores with spaces
+        const normalizedQuery = value.replace(/[._]/g, ' ')
         const results = await (mediaType === MediaType.Movies
-          ? mediaApi.searchMovies(value)
-          : mediaApi.searchTvShows(value))
+          ? mediaApi.searchMovies(normalizedQuery)
+          : mediaApi.searchTvShows(normalizedQuery))
         // Ignore out-of-order responses
         if (requestId === latestRequestIdRef.current) {
           setSearchResults(results)
