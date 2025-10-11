@@ -15,20 +15,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: '20'
-          
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 8
-          
+          bun-version: latest
+
       - name: Install dependencies
-        run: pnpm install
-        
+        run: bun install --frozen-lockfile
+
       - name: Build
-        run: pnpm build
+        run: bun run build
         
       - name: Copy static files
         run: cp -r .next/static .next/standalone/

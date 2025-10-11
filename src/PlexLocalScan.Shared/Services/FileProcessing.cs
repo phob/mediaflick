@@ -45,11 +45,13 @@ public class FileProcessing(
             if (!Directory.Exists(folderMappingSourcePath))
             {
                 logger.LogWarning(
-                    "Source folder no longer exists: {SourceFolder}",
+                    "Source folder doesn't exist: {SourceFolder}",
                     folderMappingSourcePath
                 );
-                await cleanupHandler.CleanupDeletedSourceFolderAsync(folderMappingSourcePath);
-                continue;
+                logger.LogWarning(
+                    "ProcessFilesInFolder canceled. Please remove this folder mapping from the configuration to avoid repeated warnings"
+                );
+                return;
             }
 
             var currentSourceSubFolders = new HashSet<string>(

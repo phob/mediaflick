@@ -1,8 +1,16 @@
+/*
+ * Tailwind CSS v4 Configuration
+ * This file uses CSS-first configuration with @theme and @plugin directives
+ */
+
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "tailwindcss-motion";
 
-/* Map existing CSS variables to Tailwind theme tokens */
+/*
+ * Theme Configuration
+ * Maps CSS custom properties to Tailwind theme tokens for seamless integration
+ */
 @theme inline {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -33,12 +41,16 @@
   --radius-sm: calc(var(--radius) - 4px);
 }
 
-/* Existing custom utilities */
+/*
+ * Custom Utilities
+ * Application-specific utility classes and animations
+ */
 @layer utilities {
+  /* Highlight animation for new table rows */
   @keyframes highlightRow {
     0%,
     20% {
-      background-color: rgb(var(--nextui-primary-200) / 0.5);
+      background-color: hsl(var(--primary) / 0.2);
     }
     100% {
       background-color: transparent;
@@ -50,7 +62,11 @@
   }
 }
 
-/* Preserve your base variables and base styles */
+/*
+ * Base Styles
+ * CSS custom properties for light and dark themes
+ * These are consumed by the @theme inline configuration above
+ */
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -107,6 +123,10 @@
   }
 }
 
+/*
+ * Global Element Styles
+ * Apply theme tokens to base HTML elements
+ */
 @layer base {
   * {
     @apply border-border;

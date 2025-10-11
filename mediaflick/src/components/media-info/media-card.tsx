@@ -85,12 +85,12 @@ export function MediaCard({ media, mediaType, href, cardSize = "medium" }: Reado
       return (
         <div className="flex flex-col gap-2">
           {mediaInfo.genres && mediaInfo.genres.length > 0 && (
-            <p className="text-tiny text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
+            <p className="text-xs text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
               {mediaInfo.genres.join(", ")}
             </p>
           )}
           {mediaInfo.summary && (
-            <p className="line-clamp-3 text-tiny text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
+            <p className="line-clamp-3 text-xs text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
               {mediaInfo.summary}
             </p>
           )}
@@ -110,7 +110,7 @@ export function MediaCard({ media, mediaType, href, cardSize = "medium" }: Reado
     }
 
     return (
-      <p className="text-tiny text-white/80 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
+      <p className="text-xs text-white/80 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
         No additional information available
       </p>
     )
@@ -125,12 +125,12 @@ export function MediaCard({ media, mediaType, href, cardSize = "medium" }: Reado
         className={cn(
           "group relative overflow-hidden cursor-pointer",
           config.height,
-          "border-[1px] border-transparent ring-1 ring-white/10",
+          "border border-transparent ring-1 ring-white/10",
           "transition-transform duration-200",
           "[background:linear-gradient(theme(colors.background),theme(colors.background))_padding-box,linear-gradient(to_bottom_right,rgba(255,255,255,0.2),transparent_50%)_border-box]",
           "[box-shadow:inset_-1px_-1px_1px_rgba(0,0,0,0.1),inset_1px_1px_1px_rgba(255,255,255,0.1)]",
-          "before:absolute before:inset-0 before:z-10 before:bg-linear-to-br before:from-black/10 before:via-transparent before:to-black/30",
-          "after:absolute after:inset-0 after:bg-linear-to-tr after:from-white/5 after:via-transparent after:to-white/10",
+          "before:absolute before:inset-0 before:z-10 before:bg-gradient-to-br before:from-black/10 before:via-transparent before:to-black/30",
+          "after:absolute after:inset-0 after:bg-gradient-to-tr after:from-white/5 after:via-transparent after:to-white/10",
           "hover:scale-[1.02] hover:shadow-xl"
         )}
         aria-label={[
@@ -164,7 +164,7 @@ export function MediaCard({ media, mediaType, href, cardSize = "medium" }: Reado
           <h4 className={cn(config.titleSize, "font-medium text-white [text-shadow:0_2px_4px_rgba(0,0,0,0.8)] hover:text-white")}>
             {mediaInfo?.title ?? media.title}
           </h4>
-          <p className="text-tiny text-white/80 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
+          <p className="text-xs text-white/80 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
             {mediaInfo?.year && `(${mediaInfo.year})`}
           </p>
           {/* Show cache status indicator */}
@@ -180,7 +180,7 @@ export function MediaCard({ media, mediaType, href, cardSize = "medium" }: Reado
             </div>
           )}
         </CardHeader>
-        <CardContent className={cn("absolute bottom-0 z-20 w-full overflow-y-auto border-t-1 border-default-600/50 bg-black/50 bg-linear-to-t from-black/50 via-black/30 to-transparent backdrop-blur-sm dark:border-default-100/50", config.contentMaxHeight)}>
+        <CardContent className={cn("absolute bottom-0 z-20 w-full overflow-y-auto border-t border-border/50 bg-gradient-to-t from-black/50 via-black/30 to-transparent backdrop-blur-sm", config.contentMaxHeight)}>
           {renderContent()}
         </CardContent>
       </Card>

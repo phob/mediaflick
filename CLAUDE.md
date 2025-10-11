@@ -17,10 +17,11 @@ MediaFlick is a dual-stack media management application with a .NET 9 backend an
 
 ### Frontend (Next.js 15)
 - **Framework**: Next.js 15 with App Router
-- **Package Manager**: pnpm
+- **Package Manager**: Bun (migrated from pnpm)
 - **Styling**: Tailwind CSS with tailwindcss-motion for animations
 - **UI Components**: shadcn/ui
 - **Theme**: next-themes with dark mode default
+- **State Management**: React Query for data fetching and caching
 
 ## Essential Commands
 
@@ -30,7 +31,7 @@ MediaFlick is a dual-stack media management application with a .NET 9 backend an
 ./startdev.sh
 
 # Frontend only (from mediaflick/ directory)
-pnpm run dev
+bun run dev
 
 # Backend only (from src/PlexLocalScan.Api/ directory)
 dotnet run
@@ -39,22 +40,22 @@ dotnet run
 ### Building
 ```bash
 # Frontend build
-cd mediaflick && pnpm run build
+cd mediaflick && bun run build
 
 # Backend build
 cd src && dotnet build
 
 # Production build for distribution
-cd mediaflick && pnpm run builddist
+cd mediaflick && bun run builddist
 ```
 
 ### Code Quality
 ```bash
 # Frontend linting
-cd mediaflick && pnpm run lint
+cd mediaflick && bun run lint
 
 # Frontend formatting
-cd mediaflick && pnpm run format
+cd mediaflick && bun run format
 
 # Backend tests
 cd src && dotnet test
@@ -83,18 +84,25 @@ The frontend uses Next.js App Router with organized components:
 
 ### Key Features
 - **Media Detection**: Regex-based file parsing for movies/TV shows
-- **TMDb Integration**: Automatic metadata fetching
+- **TMDb Integration**: Automatic metadata fetching with intelligent sorting (ignores articles like "The", "A", "An")
 - **Symlink Management**: Organized file structure for Plex
 - **Real-time Updates**: SignalR for live status updates
 - **Batch Operations**: Bulk file processing capabilities
+- **Infinite Scroll**: Auto-pagination with Intersection Observer for media grids (loads 30 items initially)
 
 ## Development Guidelines
 
 ### Frontend (Next.js)
-- Use shadcn/ui components: `pnpm dlx shadcn@latest add <component>`
+- Use shadcn/ui components: `bunx shadcn@latest add <component>`
 - API endpoints are centralized in `src/lib/api/endpoints.ts`
 - Follow existing component patterns in organized feature directories
 - Use tailwindcss-motion for animations following existing patterns
+- **React Best Practices**:
+  - Avoid setState in useEffect - use lazy initialization or useMemo instead
+  - Use lazy state initialization: `useState(() => initialValue)` when value comes from localStorage or external source
+  - Use derived state pattern for state that depends on other state (compare during render, not in effect)
+  - Prefer useMemo for computed values over useEffect + setState
+- **Logging**: Keep console.error for error logging, avoid console.log/info/warn in production code
 
 ### Backend (.NET)
 - Use Minimal API endpoints organized in separate routing files
@@ -117,4 +125,13 @@ The frontend uses Next.js App Router with organized components:
 - Scoped services for database operations
 - Background services for file processing
 - Regex patterns for media file detection
-- Pagination for large data sets
+- Infinite scroll for large data sets (replaces traditional pagination in media grids)
+- Article-aware sorting: Use regex `/^(the|a|an)\s+/i` to normalize titles before sorting
+- State persistence: Store UI state (filters, pagination, media type) in localStorage and URL params
+
+## Recent Migrations and Improvements
+- **Package Manager**: Migrated from pnpm to Bun for faster builds and installs
+- **Docker**: Updated Dockerfile to use `oven/bun:1-alpine` for frontend build stage
+- **React Hooks**: Refactored to follow React best practices, eliminating setState in useEffect violations
+- **UI/UX**: Implemented infinite scroll in media info view with Intersection Observer
+- **Sorting**: Added intelligent title sorting that ignores leading articles

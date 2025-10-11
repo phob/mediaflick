@@ -92,8 +92,7 @@ class FileTrackingSignalR {
                 if (eventType === 'OnHeartbeat') {
                     this.connection.on(eventType, (timestamp: number) => {
                         this.lastHeartbeat = timestamp
-                        console.log(`${eventType}:`, new Date(timestamp))
-                        this.eventHandlers.get(eventType)?.forEach(handler => 
+                        this.eventHandlers.get(eventType)?.forEach(handler =>
                             (handler as HeartbeatHandler)(timestamp)
                         )
                     })
@@ -101,8 +100,7 @@ class FileTrackingSignalR {
                 if (eventType === 'OnZurgVersion') {
                     this.connection.on(eventType, (timestamp: number) => {
                         this.lastZurgVersion = timestamp
-                        console.log(`${eventType}:`, new Date(timestamp))
-                        this.eventHandlers.get(eventType)?.forEach(handler => 
+                        this.eventHandlers.get(eventType)?.forEach(handler =>
                             (handler as ZurgVersionHandler)(timestamp)
                         )
                     })
@@ -110,8 +108,7 @@ class FileTrackingSignalR {
                 if (eventType === 'OnFileAdded' || eventType === 'OnFileUpdated' || eventType === 'OnFileRemoved') {
                     this.connection.on(eventType, (dto: ScannedFileDto) => {
                         const file = convertDtoToScannedFile(dto)
-                        console.log(`${eventType}:`, file)
-                        this.eventHandlers.get(eventType)?.forEach(handler => 
+                        this.eventHandlers.get(eventType)?.forEach(handler =>
                             (handler as FileEventHandler)(file)
                         )
                     })
@@ -125,7 +122,6 @@ class FileTrackingSignalR {
         try {
             await this.connection.start()
             this.isConnected = true
-            console.log('SignalR Connected')
         } catch (err) {
             console.error('SignalR Connection Error:', err)
             setTimeout(() => this.startConnection(), 5000)

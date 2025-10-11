@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 
 export type CardSize = "small" | "medium" | "large"
 
@@ -8,17 +8,18 @@ const CARD_SIZE_STORAGE_KEY = "mediaflick-card-size"
 const DEFAULT_CARD_SIZE: CardSize = "medium"
 
 export function useCardSize() {
-  const [cardSize, setCardSize] = useState<CardSize>(DEFAULT_CARD_SIZE)
-  const [isLoaded, setIsLoaded] = useState(false)
-
-  useEffect(() => {
-    // Load card size from localStorage on client side only
-    const savedSize = localStorage.getItem(CARD_SIZE_STORAGE_KEY) as CardSize
-    if (savedSize && ["small", "medium", "large"].includes(savedSize)) {
-      setCardSize(savedSize)
+  // Initialize state from localStorage on client side
+  const [cardSize, setCardSize] = useState<CardSize>(() => {
+    if (typeof window !== 'undefined') {
+      const savedSize = localStorage.getItem(CARD_SIZE_STORAGE_KEY) as CardSize
+      if (savedSize && ["small", "medium", "large"].includes(savedSize)) {
+        return savedSize
+      }
     }
-    setIsLoaded(true)
-  }, [])
+    return DEFAULT_CARD_SIZE
+  })
+  // isLoaded is simply whether we're on the client side
+  const isLoaded = typeof window !== 'undefined'
 
   const updateCardSize = (newSize: CardSize) => {
     setCardSize(newSize)
