@@ -22,12 +22,48 @@ public class MovieDetectionService(
     private readonly MediaDetectionOptions _options = options.Value;
     private readonly Regex _moviePattern = BasicMovieRegex;
 
+private static string NormalizeTitle(string input)
+{
+    if (string.IsNullOrWhiteSpace(input))
+        return string.Empty;
+    
+    Span<char> buffer = stackalloc char[input.Length];
+    int writeIndex = 0;
+    bool lastWasSpace = true; // Start true to trim leading separators
+    
+    foreach (char c in input)
+    {
+        if (c == '.' || c == '_')
+        {
+            if (!lastWasSpace && writeIndex < buffer.Length)
+            {
+                buffer[writeIndex++] = ' ';
+                lastWasSpace = true;
+            }
+        }
+        else
+        {
+            if (writeIndex < buffer.Length)
+            {
+                buffer[writeIndex++] = c;
+            }
+            lastWasSpace = false;
+        }
+    }
+    
+    // Trim trailing space
+    if (writeIndex > 0 && buffer[writeIndex - 1] == ' ')
+        writeIndex--;
+    
+    return new string(buffer[..writeIndex]);
+}
     public async Task<MediaInfo> DetectMovieAsync(string fileName, string filePath)
     {
         var emptyMediaInfo = new MediaInfo { MediaType = MediaType.Movies };
         try
         {
-            var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+            var fileNameWithoutExtension = NormalizeTitle(Path.GetFileNameWithoutExtension(fileName));
+
             logger.LogDebug("Attempting to detect movie pattern for: {FileName}", fileName);
             var match = _moviePattern.Match(fileNameWithoutExtension);
             if (!match.Success)
@@ -36,10 +72,7 @@ public class MovieDetectionService(
                 return emptyMediaInfo;
             }
 
-            var title = match
-                .Groups["title"]
-                .Value.Replace(".", " ", StringComparison.OrdinalIgnoreCase)
-                .Trim();
+            var title = match.Groups["title"].Value;
             var yearStr = match.Groups["year"].Value;
             var year = int.Parse(yearStr, CultureInfo.CurrentCulture);
 
