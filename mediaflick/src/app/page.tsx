@@ -1,17 +1,32 @@
-import { LogoModule } from "@/components/logo-module"
-import { HeartbeatStatus } from "@/components/heartbeat-status"
+import { DashboardStats } from "@/components/dashboard/dashboard-stats"
+import { RecentItems } from "@/components/dashboard/recent-items"
+import { MediaType } from "@/lib/api/types"
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center">
-      <main className="mx-auto flex h-dvh max-w-5xl flex-col items-center justify-center text-center">
-        <div className="flex flex-col gap-6 w-72 rounded-lg border border-border bg-background/80 p-12 backdrop-blur-sm motion-translate-y-in-[-100%] motion-opacity-in-0 motion-blur-in-md motion-delay-400">
-          <div className="relative h-9 w-24">
-            <LogoModule />
-          </div>
-          <HeartbeatStatus />
-        </div>
-      </main>
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground">
+          Overview of your media library
+        </p>
+      </div>
+
+      <DashboardStats />
+
+      <div className="space-y-6">
+        <RecentItems
+          mediaType={MediaType.Movies}
+          title="Recently Added Movies"
+          limit={10}
+        />
+
+        <RecentItems
+          mediaType={MediaType.TvShows}
+          title="Recently Added Episodes"
+          limit={10}
+        />
+      </div>
     </div>
   )
 }
