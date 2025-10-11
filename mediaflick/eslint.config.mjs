@@ -10,22 +10,21 @@ const compat = new FlatCompat({
     baseDirectory: __dirname,
 })
 
-const eslintConfig = [
-    ...compat.extends("next/core-web-vitals", "next/typescript"),
-    {
-        files: ["**/*.{ts,tsx}"],
-        plugins: {
-            "check-file": checkFile
-        },
-        rules: {
-            "check-file/folder-naming-convention": [
-                "error",
-                {
-                    "src/!(*)/**": "KEBAB_CASE"
-                }
-            ]
-        }
+const eslintConfig = [{
+    ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts"]
+}, ...compat.extends("next/core-web-vitals", "next/typescript"), {
+    files: ["**/*.{ts,tsx}"],
+    plugins: {
+        "check-file": checkFile
+    },
+    rules: {
+        "check-file/folder-naming-convention": [
+            "error",
+            {
+                "src/!(*)/**": "KEBAB_CASE"
+            }
+        ]
     }
-]
+}]
 
 export default eslintConfig
