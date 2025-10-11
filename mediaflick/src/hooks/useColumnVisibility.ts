@@ -21,17 +21,21 @@ const DEFAULT_VISIBLE_COLUMNS: Record<ColumnKey, boolean> = {
 }
 
 export function useColumnVisibility() {
-  const [visibleColumns, setVisibleColumns] = useState<Record<ColumnKey, boolean>>(DEFAULT_VISIBLE_COLUMNS)
-
-  useEffect(() => {
+  // Initialize state from localStorage
+  const [visibleColumns, setVisibleColumns] = useState<Record<ColumnKey, boolean>>(() => {
     try {
-      const raw = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        setVisibleColumns({ ...DEFAULT_VISIBLE_COLUMNS, ...parsed })
+      if (typeof window !== "undefined") {
+        const raw = localStorage.getItem(STORAGE_KEY)
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          return { ...DEFAULT_VISIBLE_COLUMNS, ...parsed }
+        }
       }
-    } catch {}
-  }, [])
+    } catch {
+      // Ignore errors
+    }
+    return DEFAULT_VISIBLE_COLUMNS
+  })
 
   useEffect(() => {
     try {

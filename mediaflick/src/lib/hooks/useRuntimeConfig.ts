@@ -16,14 +16,14 @@ let cachedConfig: RuntimeConfig | null = null
 let configPromise: Promise<RuntimeConfig> | null = null
 
 export function useRuntimeConfig(): UseRuntimeConfigResult {
-  const [config, setConfig] = useState<RuntimeConfig | null>(cachedConfig)
-  const [loading, setLoading] = useState(!cachedConfig)
+  // Initialize state from cache
+  const [config, setConfig] = useState<RuntimeConfig | null>(() => cachedConfig)
+  const [loading, setLoading] = useState(() => !cachedConfig)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    // Skip effect if already cached
     if (cachedConfig) {
-      setConfig(cachedConfig)
-      setLoading(false)
       return
     }
 
@@ -38,7 +38,6 @@ export function useRuntimeConfig(): UseRuntimeConfigResult {
         setError(null)
       })
       .catch((err) => {
-        console.warn('Failed to load runtime config, using defaults:', err)
         cachedConfig = defaultConfig
         setConfig(defaultConfig)
         setError(err.message)

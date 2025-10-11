@@ -6,10 +6,12 @@ import { useEffect, useState } from "react"
 const HEARTBEAT_TIMEOUT = 31000 // 31 seconds timeout
 
 export function HeartbeatStatus() {
-  const [lastHeartbeat, setLastHeartbeat] = useState<number>(0)
-  const [lastZurgVersion, setLastZurgVersion] = useState<number>(0)
+  // Initialize state with current values from signalr to avoid setState in effect
+  const [lastHeartbeat, setLastHeartbeat] = useState<number>(() => signalr.getLastHeartbeat())
+  const [lastZurgVersion, setLastZurgVersion] = useState<number>(() => signalr.getLastZurgVersion())
   const [isOffline, setIsOffline] = useState(true)
   const [isZurgOffline, setIsZurgOffline] = useState(true)
+
   useEffect(() => {
     // Check connection status and heartbeat timeout
     const checkStatus = () => {
@@ -17,13 +19,13 @@ export function HeartbeatStatus() {
       const timeSinceLastHeartbeat = now - lastHeartbeat
       const timeSinceLastZurgVersion = now - lastZurgVersion
       const isConnected = signalr.isConnectedToHub()
-      
+
       setIsOffline(!isConnected || (lastHeartbeat !== 0 && timeSinceLastHeartbeat > HEARTBEAT_TIMEOUT))
       setIsZurgOffline(!isConnected || (lastZurgVersion !== 0 && timeSinceLastZurgVersion > HEARTBEAT_TIMEOUT))
     }
 
     const statusInterval = setInterval(checkStatus, HEARTBEAT_TIMEOUT/10)
-    
+
     const unsubscribe = signalr.subscribe('OnHeartbeat', (timestamp: number) => {
       setLastHeartbeat(timestamp)
       setIsOffline(false)
@@ -34,9 +36,6 @@ export function HeartbeatStatus() {
       setIsZurgOffline(false)
     })
 
-    // Get initial heartbeat if available
-    setLastHeartbeat(signalr.getLastHeartbeat())
-    setLastZurgVersion(signalr.getLastZurgVersion())
     return () => {
       unsubscribe()
       unsubscribeZurgVersion()

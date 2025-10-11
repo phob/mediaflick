@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, Suspense, useMemo } from "react"
+import { useEffect, useState, Suspense, useMemo, useRef, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import {
@@ -16,7 +16,6 @@ import { Loader2 } from "lucide-react"
 import { MediaCard, type UniqueMediaEntry } from "@/components/media-info/media-card"
 import { MediaInfoContent as MediaInfoView } from "@/components/media-info/media-info-content"
 import { CardSizeSelector } from "@/components/media-info/card-size-selector"
-import { TablePagination } from "@/components/scanned-files-table/pagination"
 import type { MediaType } from "@/lib/api/types"
 import { MediaType as MediaTypeEnum } from "@/lib/api/types"
 import { useCardSize, cardSizeConfig } from "@/hooks/use-card-size"
@@ -25,6 +24,12 @@ import { useTmdbList, usePrefetchMediaInfo } from "@/hooks/use-media-queries"
 interface TmdbEntry {
   tmdbId: number
   title: string
+}
+
+// Helper function to normalize titles for sorting (ignore articles like "The", "A", "An")
+function normalizeTitleForSorting(title: string): string {
+  // Remove leading articles (case-insensitive) and trim
+  return title.replace(/^(the|a|an)\s+/i, '').trim().toLowerCase()
 }
 
 function MediaInfoContent() {
@@ -44,10 +49,13 @@ function MediaGrid() {
   const [mediaType, setMediaType] = useState<MediaType>(
     (searchParams.get('mediaType') as MediaType) || MediaTypeEnum.Movies
   )
-  const [page, setPage] = useState(1)
+  // Initialize display count based on search term and media type to avoid setState in effect
+  const [displayCount, setDisplayCount] = useState(30)
+  const [lastSearchTerm, setLastSearchTerm] = useState(searchTerm)
   const { cardSize, setCardSize, isLoaded } = useCardSize()
   const { prefetchMovie, prefetchTvShow } = usePrefetchMediaInfo()
-  const pageSize = 20
+  const observerTarget = useRef<HTMLDivElement>(null)
+  const loadMoreSize = 30
 
   // Use React Query for the TMDB list
   const { data: tmdbData, isLoading, error } = useTmdbList(searchTerm, mediaType)
@@ -57,9 +65,15 @@ function MediaGrid() {
     localStorage.setItem('selectedMediaType', mediaType)
   }, [mediaType])
 
+  // Reset display count when search term changes (derived from state comparison)
+  if (searchTerm !== lastSearchTerm) {
+    setLastSearchTerm(searchTerm)
+    setDisplayCount(30)
+  }
+
   const handleMediaTypeChange = (value: MediaType) => {
     setMediaType(value)
-    setPage(1) // Reset page when changing media type
+    setDisplayCount(30) // Reset display count when changing media type
     const params = new URLSearchParams(searchParams)
     params.set('mediaType', value)
     window.history.pushState(null, '', `?${params.toString()}`)
@@ -68,15 +82,22 @@ function MediaGrid() {
   // Convert TMDB data to UniqueMediaEntry format and prefetch media info
   const uniqueMedia: UniqueMediaEntry[] = useMemo(() => {
     if (!tmdbData) return []
-    
+
     const entries = (tmdbData as unknown as TmdbEntry[]).map((entry) => ({
       tmdbId: entry.tmdbId,
       title: entry.title,
       isLoading: false, // We'll handle loading per-card now
     }))
 
-    // Prefetch media info for visible items to improve perceived performance
-    entries.slice(0, pageSize * 2).forEach((entry) => {
+    // Sort entries by normalized title (ignoring articles like "The", "A", "An")
+    entries.sort((a, b) => {
+      const titleA = normalizeTitleForSorting(a.title)
+      const titleB = normalizeTitleForSorting(b.title)
+      return titleA.localeCompare(titleB)
+    })
+
+    // Prefetch media info for visible items and next batch to improve perceived performance
+    entries.slice(0, displayCount + loadMoreSize).forEach((entry) => {
       if (mediaType === MediaTypeEnum.Movies) {
         prefetchMovie(entry.tmdbId)
       } else {
@@ -85,12 +106,40 @@ function MediaGrid() {
     })
 
     return entries
-  }, [tmdbData, mediaType, prefetchMovie, prefetchTvShow, pageSize])
+  }, [tmdbData, mediaType, prefetchMovie, prefetchTvShow, displayCount, loadMoreSize])
 
-  const startIndex = (page - 1) * pageSize
-  const endIndex = startIndex + pageSize
-  const currentPageItems = uniqueMedia.slice(startIndex, endIndex)
-  const totalPages = Math.ceil(uniqueMedia.length / pageSize)
+  const visibleItems = uniqueMedia.slice(0, displayCount)
+  const hasMore = displayCount < uniqueMedia.length
+
+  // Load more items when user scrolls to bottom
+  const loadMore = useCallback(() => {
+    if (hasMore && !isLoading) {
+      setDisplayCount(prev => prev + loadMoreSize)
+    }
+  }, [hasMore, isLoading, loadMoreSize])
+
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoading) {
+          loadMore()
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    const currentTarget = observerTarget.current
+    if (currentTarget) {
+      observer.observe(currentTarget)
+    }
+
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget)
+      }
+    }
+  }, [hasMore, isLoading, loadMore])
 
   return (
     <div className="container mx-auto space-y-4 p-4">
@@ -136,21 +185,28 @@ function MediaGrid() {
       ) : (
         <>
           <div className={`grid gap-4 ${isLoaded ? cardSizeConfig[cardSize].gridCols : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"}`}>
-            {currentPageItems.map((media) => (
-              <MediaCard 
-                key={media.tmdbId} 
-                media={media} 
+            {visibleItems.map((media) => (
+              <MediaCard
+                key={media.tmdbId}
+                media={media}
                 mediaType={mediaType}
                 href={`/mediainfo?id=${media.tmdbId}&type=${mediaType}`}
                 cardSize={cardSize}
               />
             ))}
           </div>
-          <TablePagination
-            currentPage={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
-          />
+
+          {/* Intersection observer target for infinite scroll */}
+          <div ref={observerTarget} className="h-20 flex items-center justify-center">
+            {hasMore && (
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            )}
+          </div>
+
+          {/* Show count info */}
+          <div className="text-center text-sm text-muted-foreground py-4">
+            Showing {visibleItems.length} of {uniqueMedia.length} items
+          </div>
         </>
       )}
     </div>
