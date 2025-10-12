@@ -39,7 +39,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mediaflick-frontend
-          path: mediaflick/.next/standalone
+          path: frontend/.next/standalone
 
   publish-backend:
     runs-on: ubuntu-latest
