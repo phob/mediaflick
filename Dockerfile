@@ -1,6 +1,6 @@
 # Build Stage
 FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS backend-build
-WORKDIR /src
+WORKDIR /backend
 
 # Copy the rest of the source code
 COPY backend/ .

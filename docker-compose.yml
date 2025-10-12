@@ -10,6 +10,7 @@ services:
       - /mnt/organized:/mnt/organized
       - /opt/mediaflick:/app/config
       - /opt/mediaflick/logs:/app/logs
+      - /opt/mediaflick/cache:/.next/cache
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://localhost:5000
