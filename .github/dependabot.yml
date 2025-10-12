@@ -6,12 +6,12 @@
 version: 2
 updates:
   - package-ecosystem: "bun" # See documentation for possible values
-    directory: "/mediaflick" # Location of package manifests
+    directory: "/frontend" # Location of package manifests
     schedule:
       interval: "daily"
     target-branch: "main"
   - package-ecosystem: "nuget" # See documentation for possible values
-    directory: "/src" # Location of package manifests
+    directory: "/backend" # Location of package manifests
     schedule:
       interval: "daily"
     target-branch: "main"

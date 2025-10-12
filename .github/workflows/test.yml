@@ -16,8 +16,8 @@ jobs:
 
     env:
       DOTNET_VERSION: 9.0.x
-      SOLUTION_FILE: src/PlexLocalScan.sln
-      TEST_PROJECT: src/PlexLocalScan.Test/PlexLocalScan.Test.csproj
+      SOLUTION_FILE: backend/PlexLocalScan.sln
+      TEST_PROJECT: backend/PlexLocalScan.Test/PlexLocalScan.Test.csproj
     steps:
     - uses: actions/checkout@v4
     - name: Setup .NET

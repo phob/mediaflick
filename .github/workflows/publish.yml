@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./mediaflick
+        working-directory: ./frontend
     
     steps:
       - uses: actions/checkout@v4
@@ -56,14 +56,14 @@ jobs:
           dotnet-version: '9.0.x'
           
       - name: Restore dependencies
-        run: dotnet restore src/PlexLocalScan.sln
+        run: dotnet restore backend/PlexLocalScan.sln
         
       - name: Build
-        run: dotnet build src/PlexLocalScan.sln --configuration Release --no-restore
+        run: dotnet build backend/PlexLocalScan.sln --configuration Release --no-restore
         
       - name: Publish
         run: |
-          dotnet publish src/PlexLocalScan.Api/PlexLocalScan.Api.csproj \
+          dotnet publish backend/PlexLocalScan.Api/PlexLocalScan.Api.csproj \
             --configuration Release \
             --runtime ${{ matrix.runtime }} \
             --self-contained true \
