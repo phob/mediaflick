@@ -116,6 +116,7 @@ export function RecentItems({ mediaType, title, limit = 10 }: Readonly<RecentIte
                   seasonNumber={item.seasonNumber}
                   episodeNumber={item.episodeNumber}
                   showTitle={item.title}
+                  href={`/mediainfo?type=TvShows&id=${item.tmdbId}`}
                   cardSize="small"
                 />
               ))
