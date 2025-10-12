@@ -67,11 +67,10 @@ services:
     environment:
       - TZ=Europe/Berlin
       - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://localhost:5000
+      - ASPNETCORE_URLS=http://0.0.0.0:5000
       - NODE_ENV=production
       - CORS_ORIGINS=http://localhost:3000
-      - API_URL=http://localhost:5000/api
-      - SIGNALR_URL=http://localhost:5000/hubs
+      - SIGNALR_URL=http://127.0.0.1:5000
     restart: unless-stopped
     depends_on:
       - rclone

@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { LucideIcon } from "lucide-react"
 import Link from "next/link"
-import { Suspense, useState, useEffect } from "react"
+import { Suspense, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
 import SettingsModal from "../settings/settings-modal"
@@ -19,24 +19,31 @@ type HeadButtonProps = {
 // Component that uses useSearchParams
 const HeadButtonLink = ({ href, label, icon: Icon, className }: { href: string; label: string; icon: LucideIcon; className?: string }) => {
   const searchParams = useSearchParams()
-  // Start with base href to match server render
-  const [linkHref, setLinkHref] = useState(href)
 
-  // Update href after hydration on client side
-  useEffect(() => {
+  // Compute href during render instead of in effect (React best practice)
+  // This avoids cascading renders from setState in useEffect
+  const linkHref = useMemo(() => {
+    if (typeof window === 'undefined') {
+      // Server-side: return base href
+      return href
+    }
+
+    // Client-side: compute href with query parameters
     if (href === "/medialibrary") {
       const savedState = localStorage.getItem('mediaLibraryState')
       if (savedState) {
-        setLinkHref(`${href}?${savedState}`)
+        return `${href}?${savedState}`
       } else if (searchParams.toString()) {
-        setLinkHref(`${href}?${searchParams.toString()}`)
+        return `${href}?${searchParams.toString()}`
       }
     } else if (href === "/mediainfo") {
       const savedMediaType = localStorage.getItem('selectedMediaType')
       if (savedMediaType) {
-        setLinkHref(`${href}?mediaType=${savedMediaType}`)
+        return `${href}?mediaType=${savedMediaType}`
       }
     }
+
+    return href
   }, [href, searchParams])
 
   return (

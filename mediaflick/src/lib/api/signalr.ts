@@ -1,8 +1,11 @@
 import { HubConnectionBuilder, HubConnection } from '@microsoft/signalr'
 import { ScannedFile, MediaType, MediaStatus } from '../api/types'
 
-// Use Next.js proxy for SignalR to avoid direct backend access from browser
-const SIGNALR_BASE = '/api/signalr'
+// Connect through Next.js API proxy which handles WebSocket upgrades via custom server
+// All SignalR communication flows through /api/signalr/* which proxies to backend /hubs/*
+const SIGNALR_BASE = typeof window !== 'undefined'
+  ? '/api/signalr'
+  : '/api/signalr'
 
 interface ScannedFileDto {
     id: number

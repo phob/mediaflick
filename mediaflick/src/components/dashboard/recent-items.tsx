@@ -2,7 +2,6 @@
 
 import { useQuery } from "@tanstack/react-query"
 import { MediaCard } from "@/components/media-info/media-card"
-import { EpisodeCard } from "./episode-card"
 import { mediaApi } from "@/lib/api/endpoints"
 import { MediaType } from "@/lib/api/types"
 import { LoadingIndicator } from "@/components/ui/loading-indicator"
@@ -110,14 +109,19 @@ export function RecentItems({ mediaType, title, limit = 10 }: Readonly<RecentIte
               ))
             ) : (
               (data as EpisodeItem[]).map((item) => (
-                <EpisodeCard
+                <MediaCard
                   key={`${item.tmdbId}-${item.seasonNumber}-${item.episodeNumber}`}
-                  tmdbId={item.tmdbId}
+                  media={{
+                    tmdbId: item.tmdbId,
+                    title: item.title,
+                    isLoading: false,
+                  }}
+                  mediaType={mediaType}
+                  href={`/mediainfo?type=TvShows&id=${item.tmdbId}`}
+                  cardSize="small"
                   seasonNumber={item.seasonNumber}
                   episodeNumber={item.episodeNumber}
                   showTitle={item.title}
-                  href={`/mediainfo?type=TvShows&id=${item.tmdbId}`}
-                  cardSize="small"
                 />
               ))
             )}

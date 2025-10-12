@@ -36,6 +36,8 @@ COPY --from=backend-build /app/publish .
 # Copy the built frontend app
 COPY --from=frontend-build /mediaflick/.next/standalone ./
 COPY --from=frontend-build /mediaflick/.next/static ./.next/static
+COPY --from=frontend-build /mediaflick/server.js ./server.js
+COPY --from=frontend-build /mediaflick/node_modules ./node_modules
 
 RUN mkdir -p ./.next/cache
 
