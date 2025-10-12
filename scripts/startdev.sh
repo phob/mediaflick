@@ -1,5 +1,5 @@
 #!/bin/sh
-cd src/PlexLocalScan.Api
+cd backend/PlexLocalScan.Api
 dotnet build -c Debug
-cd ../../mediaflick
+cd ../../frontend
 bun run dev & dotnet run --project ../src/PlexLocalScan.Api --configuration Debug

@@ -3,7 +3,7 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS backend-build
 WORKDIR /src
 
 # Copy the rest of the source code
-COPY src/ .
+COPY backend/ .
 
 # Restore dependencies
 RUN dotnet restore "PlexLocalScan.Api/PlexLocalScan.Api.csproj" && \
@@ -11,13 +11,13 @@ dotnet publish "PlexLocalScan.Api/PlexLocalScan.Api.csproj" -c Release -o /app/p
 
 # Frontend Build Stage
 FROM oven/bun:1-alpine AS frontend-build
-WORKDIR /mediaflick
+WORKDIR /frontend
 
 # Copy frontend files
-COPY mediaflick/package.json mediaflick/bun.lock ./
+COPY frontend/package.json frontend/bun.lock ./
 RUN bun install --frozen-lockfile
 
-COPY mediaflick .
+COPY frontend .
 RUN bun run build
 
 # Runtime Stage
@@ -34,10 +34,10 @@ RUN mkdir -p config/logs && mkdir -p /mnt/zurg/tvseries && mkdir -p /mnt/zurg/mo
 COPY --from=backend-build /app/publish .
 
 # Copy the built frontend app
-COPY --from=frontend-build /mediaflick/.next/standalone ./
-COPY --from=frontend-build /mediaflick/.next/static ./.next/static
-COPY --from=frontend-build /mediaflick/server.js ./server.js
-COPY --from=frontend-build /mediaflick/node_modules ./node_modules
+COPY --from=frontend-build /frontend/.next/standalone ./
+COPY --from=frontend-build /frontend/.next/static ./.next/static
+COPY --from=frontend-build /frontend/server.js ./server.js
+COPY --from=frontend-build /frontend/node_modules ./node_modules
 
 RUN mkdir -p ./.next/cache
 
@@ -54,7 +54,7 @@ ENV PGID=1000
 ENV TZ=UTC
 
 # Start both services using a shell script
-COPY start.sh .
+COPY scripts/start.sh .
 
 RUN chmod +x start.sh
 ENTRYPOINT ["./start.sh"]

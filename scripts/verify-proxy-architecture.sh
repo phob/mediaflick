@@ -2,7 +2,7 @@
 # SignalR Proxy Architecture Verification Script
 # This script checks for common architectural violations
 
-echo "🔍 MediaFlick SignalR Proxy Architecture Verification"
+echo "🔍 frontend SignalR Proxy Architecture Verification"
 echo "======================================================"
 echo ""
 
@@ -10,7 +10,7 @@ VIOLATIONS=0
 
 # Check 1: Verify no NEXT_PUBLIC_SIGNALR_URL in frontend code
 echo "✓ Checking for exposed backend URLs in frontend..."
-if grep -r "NEXT_PUBLIC_SIGNALR_URL" mediaflick/src/ 2>/dev/null; then
+if grep -r "NEXT_PUBLIC_SIGNALR_URL" ../frontend/src/ 2>/dev/null; then
     echo "  ❌ VIOLATION: Found NEXT_PUBLIC_SIGNALR_URL in frontend code"
     echo "     Backend URLs should never be exposed to the browser"
     VIOLATIONS=$((VIOLATIONS + 1))
@@ -21,9 +21,9 @@ fi
 # Check 2: Verify signalr.ts uses relative URL
 echo ""
 echo "✓ Checking SignalR client connection URL..."
-if grep -q "'/api/signalr'" mediaflick/src/lib/api/signalr.ts && ! grep -q "localhost:5000" mediaflick/src/lib/api/signalr.ts; then
+if grep -q "'/api/signalr'" ../frontend/src/lib/api/signalr.ts && ! grep -q "localhost:5000" ../frontend/src/lib/api/signalr.ts; then
     echo "  ✅ SignalR client uses proxy URL: /api/signalr"
-elif grep -q "localhost:5000" mediaflick/src/lib/api/signalr.ts; then
+elif grep -q "localhost:5000" ../frontend/src/lib/api/signalr.ts; then
     echo "  ❌ VIOLATION: SignalR client connects directly to backend"
     echo "     Found: localhost:5000 in signalr.ts"
     VIOLATIONS=$((VIOLATIONS + 1))
@@ -34,11 +34,11 @@ fi
 # Check 3: Verify custom server exists
 echo ""
 echo "✓ Checking for custom server implementation..."
-if [ -f "mediaflick/server.js" ]; then
-    echo "  ✅ Custom server found: mediaflick/server.js"
+if [ -f "../frontend/server.js" ]; then
+    echo "  ✅ Custom server found: ../frontend/server.js"
 
     # Check if it handles WebSocket upgrades
-    if grep -q "server.on('upgrade'" mediaflick/server.js; then
+    if grep -q "server.on('upgrade'" ../frontend/server.js; then
         echo "  ✅ Custom server handles WebSocket upgrades"
     else
         echo "  ❌ VIOLATION: Custom server missing WebSocket upgrade handler"
@@ -46,16 +46,16 @@ if [ -f "mediaflick/server.js" ]; then
     fi
 else
     echo "  ❌ VIOLATION: Custom server not found"
-    echo "     Expected: mediaflick/server.js"
+    echo "     Expected: ../frontend/server.js"
     VIOLATIONS=$((VIOLATIONS + 1))
 fi
 
 # Check 4: Verify package.json uses custom server
 echo ""
 echo "✓ Checking package.json scripts..."
-if grep -q '"dev".*"node server.js"' mediaflick/package.json; then
+if grep -q '"dev".*"node server.js"' ../frontend/package.json; then
     echo "  ✅ Dev script uses custom server"
-elif grep -q '"dev".*"next dev"' mediaflick/package.json; then
+elif grep -q '"dev".*"next dev"' ../frontend/package.json; then
     echo "  ❌ VIOLATION: Dev script uses 'next dev' instead of custom server"
     echo "     WebSocket proxying requires custom server"
     VIOLATIONS=$((VIOLATIONS + 1))
@@ -66,11 +66,11 @@ fi
 # Check 5: Verify http-proxy-middleware dependency
 echo ""
 echo "✓ Checking dependencies..."
-if grep -q "http-proxy-middleware" mediaflick/package.json; then
+if grep -q "http-proxy-middleware" ../frontend/package.json; then
     echo "  ✅ http-proxy-middleware is installed"
 else
     echo "  ❌ VIOLATION: http-proxy-middleware not found in package.json"
-    echo "     Run: cd mediaflick && bun install http-proxy-middleware"
+    echo "     Run: cd frontend && bun install http-proxy-middleware"
     VIOLATIONS=$((VIOLATIONS + 1))
 fi
 
@@ -78,10 +78,10 @@ fi
 echo ""
 echo "✓ Checking for direct backend API calls in client code..."
 # Exclude server-side API routes (app/api/**/route.ts) since they are proxy layers
-DIRECT_CALLS=$(grep -r "localhost:5000" mediaflick/src/components/ mediaflick/src/app/ 2>/dev/null | grep -v ".next" | grep -v "route.ts" | wc -l)
+DIRECT_CALLS=$(grep -r "localhost:5000" ../frontend/src/components/ ../frontend/src/app/ 2>/dev/null | grep -v ".next" | grep -v "route.ts" | wc -l)
 if [ "$DIRECT_CALLS" -gt 0 ]; then
     echo "  ❌ VIOLATION: Found $DIRECT_CALLS direct backend calls in client code"
-    grep -rn "localhost:5000" mediaflick/src/components/ mediaflick/src/app/ 2>/dev/null | grep -v ".next" | grep -v "route.ts" | head -5
+    grep -rn "localhost:5000" ../frontend/src/components/ ../frontend/src/app/ 2>/dev/null | grep -v ".next" | grep -v "route.ts" | head -5
     echo "     Note: Server-side API routes (route.ts) are proxy layers and are OK"
     VIOLATIONS=$((VIOLATIONS + 1))
 else
@@ -92,12 +92,12 @@ fi
 # Check 7: Verify backend CORS configuration
 echo ""
 echo "✓ Checking backend CORS configuration..."
-if [ -f "src/PlexLocalScan.Api/ServiceCollection/Cors.cs" ]; then
-    if grep -q "WithOrigins" src/PlexLocalScan.Api/ServiceCollection/Cors.cs; then
+if [ -f "../backand/PlexLocalScan.Api/ServiceCollection/Cors.cs" ]; then
+    if grep -q "WithOrigins" ../backand/PlexLocalScan.Api/ServiceCollection/Cors.cs; then
         echo "  ✅ Backend CORS configured with specific origins"
 
         # Check for insecure wildcard
-        if grep -q 'AllowAnyOrigin\|WithOrigins("\*")' src/PlexLocalScan.Api/ServiceCollection/Cors.cs; then
+        if grep -q 'AllowAnyOrigin\|WithOrigins("\*")' ../backand/PlexLocalScan.Api/ServiceCollection/Cors.cs; then
             echo "  ❌ VIOLATION: Backend allows any origin (*)"
             echo "     CORS should restrict to Next.js origin only"
             VIOLATIONS=$((VIOLATIONS + 1))
@@ -116,7 +116,7 @@ if [ $VIOLATIONS -eq 0 ]; then
     echo "✅ All checks passed! Proxy architecture is properly configured."
     echo ""
     echo "Next steps:"
-    echo "  1. Run: cd mediaflick && bun install"
+    echo "  1. Run: cd frontend && bun install"
     echo "  2. Run: ./startdev.sh"
     echo "  3. Open: http://localhost:3000"
     echo "  4. Check DevTools → Network → WS"
