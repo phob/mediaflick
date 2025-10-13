@@ -41,8 +41,6 @@ COPY --from=frontend-build /frontend/.next/static ./.next/static
 COPY --from=frontend-build /frontend/server.js ./server.js
 COPY --from=frontend-build /frontend/node_modules ./node_modules
 
-RUN mkdir -p ./.next/cache
-
 # Set environment variable for timezone and globalization
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 ENV NODE_ENV=production

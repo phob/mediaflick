@@ -64,6 +64,7 @@ services:
       - /mnt/organized:/mnt/organized
       - /opt/mediaflick:/app/config
       - /opt/mediaflick/logs:/app/logs
+      - /opt/mediaflick/cache:/app/.next/cache
     environment:
       - TZ=Europe/Berlin
       - ASPNETCORE_ENVIRONMENT=Production
