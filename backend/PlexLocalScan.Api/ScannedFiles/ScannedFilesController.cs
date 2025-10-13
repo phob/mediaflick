@@ -174,7 +174,7 @@ internal static class ScannedFilesController
         ILogger<Program> logger = null!
     )
     {
-        logger.LogInformation("Getting scanned file with ID: {Id}", id);
+        logger.LogDebug("Getting scanned file with ID: {Id}", id);
         var scannedFile = await context.ScannedFiles.FindAsync(id);
 
         if (scannedFile == null)
@@ -183,7 +183,7 @@ internal static class ScannedFilesController
             return Results.NotFound();
         }
 
-        logger.LogInformation("Retrieved scanned file: {@ScannedFile}", scannedFile);
+        logger.LogDebug("Retrieved scanned file: {@ScannedFile}", scannedFile);
         return Results.Ok(ScannedFileDto.FromScannedFile(scannedFile));
     }
 
@@ -329,7 +329,7 @@ internal static class ScannedFilesController
             // Trigger SignalR notification
             await notificationService.NotifyFileUpdated(scannedFile);
 
-            logger.LogInformation("Successfully updated scanned file {Id}", id);
+            logger.LogDebug("Successfully updated scanned file {Id}", id);
             return Results.Ok(scannedFile);
         }
         catch (Exception ex)
@@ -369,7 +369,7 @@ internal static class ScannedFilesController
 
             // Refresh the entity from the database to get the latest version
             await context.Entry(scannedFile).ReloadAsync();
-            logger.LogInformation(
+            logger.LogDebug(
                 "Successfully updated scanned file {Id}: {@ScannedFile}",
                 id,
                 scannedFile

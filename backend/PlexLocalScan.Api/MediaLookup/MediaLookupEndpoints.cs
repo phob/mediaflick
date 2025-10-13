@@ -33,7 +33,7 @@ internal static class MediaLookupEndpoints
             );
         }
 
-        logger.LogInformation("Searching for movies with title: {Title}", title);
+        logger.LogDebug("Searching for movies with title: {Title}", title);
         var results = await mediaLookupService.SearchMovieTmdbIdsAsync(title);
         return TypedResults.Ok(results.ToList());
     }
@@ -51,7 +51,7 @@ internal static class MediaLookupEndpoints
             );
         }
 
-        logger.LogInformation("Searching for TV shows with title: {Title}", title);
+        logger.LogDebug("Searching for TV shows with title: {Title}", title);
         var results = await mediaLookupService.SearchTvShowTmdbIdsAsync(title);
         return TypedResults.Ok(results.ToList());
     }
