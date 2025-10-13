@@ -43,14 +43,14 @@ services:
       - /opt/plex/transcode:/transcode
       - /opt/plex/media:/data
       - /mnt:/mnt
-    restart: unless-stopped
+    restart: on-failure
     depends_on:
       - rclone
     healthcheck:
       test: ["CMD", "test", "-f", "/mnt/zurg/version.txt"]
       interval: 5s
       timeout: 2s
-      retries: 30
+      retries: 3
 
   mediaflick:
     container_name: mediaflick
@@ -71,14 +71,14 @@ services:
       - NODE_ENV=production
       - CORS_ORIGINS=http://localhost:3000
       - SIGNALR_URL=http://127.0.0.1:5000
-    restart: unless-stopped
+    restart: on-failure
     depends_on:
       - rclone
     healthcheck:
       test: ["CMD", "test", "-f", "/mnt/zurg/version.txt"]
       interval: 5s
       timeout: 2s
-      retries: 30
+      retries: 3
 
 # Note: Before running, ensure directories exist and have correct permissions:
 #   sudo mkdir -p /opt/plex/{config,transcode,media}
