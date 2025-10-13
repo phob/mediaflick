@@ -24,7 +24,9 @@ RUN bun run build
 FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine
 WORKDIR /app
 
-RUN apk add --no-cache icu-libs nodejs wget
+# Install Bun
+COPY --from=oven/bun:1-alpine /usr/local/bin/bun /usr/local/bin/bun
+RUN apk add --no-cache icu-libs wget
 
 # Create necessary directories
 RUN mkdir -p config/logs && mkdir -p /mnt/zurg/tvseries && mkdir -p /mnt/zurg/movies \
