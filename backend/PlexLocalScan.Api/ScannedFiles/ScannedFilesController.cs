@@ -112,7 +112,7 @@ internal static class ScannedFilesController
         var totalItems = await query.CountAsync();
         var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
 
-        logger.LogInformation(
+        logger.LogDebug(
             "Retrieved {Count} scanned files. Total items: {TotalItems}, Total pages: {TotalPages}",
             items.Count,
             totalItems,
@@ -211,7 +211,7 @@ internal static class ScannedFilesController
                 .ToListAsync(),
         };
 
-        logger.LogInformation("Retrieved statistics: {@Stats}", stats);
+        logger.LogDebug("Retrieved statistics: {@Stats}", stats);
         return Results.Ok(stats);
     }
 

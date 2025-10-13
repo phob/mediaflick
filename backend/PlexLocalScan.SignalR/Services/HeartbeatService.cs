@@ -18,7 +18,7 @@ public class HeartbeatService(
             logger.LogDebug("Starting heartbeat service execution");
             var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var connectionCount = hubContext.Clients.All.GetType().ToString();
-            logger.LogInformation(
+            logger.LogDebug(
                 "Sending heartbeat to {ConnectionCount} at {Timestamp}",
                 connectionCount,
                 timestamp

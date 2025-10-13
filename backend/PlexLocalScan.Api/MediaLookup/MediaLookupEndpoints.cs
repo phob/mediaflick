@@ -63,7 +63,7 @@ internal static class MediaLookupEndpoints
         HttpContext context
     )
     {
-        logger.LogInformation("Getting movie info for TMDb ID: {TmdbId}", tmdbId);
+        logger.LogDebug("Getting movie info for TMDb ID: {TmdbId}", tmdbId);
         var movieInfo = await mediaLookupService.GetMovieMediaInfoAsync(tmdbId);
 
         if (movieInfo is null)
@@ -135,7 +135,7 @@ internal static class MediaLookupEndpoints
         HttpContext context
     )
     {
-        logger.LogInformation(
+        logger.LogDebug(
             "Getting TV episode info for TMDb ID: {TmdbId}, Season Number: {SeasonNumber}, Episode Number: {EpisodeNumber}",
             tmdbId,
             seasonNumber,
