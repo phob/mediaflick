@@ -27,7 +27,7 @@ internal static class ScannedFilesController
         ILogger<Program> logger = null!
     )
     {
-        logger.LogInformation(
+        logger.LogDebug(
             "Getting scanned files. IDs: {Ids}, Page: {Page}, PageSize: {PageSize}, Status: {Status}, MediaType: {MediaType}, SearchTerm: {SearchTerm}, SortBy: {SortBy}, SortOrder: {SortOrder}",
             ids != null ? string.Join(",", ids) : "all",
             page,
