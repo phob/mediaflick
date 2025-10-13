@@ -219,6 +219,7 @@ internal static class ScannedFilesController
         int id,
         [FromBody] UpdateScannedFileRequest request,
         PlexScanContext context = null!,
+        INotificationService notificationService = null!,
         ILogger<Program> logger = null!
     )
     {
@@ -238,7 +239,69 @@ internal static class ScannedFilesController
                 return Results.NotFound();
             }
 
-            // Update only the provided values
+            var oldMediaType = scannedFile.MediaType;
+
+            // Handle MediaType changes
+            if (request.MediaType.HasValue && request.MediaType.Value != oldMediaType)
+            {
+                logger.LogInformation(
+                    "Changing MediaType for file {Id} from {OldType} to {NewType}",
+                    id,
+                    oldMediaType,
+                    request.MediaType.Value
+                );
+
+                // Converting TO Extras
+                if (request.MediaType.Value == MediaType.Extras)
+                {
+                    // Delete symlink if it exists
+                    if (!string.IsNullOrEmpty(scannedFile.DestFile) && File.Exists(scannedFile.DestFile))
+                    {
+                        try
+                        {
+                            File.Delete(scannedFile.DestFile);
+                            logger.LogInformation("Deleted symlink: {DestFile}", scannedFile.DestFile);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex, "Failed to delete symlink: {DestFile}", scannedFile.DestFile);
+                        }
+                    }
+
+                    // Clear TMDb-related fields
+                    scannedFile.MediaType = MediaType.Extras;
+                    scannedFile.TmdbId = null;
+                    scannedFile.ImdbId = null;
+                    scannedFile.Title = null;
+                    scannedFile.Year = null;
+                    scannedFile.Genres = null;
+                    scannedFile.SeasonNumber = null;
+                    scannedFile.EpisodeNumber = null;
+                    scannedFile.EpisodeNumber2 = null;
+                    scannedFile.DestFile = null;
+                    scannedFile.Status = FileStatus.Success;
+                }
+                // Converting FROM Extras to Movie/TvShow
+                else if (oldMediaType == MediaType.Extras)
+                {
+                    scannedFile.MediaType = request.MediaType.Value;
+                    scannedFile.Status = FileStatus.Processing;
+                    // Keep new MediaType, trigger re-processing
+                    // The file processing pipeline will handle TMDb lookup and symlink creation
+                    logger.LogInformation(
+                        "File {Id} converted from Extras to {NewType}, status set to Processing for re-detection",
+                        id,
+                        request.MediaType.Value
+                    );
+                }
+                else
+                {
+                    // Direct conversion between Movies/TvShows (not part of Extras feature, but handle it)
+                    scannedFile.MediaType = request.MediaType.Value;
+                }
+            }
+
+            // Update only the provided values (non-MediaType fields)
             if (request.TmdbId.HasValue)
             {
                 scannedFile.TmdbId = request.TmdbId.Value;
@@ -263,6 +326,10 @@ internal static class ScannedFilesController
 
             await context.SaveChangesAsync();
 
+            // Trigger SignalR notification
+            await notificationService.NotifyFileUpdated(scannedFile);
+
+            logger.LogInformation("Successfully updated scanned file {Id}", id);
             return Results.Ok(scannedFile);
         }
         catch (Exception ex)
