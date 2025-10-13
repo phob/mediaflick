@@ -24,6 +24,11 @@ type ToolbarProps = {
   selectedCount: number
   onEditSelected: () => void
   onDeleteSelected: () => void
+  onConvertToExtras: () => void
+  onConvertToMovie: () => void
+  onConvertToTvShow: () => void
+  canConvertToExtras: boolean
+  canConvertFromExtras: boolean
   columnsPopoverOpen: boolean
   setColumnsPopoverOpen: (b: boolean) => void
   visibleColumns: Record<ColumnKey, boolean>
@@ -46,6 +51,11 @@ export function ScannedFilesToolbar(props: ToolbarProps) {
     selectedCount,
     onEditSelected,
     onDeleteSelected,
+    onConvertToExtras,
+    onConvertToMovie,
+    onConvertToTvShow,
+    canConvertToExtras,
+    canConvertFromExtras,
     columnsPopoverOpen,
     setColumnsPopoverOpen,
     visibleColumns,
@@ -169,6 +179,33 @@ export function ScannedFilesToolbar(props: ToolbarProps) {
             <Trash2 className="mr-2 h-4 w-4" />
             Delete Selected
           </Button>
+          {canConvertToExtras && (
+            <Button
+              variant="outline"
+              disabled={selectedCount === 0}
+              onClick={onConvertToExtras}
+            >
+              Mark as Extra
+            </Button>
+          )}
+          {canConvertFromExtras && (
+            <>
+              <Button
+                variant="outline"
+                disabled={selectedCount === 0}
+                onClick={onConvertToMovie}
+              >
+                Convert to Movie
+              </Button>
+              <Button
+                variant="outline"
+                disabled={selectedCount === 0}
+                onClick={onConvertToTvShow}
+              >
+                Convert to TV Show
+              </Button>
+            </>
+          )}
         </div>
       </div>
       <Separator className="my-4" />

@@ -7,6 +7,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 import { EditModal } from "@/components/scanned-files-table/edit-modal"
 import { TableComponent } from "@/components/scanned-files-table/table-component"
@@ -18,6 +28,7 @@ import { useSignalRHandlers } from "@/hooks/useSignalRHandlers"
 import { ScannedFilesToolbar } from "@/components/scanned-files-table/toolbar"
 import { mediaApi } from "@/lib/api/endpoints"
 import { MediaStatus, MediaType, PagedResult, PlexConfig, ScannedFile, Row, mediaTypeOptions, statusOptions } from "@/lib/api/types"
+import { useToast } from "@/hooks/use-toast"
 
 
 interface ScannedFilesTableProps {
@@ -63,9 +74,14 @@ export function ScannedFilesTable({
   const [mediaTypeFilter, setMediaTypeFilter] = useState<MediaType>(initialMediaType)
   const [newEntries, setNewEntries] = useState<Set<number>>(new Set())
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const { visibleColumns, setVisibleColumns } = useColumnVisibility()
+  const { visibleColumns, setVisibleColumns} = useColumnVisibility()
   const [columnsPopoverOpen, setColumnsPopoverOpen] = useState(false)
   const [density, setDensity] = useState<"comfortable" | "compact">("comfortable")
+  const [conversionDialog, setConversionDialog] = useState<{
+    isOpen: boolean
+    targetType: MediaType | null
+  }>({ isOpen: false, targetType: null })
+  const { toast } = useToast()
 
   // Clear animation after delay
   useEffect(() => {
@@ -136,6 +152,19 @@ export function ScannedFilesTable({
     return rows.filter((row) => selectedKeys.has(row.key))
   }, [selectedKeys, rows])
 
+  const selectedFiles = React.useMemo(() => {
+    if (!data) return []
+    return data.items.filter((file) => selectedKeys.has(file.id))
+  }, [data, selectedKeys])
+
+  const canConvertToExtras = React.useMemo(() => {
+    return selectedFiles.length > 0 && selectedFiles.some(f => f.mediaType === MediaType.Movies || f.mediaType === MediaType.TvShows)
+  }, [selectedFiles])
+
+  const canConvertFromExtras = React.useMemo(() => {
+    return selectedFiles.length > 0 && selectedFiles.every(f => f.mediaType === MediaType.Extras)
+  }, [selectedFiles])
+
   const handleEditSelected = useCallback(() => {
     setIsEditModalOpen(true)
   }, [])
@@ -162,6 +191,60 @@ export function ScannedFilesTable({
       console.error("Failed to save changes:", error)
     }
   }, [])
+
+  const handleConvertToExtras = useCallback(() => {
+    setConversionDialog({ isOpen: true, targetType: MediaType.Extras })
+  }, [])
+
+  const handleConvertToMovie = useCallback(() => {
+    setConversionDialog({ isOpen: true, targetType: MediaType.Movies })
+  }, [])
+
+  const handleConvertToTvShow = useCallback(() => {
+    setConversionDialog({ isOpen: true, targetType: MediaType.TvShows })
+  }, [])
+
+  const handleConfirmConversion = useCallback(async () => {
+    if (!conversionDialog.targetType) return
+
+    const selectedIds = Array.from(selectedKeys)
+    setConversionDialog({ isOpen: false, targetType: null })
+
+    try {
+      await Promise.all(
+        selectedIds.map((id) =>
+          mediaApi.updateScannedFile(id, {
+            mediaType: conversionDialog.targetType!,
+          })
+        )
+      )
+
+      toast({
+        title: "Success",
+        description: `Converted ${selectedIds.length} file(s) to ${conversionDialog.targetType}`,
+      })
+
+      const result = await mediaApi.getScannedFiles({
+        page,
+        pageSize,
+        sortBy,
+        sortOrder,
+        searchTerm: filterValue,
+        status: statusFilter,
+        mediaType: mediaTypeFilter,
+      })
+
+      setData(result)
+      setSelectedKeys(new Set())
+    } catch (error) {
+      console.error("Failed to convert files:", error)
+      toast({
+        title: "Error",
+        description: "Failed to convert files. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }, [conversionDialog.targetType, selectedKeys, page, pageSize, sortBy, sortOrder, filterValue, statusFilter, mediaTypeFilter, setSelectedKeys, toast])
 
   const topContent = (
     <ScannedFilesToolbar
@@ -192,6 +275,11 @@ export function ScannedFilesTable({
       selectedCount={selectedKeys.size}
       onEditSelected={handleEditSelected}
       onDeleteSelected={handleDeleteSelected}
+      onConvertToExtras={handleConvertToExtras}
+      onConvertToMovie={handleConvertToMovie}
+      onConvertToTvShow={handleConvertToTvShow}
+      canConvertToExtras={canConvertToExtras}
+      canConvertFromExtras={canConvertFromExtras}
       columnsPopoverOpen={columnsPopoverOpen}
       setColumnsPopoverOpen={setColumnsPopoverOpen}
       visibleColumns={visibleColumns}
@@ -317,6 +405,32 @@ export function ScannedFilesTable({
         onSave={handleSaveEdits}
         initialMediaType={mediaTypeFilter as MediaType.Movies | MediaType.TvShows}
       />
+      <AlertDialog open={conversionDialog.isOpen} onOpenChange={(open) => !open && setConversionDialog({ isOpen: false, targetType: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Convert to {conversionDialog.targetType === MediaType.Extras ? "Extras" : conversionDialog.targetType === MediaType.Movies ? "Movies" : "TV Shows"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {conversionDialog.targetType === MediaType.Extras ? (
+                <>
+                  This will remove TMDb metadata and delete any existing symlinks for the selected file(s).
+                  The files will be marked as Extras with Success status.
+                </>
+              ) : (
+                <>
+                  This will convert the selected Extra file(s) to {conversionDialog.targetType === MediaType.Movies ? "Movies" : "TV Shows"}.
+                  The files will be set to Processing status for re-detection and metadata lookup.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmConversion}>Continue</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }
