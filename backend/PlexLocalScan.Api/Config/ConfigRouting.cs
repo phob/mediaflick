@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using PlexLocalScan.Shared.Configuration.Options;
 
@@ -97,6 +97,12 @@ internal static class ConfigRouting
         // Validate MediaDetection config
         if (config.MediaDetection.CacheDuration <= 0)
             errors.Add("Media detection cache duration must be greater than zero");
+
+        const long oneGigabyte = 1073741824; // 1 GB in bytes
+        if (config.MediaDetection.AutoExtrasThresholdBytes < 0)
+            errors.Add("Auto extras threshold must be zero or greater");
+        if (config.MediaDetection.AutoExtrasThresholdBytes > oneGigabyte)
+            errors.Add("Auto extras threshold cannot exceed 1 GB (1073741824 bytes)");
 
         return errors;
     }
