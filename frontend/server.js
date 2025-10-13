@@ -11,6 +11,32 @@ const app = next({ dev, hostname, port })
 const handle = app.getRequestHandler()
 
 app.prepare().then(() => {
+  // Create SignalR proxy middleware ONCE at startup to prevent memory leaks
+  // Creating it per-request causes event listener accumulation on Socket objects
+  const backendUrl = process.env.SIGNALR_URL || 'http://localhost:5000'
+  const signalrProxy = createProxyMiddleware({
+    target: backendUrl,
+    changeOrigin: true,
+    ws: true, // Enable WebSocket proxying
+    pathRewrite: {
+      '^/api/signalr': '/hubs', // Rewrite /api/signalr/* to /hubs/*
+    },
+    onProxyReq: (proxyReq, req) => {
+      // Add custom headers if needed
+      proxyReq.setHeader('X-Forwarded-For', req.socket.remoteAddress)
+      proxyReq.setHeader('X-Forwarded-Proto', 'http')
+      proxyReq.setHeader('X-Forwarded-Host', req.headers.host)
+    },
+    onError: (err, req, res) => {
+      console.error('SignalR Proxy Error:', err)
+      if (res.writeHead) {
+        res.writeHead(500, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ error: 'Proxy error', details: err.message }))
+      }
+    },
+    logLevel: dev ? 'debug' : 'warn',
+  })
+
   const server = createServer(async (req, res) => {
     try {
       const parsedUrl = parse(req.url, true)
@@ -22,34 +48,8 @@ app.prepare().then(() => {
         return handle(req, res, parsedUrl)
       }
 
-      // Proxy SignalR WebSocket connections to backend
+      // Proxy SignalR WebSocket connections to backend using the singleton proxy
       if (pathname && pathname.startsWith('/api/signalr')) {
-        const backendUrl = process.env.SIGNALR_URL || 'http://localhost:5000'
-
-        // Create proxy middleware for SignalR
-        const signalrProxy = createProxyMiddleware({
-          target: backendUrl,
-          changeOrigin: true,
-          ws: true, // Enable WebSocket proxying
-          pathRewrite: {
-            '^/api/signalr': '/hubs', // Rewrite /api/signalr/* to /hubs/*
-          },
-          onProxyReq: (proxyReq, req) => {
-            // Add custom headers if needed
-            proxyReq.setHeader('X-Forwarded-For', req.socket.remoteAddress)
-            proxyReq.setHeader('X-Forwarded-Proto', 'http')
-            proxyReq.setHeader('X-Forwarded-Host', req.headers.host)
-          },
-          onError: (err, req, res) => {
-            console.error('SignalR Proxy Error:', err)
-            if (res.writeHead) {
-              res.writeHead(500, { 'Content-Type': 'application/json' })
-              res.end(JSON.stringify({ error: 'Proxy error', details: err.message }))
-            }
-          },
-          logLevel: dev ? 'debug' : 'warn',
-        })
-
         return signalrProxy(req, res)
       }
 
@@ -62,23 +62,11 @@ app.prepare().then(() => {
     }
   })
 
-  // Handle WebSocket upgrade requests
+  // Handle WebSocket upgrade requests using the singleton proxy
   server.on('upgrade', (req, socket, head) => {
     const { pathname } = parse(req.url, true)
 
     if (pathname && pathname.startsWith('/api/signalr')) {
-      const backendUrl = process.env.SIGNALR_URL || 'http://localhost:5000'
-
-      const signalrProxy = createProxyMiddleware({
-        target: backendUrl,
-        changeOrigin: true,
-        ws: true,
-        pathRewrite: {
-          '^/api/signalr': '/hubs',
-        },
-        logLevel: dev ? 'debug' : 'warn',
-      })
-
       signalrProxy.upgrade(req, socket, head)
     } else {
       socket.destroy()
