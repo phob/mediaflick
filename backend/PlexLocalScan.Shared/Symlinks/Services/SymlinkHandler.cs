@@ -25,6 +25,13 @@ public class SymlinkHandler(ILogger<SymlinkHandler> logger, IContextService cont
                 return false;
             }
 
+            // Skip symlink creation for Extras
+            if (mediaInfo?.MediaType == MediaType.Extras)
+            {
+                logger.LogDebug("Skipping symlink creation for Extra: {SourceFile}", sourceFile);
+                return true;
+            }
+
             if (mediaInfo == null)
             {
                 await CreateFallbackSymlinkAsync(sourceFile, destinationFolder, mediaType);
