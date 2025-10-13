@@ -30,35 +30,35 @@ MediaFlick is a dual-stack media management application with a .NET 9 backend an
 # Start development environment (both backend and frontend)
 ./startdev.sh
 
-# Frontend only (from mediaflick/ directory)
+# Frontend only (from frontend/ directory)
 bun run dev
 
-# Backend only (from src/PlexLocalScan.Api/ directory)
+# Backend only (from backend/PlexLocalScan.Api/ directory)
 dotnet run
 ```
 
 ### Building
 ```bash
 # Frontend build
-cd mediaflick && bun run build
+cd frontend && bun run build
 
 # Backend build
-cd src && dotnet build
+cd backend && dotnet build
 
 # Production build for distribution
-cd mediaflick && bun run builddist
+cd frontend && bun run builddist
 ```
 
 ### Code Quality
 ```bash
 # Frontend linting
-cd mediaflick && bun run lint
+cd frontend && bun run lint
 
 # Frontend formatting
-cd mediaflick && bun run format
+cd frontend && bun run format
 
 # Backend tests
-cd src && dotnet test
+cd backend && dotnet test
 ```
 
 ## Project Architecture

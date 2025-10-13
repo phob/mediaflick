@@ -94,6 +94,11 @@ public class SymlinkHandler(ILogger<SymlinkHandler> logger, IContextService cont
 
             if (await SymlinkHelper.CreateFileLinkAsync(sourcePath, fullTargetPath))
             {
+                logger.LogInformation(
+                    "Created symlink: {SourcePath} -> {TargetPath}",
+                    sourcePath,
+                    fullTargetPath
+                );
                 await contextService.UpdateStatusAsync(
                     sourcePath,
                     fullTargetPath,
@@ -139,6 +144,11 @@ public class SymlinkHandler(ILogger<SymlinkHandler> logger, IContextService cont
 
             if (await SymlinkHelper.CreateFileLinkAsync(sourceFile, fullTargetPath))
             {
+                logger.LogInformation(
+                    "Created fallback symlink for undetected media: {SourceFile} -> {TargetPath}",
+                    sourceFile,
+                    fullTargetPath
+                );
                 await contextService.UpdateStatusAsync(
                     sourceFile,
                     fullTargetPath,
@@ -147,12 +157,6 @@ public class SymlinkHandler(ILogger<SymlinkHandler> logger, IContextService cont
                 );
                 return true;
             }
-
-            logger.LogInformation(
-                "Created fallback symlink for undetected media: {SourceFile} -> {TargetPath}",
-                sourceFile,
-                fullTargetPath
-            );
         }
         catch (Exception ex)
         {

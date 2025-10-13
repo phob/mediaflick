@@ -83,7 +83,7 @@ internal static class MediaLookupEndpoints
         HttpContext context
     )
     {
-        logger.LogInformation("Getting TV show info for TMDb ID: {TmdbId}", tmdbId);
+        logger.LogDebug("Getting TV show info for TMDb ID: {TmdbId}", tmdbId);
         var tvShowInfo = await mediaLookupService.GetTvShowMediaInfoAsync(tmdbId);
 
         if (tvShowInfo is null)

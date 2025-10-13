@@ -137,7 +137,7 @@ internal static class ScannedFilesController
         ILogger<Program> logger = null!
     )
     {
-        logger.LogInformation("Getting TMDb IDs and titles with filter: {@Filter}", filter);
+        logger.LogDebug("Getting TMDb IDs and titles with filter: {@Filter}", filter);
 
         var query = context.ScannedFiles.AsQueryable();
 
@@ -161,7 +161,7 @@ internal static class ScannedFilesController
             .Distinct()
             .OrderBy(f => f.Title)
             .ToListAsync();
-        logger.LogInformation(
+        logger.LogDebug(
             "Retrieved {Count} unique TMDb IDs and titles",
             tmdbIdsAndTitles.Count
         );
@@ -192,7 +192,7 @@ internal static class ScannedFilesController
         ILogger<Program> logger = null!
     )
     {
-        logger.LogInformation("Getting scanned files statistics");
+        logger.LogDebug("Getting scanned files statistics");
 
         var stats = new ScannedFileStats
         {
