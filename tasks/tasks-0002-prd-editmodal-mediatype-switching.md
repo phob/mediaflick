@@ -46,15 +46,15 @@
   - [x] 4.4 Update success toast for conversions: "Converted {count} file(s) to {MediaType}"
   - [x] 4.5 Test that converted Extras progress from Processing to Success status
 
-- [ ] 5.0 Testing and Validation
-  - [ ] 5.1 Test: Convert single Extra to Movie via EditModal, assign TMDb ID, verify Success status
-  - [ ] 5.2 Test: Convert multiple Extras to TV Show, assign series and episodes, verify all succeed
-  - [ ] 5.3 Test: Switch MediaType in EditModal from Movie to TV Show, confirm warning appears
-  - [ ] 5.4 Test: Verify metadata is cleared after MediaType switch and toast notification shows
-  - [ ] 5.5 Test: Cancel EditModal during Extras conversion, verify files remain as Extras
-  - [ ] 5.6 Test: "Mark as Extra" button still shows AlertDialog (unchanged behavior)
-  - [ ] 5.7 Test: Multi-file editing with MediaType changes works correctly
-  - [ ] 5.8 Run frontend linting: `bun run lint` from frontend directory
+- [x] 5.0 Testing and Validation
+  - [x] 5.1 Test: Convert single Extra to Movie via EditModal, assign TMDb ID, verify Success status
+  - [x] 5.2 Test: Convert multiple Extras to TV Show, assign series and episodes, verify all succeed
+  - [x] 5.3 Test: Switch MediaType in EditModal from Movie to TV Show, confirm warning appears
+  - [x] 5.4 Test: Verify metadata is cleared after MediaType switch and toast notification shows
+  - [x] 5.5 Test: Cancel EditModal during Extras conversion, verify files remain as Extras
+  - [x] 5.6 Test: "Mark as Extra" button still shows AlertDialog (unchanged behavior)
+  - [x] 5.7 Test: Multi-file editing with MediaType changes works correctly
+  - [x] 5.8 Run frontend linting: `bun run lint` from frontend directory
 
 ---
 
