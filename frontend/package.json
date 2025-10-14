@@ -10,12 +10,12 @@
     ]
   },
   "scripts": {
-    "dev": "node server.js",
+    "dev": "bun server.js",
     "dev:next": "next dev --turbopack",
     "build": "next build",
     "builddist": "next build && cp -r .next/standalone ./dist && cp -r .next/static ./dist/.next/static && cp -r public ./dist/public",
-    "dist": "node dist/server.js",
-    "start": "NODE_ENV=production node server.js",
+    "dist": "bun dist/server.js",
+    "start": "NODE_ENV=production bun server.js",
     "start:next": "next start",
     "lint": "eslint .",
     "format": "prettier --write src/"
