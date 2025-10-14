@@ -7,6 +7,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -21,6 +31,7 @@ import { MovieEditTable } from "@/components/scanned-files-table/movie-edit-tabl
 import { TvShowEditTable } from "@/components/scanned-files-table/tv-show-edit-table"
 import { MediaType, ScannedFile, Row } from "@/lib/api/types"
 import { mediaApi } from "@/lib/api/endpoints"
+import { useToast } from "@/hooks/use-toast"
 
 interface EditModalProps {
   readonly isOpen: boolean
@@ -47,6 +58,9 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave, initialMediaT
   const [editableRows, setEditableRows] = useState<EditableRow[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedMediaType, setSelectedMediaType] = useState<MediaType.Movies | MediaType.TvShows>(initialMediaType)
+  const [showMediaTypeWarning, setShowMediaTypeWarning] = useState(false)
+  const [pendingMediaType, setPendingMediaType] = useState<MediaType.Movies | MediaType.TvShows | null>(null)
+  const { toast } = useToast()
 
   useEffect(() => {
     setSelectedMediaType(initialMediaType)
@@ -61,7 +75,6 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave, initialMediaT
         const selectedIds = selectedRows.map((row) => row.key)
         const result = await mediaApi.getScannedFiles({
           ids: selectedIds,
-          mediaType: selectedMediaType,
           pageSize: selectedIds.length,
           sortBy: "sourceFile",
           sortOrder: "asc",
@@ -79,10 +92,38 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave, initialMediaT
     }
 
     fetchSelectedFiles()
-  }, [isOpen, selectedRows, selectedMediaType])
+  }, [isOpen, selectedRows])
 
   const handleMediaTypeChange = (type: string) => {
-    setSelectedMediaType(type as MediaType.Movies | MediaType.TvShows)
+    const newType = type as MediaType.Movies | MediaType.TvShows
+    if (newType !== selectedMediaType) {
+      setPendingMediaType(newType)
+      setShowMediaTypeWarning(true)
+    }
+  }
+
+  const handleConfirmMediaTypeChange = () => {
+    if (!pendingMediaType) return
+
+    setEditableRows((prev) =>
+      prev.map((row) => ({
+        ...row,
+        tmdbId: 0,
+        seasonNumber: undefined,
+        episodeNumber: undefined,
+        episodeNumber2: undefined,
+        mediaType: pendingMediaType,
+      }))
+    )
+
+    setSelectedMediaType(pendingMediaType)
+    setShowMediaTypeWarning(false)
+    setPendingMediaType(null)
+
+    toast({
+      title: "Media type changed",
+      description: "All metadata has been cleared.",
+    })
   }
 
   const handleMediaSelect = (tmdbId: number) => {
@@ -177,6 +218,28 @@ export function EditModal({ isOpen, onClose, selectedRows, onSave, initialMediaT
           </Button>
         </DialogFooter>
       </DialogContent>
+      <AlertDialog open={showMediaTypeWarning} onOpenChange={setShowMediaTypeWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Switch Media Type?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Switching media type will clear all metadata (TMDb ID, season, episode numbers). 
+              This action cannot be undone. Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setShowMediaTypeWarning(false)
+              setPendingMediaType(null)
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmMediaTypeChange}>
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   )
 }

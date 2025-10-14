@@ -74,6 +74,7 @@ export function ScannedFilesTable({
   const [mediaTypeFilter, setMediaTypeFilter] = useState<MediaType>(initialMediaType)
   const [newEntries, setNewEntries] = useState<Set<number>>(new Set())
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [conversionTargetType, setConversionTargetType] = useState<MediaType.Movies | MediaType.TvShows | null>(null)
   const { visibleColumns, setVisibleColumns} = useColumnVisibility()
   const [columnsPopoverOpen, setColumnsPopoverOpen] = useState(false)
   const [density, setDensity] = useState<"comfortable" | "compact">("comfortable")
@@ -170,7 +171,9 @@ export function ScannedFilesTable({
   }, [])
 
   const handleSaveEdits = useCallback(async (updatedRows: Row[]) => {
+    const isConversion = conversionTargetType !== null
     setIsEditModalOpen(false)
+    setConversionTargetType(null)
 
     try {
       // Update each file
@@ -181,27 +184,55 @@ export function ScannedFilesTable({
             seasonNumber: row.seasonNumber,
             episodeNumber: row.episodeNumber,
             episodeNumber2: row.episodeNumber2,
+            mediaType: row.mediaType as MediaType,
           })
         )
       )
 
       // Recreate all symlinks
       await mediaApi.recreateAllSymlinks()
+
+      if (isConversion) {
+        toast({
+          title: "Success",
+          description: `Converted ${updatedRows.length} file(s) to ${conversionTargetType}`,
+        })
+      }
+
+      const result = await mediaApi.getScannedFiles({
+        page,
+        pageSize,
+        sortBy,
+        sortOrder,
+        searchTerm: filterValue,
+        status: statusFilter,
+        mediaType: mediaTypeFilter,
+      })
+
+      setData(result)
+      setSelectedKeys(new Set())
     } catch (error) {
       console.error("Failed to save changes:", error)
+      toast({
+        title: "Error",
+        description: "Failed to save changes. Please try again.",
+        variant: "destructive",
+      })
     }
-  }, [])
+  }, [conversionTargetType, page, pageSize, sortBy, sortOrder, filterValue, statusFilter, mediaTypeFilter, toast, setSelectedKeys])
 
   const handleConvertToExtras = useCallback(() => {
     setConversionDialog({ isOpen: true, targetType: MediaType.Extras })
   }, [])
 
   const handleConvertToMovie = useCallback(() => {
-    setConversionDialog({ isOpen: true, targetType: MediaType.Movies })
+    setConversionTargetType(MediaType.Movies)
+    setIsEditModalOpen(true)
   }, [])
 
   const handleConvertToTvShow = useCallback(() => {
-    setConversionDialog({ isOpen: true, targetType: MediaType.TvShows })
+    setConversionTargetType(MediaType.TvShows)
+    setIsEditModalOpen(true)
   }, [])
 
   const handleConfirmConversion = useCallback(async () => {
@@ -400,29 +431,21 @@ export function ScannedFilesTable({
       />
       <EditModal
         isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
+        onClose={() => {
+          setIsEditModalOpen(false)
+          setConversionTargetType(null)
+        }}
         selectedRows={selectedRows}
         onSave={handleSaveEdits}
-        initialMediaType={mediaTypeFilter as MediaType.Movies | MediaType.TvShows}
+        initialMediaType={(conversionTargetType || mediaTypeFilter) as MediaType.Movies | MediaType.TvShows}
       />
       <AlertDialog open={conversionDialog.isOpen} onOpenChange={(open) => !open && setConversionDialog({ isOpen: false, targetType: null })}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              Convert to {conversionDialog.targetType === MediaType.Extras ? "Extras" : conversionDialog.targetType === MediaType.Movies ? "Movies" : "TV Shows"}?
-            </AlertDialogTitle>
+            <AlertDialogTitle>Mark as Extra?</AlertDialogTitle>
             <AlertDialogDescription>
-              {conversionDialog.targetType === MediaType.Extras ? (
-                <>
-                  This will remove TMDb metadata and delete any existing symlinks for the selected file(s).
-                  The files will be marked as Extras with Success status.
-                </>
-              ) : (
-                <>
-                  This will convert the selected Extra file(s) to {conversionDialog.targetType === MediaType.Movies ? "Movies" : "TV Shows"}.
-                  The files will be set to Processing status for re-detection and metadata lookup.
-                </>
-              )}
+              This will remove TMDb metadata and delete any existing symlinks for the selected file(s).
+              The files will be marked as Extras with Success status.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
