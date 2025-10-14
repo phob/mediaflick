@@ -6,7 +6,7 @@ SERVICE_MODE=${SERVICE_MODE:-"full"}
 case $SERVICE_MODE in
   "frontend")
     echo "Starting frontend only..."
-    exec node server.js
+    exec bun server.js
     ;;
   "backend")
     echo "Starting backend only..."
@@ -20,7 +20,7 @@ case $SERVICE_MODE in
     BACKEND_PID=$!
 
     # Start frontend
-    node server.js &
+    bun server.js &
     FRONTEND_PID=$!
 
     # Wait for both processes

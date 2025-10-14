@@ -105,6 +105,7 @@ export interface UpdateScannedFileRequest {
   seasonNumber?: number
   episodeNumber?: number
   episodeNumber2?: number
+  mediaType?: MediaType
 }
 
 export interface ScannedFileStats {
@@ -142,6 +143,7 @@ export interface TMDbConfig {
 
 export interface MediaDetectionConfig {
   cacheDuration: number
+  autoExtrasThresholdBytes?: number
 }
 
 export interface FolderMappingConfig {

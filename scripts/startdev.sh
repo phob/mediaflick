@@ -2,4 +2,4 @@
 cd backend/PlexLocalScan.Api
 dotnet build -c Debug
 cd ../../frontend
-bun run dev & dotnet run --project ../src/PlexLocalScan.Api --configuration Debug
+bun run dev & dotnet run --project ../backend/PlexLocalScan.Api/PlexLocalScan.Api.csproj

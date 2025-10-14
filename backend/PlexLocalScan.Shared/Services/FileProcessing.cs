@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using PlexLocalScan.Core.Tables;
 using PlexLocalScan.Data.Data;
 using PlexLocalScan.Shared.Configuration.Options;
@@ -16,9 +17,11 @@ public class FileProcessing(
     ICleanupHandler cleanupHandler,
     ISymlinkHandler symlinkHandler,
     IMediaDetectionService mediaDetectionService,
-    IContextService contextService
+    IContextService contextService,
+    IOptionsSnapshot<MediaDetectionOptions> mediaDetectionOptions
 ) : IFileProcessing
 {
+    private readonly MediaDetectionOptions _mediaDetectionOptions = mediaDetectionOptions.Value;
     public async Task ProcessAllMappingsAsync(
         PlexOptions plexOptions,
         ConcurrentDictionary<string, HashSet<string>> knownFolders
@@ -174,21 +177,54 @@ public class FileProcessing(
 
             var mediaInfo = await mediaDetectionService.DetectMediaAsync(file, mapping.MediaType);
 
-            if (
-                await symlinkHandler.CreateSymlinksAsync(
-                    file,
-                    destinationFolder,
-                    mediaInfo,
-                    mapping.MediaType
-                )
-            )
+            // Auto-classify as Extras if detection failed and file is below threshold
+            if (mediaInfo == null && 
+                _mediaDetectionOptions.AutoExtrasThresholdBytes > 0 && 
+                fileSize < _mediaDetectionOptions.AutoExtrasThresholdBytes)
             {
+                logger.LogInformation(
+                    "Auto-classifying file as Extra (size: {FileSize} bytes < threshold: {Threshold} bytes): {File}",
+                    fileSize,
+                    _mediaDetectionOptions.AutoExtrasThresholdBytes,
+                    file
+                );
+
+                // Create minimal MediaInfo for Extras
+                var extrasMediaInfo = new PlexLocalScan.Core.Media.MediaInfo
+                {
+                    MediaType = MediaType.Extras
+                };
+
+                // Update to Extras with Success status, skip symlink creation
                 _ = await contextService.UpdateStatusAsync(
                     file,
                     null,
-                    mediaInfo,
+                    extrasMediaInfo,
                     FileStatus.Success
                 );
+
+                return;
+            }
+
+            // Only create symlinks for non-Extras files
+            if (mediaInfo?.MediaType != MediaType.Extras)
+            {
+                if (
+                    await symlinkHandler.CreateSymlinksAsync(
+                        file,
+                        destinationFolder,
+                        mediaInfo,
+                        mapping.MediaType
+                    )
+                )
+                {
+                    _ = await contextService.UpdateStatusAsync(
+                        file,
+                        null,
+                        mediaInfo,
+                        FileStatus.Success
+                    );
+                }
             }
         }
         catch (Exception ex)

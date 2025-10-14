@@ -41,7 +41,7 @@ public class ContextService(
 
         if (scannedFile.Status == FileStatus.Success && type == "add")
         {
-            logger.LogInformation("File already tracked and successful: {SourceFile}", sourceFile);
+            logger.LogDebug("File already tracked and successful: {SourceFile}", sourceFile);
             return scannedFile;
         }
         logger.LogDebug("File already tracked: {SourceFile}", sourceFile);
@@ -80,7 +80,7 @@ public class ContextService(
         try
         {
             await dbContext.SaveChangesAsync();
-            logger.LogInformation(
+            logger.LogDebug(
                 "Tracked new file: {SourceFile} -> {DestFile}",
                 sourceFile,
                 destFile
@@ -288,7 +288,7 @@ public class ContextService(
 
                     if (saveResult > 0)
                     {
-                        logger.LogInformation(
+                        logger.LogDebug(
                             "Updated status to {Status} for file: {File}",
                             status,
                             sourceFile

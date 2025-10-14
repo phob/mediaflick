@@ -27,7 +27,7 @@ internal static class ScannedFilesController
         ILogger<Program> logger = null!
     )
     {
-        logger.LogInformation(
+        logger.LogDebug(
             "Getting scanned files. IDs: {Ids}, Page: {Page}, PageSize: {PageSize}, Status: {Status}, MediaType: {MediaType}, SearchTerm: {SearchTerm}, SortBy: {SortBy}, SortOrder: {SortOrder}",
             ids != null ? string.Join(",", ids) : "all",
             page,
@@ -112,7 +112,7 @@ internal static class ScannedFilesController
         var totalItems = await query.CountAsync();
         var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
 
-        logger.LogInformation(
+        logger.LogDebug(
             "Retrieved {Count} scanned files. Total items: {TotalItems}, Total pages: {TotalPages}",
             items.Count,
             totalItems,
@@ -137,7 +137,7 @@ internal static class ScannedFilesController
         ILogger<Program> logger = null!
     )
     {
-        logger.LogInformation("Getting TMDb IDs and titles with filter: {@Filter}", filter);
+        logger.LogDebug("Getting TMDb IDs and titles with filter: {@Filter}", filter);
 
         var query = context.ScannedFiles.AsQueryable();
 
@@ -161,7 +161,7 @@ internal static class ScannedFilesController
             .Distinct()
             .OrderBy(f => f.Title)
             .ToListAsync();
-        logger.LogInformation(
+        logger.LogDebug(
             "Retrieved {Count} unique TMDb IDs and titles",
             tmdbIdsAndTitles.Count
         );
@@ -174,7 +174,7 @@ internal static class ScannedFilesController
         ILogger<Program> logger = null!
     )
     {
-        logger.LogInformation("Getting scanned file with ID: {Id}", id);
+        logger.LogDebug("Getting scanned file with ID: {Id}", id);
         var scannedFile = await context.ScannedFiles.FindAsync(id);
 
         if (scannedFile == null)
@@ -183,7 +183,7 @@ internal static class ScannedFilesController
             return Results.NotFound();
         }
 
-        logger.LogInformation("Retrieved scanned file: {@ScannedFile}", scannedFile);
+        logger.LogDebug("Retrieved scanned file: {@ScannedFile}", scannedFile);
         return Results.Ok(ScannedFileDto.FromScannedFile(scannedFile));
     }
 
@@ -192,7 +192,7 @@ internal static class ScannedFilesController
         ILogger<Program> logger = null!
     )
     {
-        logger.LogInformation("Getting scanned files statistics");
+        logger.LogDebug("Getting scanned files statistics");
 
         var stats = new ScannedFileStats
         {
@@ -211,7 +211,7 @@ internal static class ScannedFilesController
                 .ToListAsync(),
         };
 
-        logger.LogInformation("Retrieved statistics: {@Stats}", stats);
+        logger.LogDebug("Retrieved statistics: {@Stats}", stats);
         return Results.Ok(stats);
     }
 
@@ -219,6 +219,7 @@ internal static class ScannedFilesController
         int id,
         [FromBody] UpdateScannedFileRequest request,
         PlexScanContext context = null!,
+        INotificationService notificationService = null!,
         ILogger<Program> logger = null!
     )
     {
@@ -238,7 +239,69 @@ internal static class ScannedFilesController
                 return Results.NotFound();
             }
 
-            // Update only the provided values
+            var oldMediaType = scannedFile.MediaType;
+
+            // Handle MediaType changes
+            if (request.MediaType.HasValue && request.MediaType.Value != oldMediaType)
+            {
+                logger.LogInformation(
+                    "Changing MediaType for file {Id} from {OldType} to {NewType}",
+                    id,
+                    oldMediaType,
+                    request.MediaType.Value
+                );
+
+                // Converting TO Extras
+                if (request.MediaType.Value == MediaType.Extras)
+                {
+                    // Delete symlink if it exists
+                    if (!string.IsNullOrEmpty(scannedFile.DestFile) && File.Exists(scannedFile.DestFile))
+                    {
+                        try
+                        {
+                            File.Delete(scannedFile.DestFile);
+                            logger.LogInformation("Deleted symlink: {DestFile}", scannedFile.DestFile);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex, "Failed to delete symlink: {DestFile}", scannedFile.DestFile);
+                        }
+                    }
+
+                    // Clear TMDb-related fields
+                    scannedFile.MediaType = MediaType.Extras;
+                    scannedFile.TmdbId = null;
+                    scannedFile.ImdbId = null;
+                    scannedFile.Title = null;
+                    scannedFile.Year = null;
+                    scannedFile.Genres = null;
+                    scannedFile.SeasonNumber = null;
+                    scannedFile.EpisodeNumber = null;
+                    scannedFile.EpisodeNumber2 = null;
+                    scannedFile.DestFile = null;
+                    scannedFile.Status = FileStatus.Success;
+                }
+                // Converting FROM Extras to Movie/TvShow
+                else if (oldMediaType == MediaType.Extras)
+                {
+                    scannedFile.MediaType = request.MediaType.Value;
+                    scannedFile.Status = FileStatus.Processing;
+                    // Keep new MediaType, trigger re-processing
+                    // The file processing pipeline will handle TMDb lookup and symlink creation
+                    logger.LogInformation(
+                        "File {Id} converted from Extras to {NewType}, status set to Processing for re-detection",
+                        id,
+                        request.MediaType.Value
+                    );
+                }
+                else
+                {
+                    // Direct conversion between Movies/TvShows (not part of Extras feature, but handle it)
+                    scannedFile.MediaType = request.MediaType.Value;
+                }
+            }
+
+            // Update only the provided values (non-MediaType fields)
             if (request.TmdbId.HasValue)
             {
                 scannedFile.TmdbId = request.TmdbId.Value;
@@ -263,6 +326,10 @@ internal static class ScannedFilesController
 
             await context.SaveChangesAsync();
 
+            // Trigger SignalR notification
+            await notificationService.NotifyFileUpdated(scannedFile);
+
+            logger.LogDebug("Successfully updated scanned file {Id}", id);
             return Results.Ok(scannedFile);
         }
         catch (Exception ex)
@@ -302,7 +369,7 @@ internal static class ScannedFilesController
 
             // Refresh the entity from the database to get the latest version
             await context.Entry(scannedFile).ReloadAsync();
-            logger.LogInformation(
+            logger.LogDebug(
                 "Successfully updated scanned file {Id}: {@ScannedFile}",
                 id,
                 scannedFile

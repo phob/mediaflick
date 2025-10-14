@@ -15,7 +15,7 @@ public static class Cors
         var serviceProvider = services.BuildServiceProvider();
         var logger = serviceProvider.GetRequiredService<ILogger<CorsConfiguration>>();
         
-        logger.LogInformation("Configuring CORS policy with origins: {@CorsOrigins}", corsOrigins);
+        logger.LogDebug("Configuring CORS policy with origins: {@CorsOrigins}", corsOrigins);
         
         services.AddCors(options =>
             options.AddDefaultPolicy(policy =>

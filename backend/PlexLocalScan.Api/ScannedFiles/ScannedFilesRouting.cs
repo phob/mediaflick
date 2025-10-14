@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using PlexLocalScan.Abstractions;
 using PlexLocalScan.Api.Models;
@@ -134,12 +134,13 @@ internal static class ScannedFilesRouting
                     int id,
                     [FromBody] UpdateScannedFileRequest request,
                     [FromServices] PlexScanContext context,
+                    [FromServices] INotificationService notificationService,
                     [FromServices] ILogger<Program> logger
-                ) => await ScannedFilesController.UpdateScannedFile(id, request, context, logger)
+                ) => await ScannedFilesController.UpdateScannedFile(id, request, context, notificationService, logger)
             )
             .WithName("UpdateScannedFile")
             .WithDescription(
-                "Updates the TMDb ID, season number, and episode number for a scanned file"
+                "Updates the TMDb ID, season number, episode number, and media type for a scanned file"
             )
             .Produces<ScannedFile>()
             .Produces(StatusCodes.Status404NotFound)

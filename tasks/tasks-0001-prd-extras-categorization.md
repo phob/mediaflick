@@ -35,57 +35,57 @@
   - [x] 1.2 Verify `MediaDetectionOptions` is properly exposed in config API endpoints in `ConfigRouting.cs`
   - [x] 1.3 Add validation to ensure threshold is between 1 byte and 1 GB when config is saved
 
-- [ ] 2.0 Backend: Extend Update API to Support MediaType Changes
-  - [ ] 2.1 Add `MediaType?` property to `UpdateScannedFileRequest.cs`
-  - [ ] 2.2 Extend `UpdateScannedFile` method in `ScannedFilesController.cs` to handle MediaType updates
-  - [ ] 2.3 When changing TO Extras: Delete symlink (if exists), clear TMDb fields, set Status=Success
-  - [ ] 2.4 When changing FROM Extras: Set Status=Processing, keep new MediaType, trigger re-detection
-  - [ ] 2.5 Ensure SignalR notification is triggered via `INotificationService.NotifyFileUpdated()`
-  - [ ] 2.6 Add helper method to delete symlink using existing file system operations
+- [x] 2.0 Backend: Extend Update API to Support MediaType Changes
+  - [x] 2.1 Add `MediaType?` property to `UpdateScannedFileRequest.cs`
+  - [x] 2.2 Extend `UpdateScannedFile` method in `ScannedFilesController.cs` to handle MediaType updates
+  - [x] 2.3 When changing TO Extras: Delete symlink (if exists), clear TMDb fields, set Status=Success
+  - [x] 2.4 When changing FROM Extras: Set Status=Processing, keep new MediaType, trigger re-detection
+  - [x] 2.5 Ensure SignalR notification is triggered via `INotificationService.NotifyFileUpdated()`
+  - [x] 2.6 Add helper method to delete symlink using existing file system operations
 
-- [ ] 3.0 Backend: Implement Auto-Classification Logic for Extras
-  - [ ] 3.1 Inject `IOptionsSnapshot<MediaDetectionOptions>` into `FileProcessing` constructor
-  - [ ] 3.2 In `ProcessSingleFileAsync`, after `DetectMediaAsync` returns null, check file size
-  - [ ] 3.3 If fileSize < `AutoExtrasThresholdBytes`, set MediaType=Extras and Status=Success
-  - [ ] 3.4 Clear all TMDb-related fields for auto-classified Extras
-  - [ ] 3.5 Skip calling `CreateSymlinksAsync` for Extras
-  - [ ] 3.6 Ensure SignalR notification is sent for auto-classified Extras
+- [x] 3.0 Backend: Implement Auto-Classification Logic for Extras
+  - [x] 3.1 Inject `IOptionsSnapshot<MediaDetectionOptions>` into `FileProcessing` constructor
+  - [x] 3.2 In `ProcessSingleFileAsync`, after `DetectMediaAsync` returns null, check file size
+  - [x] 3.3 If fileSize < `AutoExtrasThresholdBytes`, set MediaType=Extras and Status=Success
+  - [x] 3.4 Clear all TMDb-related fields for auto-classified Extras
+  - [x] 3.5 Skip calling `CreateSymlinksAsync` for Extras
+  - [x] 3.6 Ensure SignalR notification is sent for auto-classified Extras
 
-- [ ] 4.0 Backend: Skip Symlink Creation for Extras
-  - [ ] 4.1 In `SymlinkHandler.CreateSymlinksAsync`, add early return if `mediaInfo.MediaType == MediaType.Extras`
-  - [ ] 4.2 Return `true` (success) without creating symlink for Extras
-  - [ ] 4.3 Ensure no error is logged when skipping Extras
+- [x] 4.0 Backend: Skip Symlink Creation for Extras
+  - [x] 4.1 In `SymlinkHandler.CreateSymlinksAsync`, add early return if `mediaInfo.MediaType == MediaType.Extras`
+  - [x] 4.2 Return `true` (success) without creating symlink for Extras
+  - [x] 4.3 Ensure no error is logged when skipping Extras
 
-- [ ] 5.0 Frontend: Add Settings UI for Auto-Extras Threshold
-  - [ ] 5.1 Add `autoExtrasThresholdMb?: number` to `MediaDetectionConfig` interface in `types.ts`
-  - [ ] 5.2 Update `UpdateScannedFileRequest` interface to include `mediaType?: MediaType`
-  - [ ] 5.3 Create `media-detection-config.tsx` component with number input for threshold (0-1024 MB)
-  - [ ] 5.4 Add helper text: "Files smaller than this size that don't match Movies/TV Shows will be automatically marked as Extras. Set to 0 to disable."
-  - [ ] 5.5 Implement MB ↔ bytes conversion (multiply by 1048576 when saving, divide when loading)
-  - [ ] 5.6 Import and render `MediaDetectionConfig` component in `settings-modal.tsx`
+- [x] 5.0 Frontend: Add Settings UI for Auto-Extras Threshold
+  - [x] 5.1 Add `autoExtrasThresholdMb?: number` to `MediaDetectionConfig` interface in `types.ts`
+  - [x] 5.2 Update `UpdateScannedFileRequest` interface to include `mediaType?: MediaType`
+  - [x] 5.3 Create `media-detection-config.tsx` component with number input for threshold (0-1024 MB)
+  - [x] 5.4 Add helper text: "Files smaller than this size that don't match Movies/TV Shows will be automatically marked as Extras. Set to 0 to disable."
+  - [x] 5.5 Implement MB ↔ bytes conversion (multiply by 1048576 when saving, divide when loading)
+  - [x] 5.6 Import and render `MediaDetectionConfig` component in `settings-modal.tsx`
 
-- [ ] 6.0 Frontend: Add Media Type Conversion Actions in File Listing
-  - [ ] 6.1 Update `updateScannedFile` in `endpoints.ts` to accept `mediaType` parameter
-  - [ ] 6.2 Add action menu/buttons to `table-component.tsx` for each row
-  - [ ] 6.3 Show "Mark as Extra" button for Movies/TvShows rows
-  - [ ] 6.4 Show "Convert to Movie" and "Convert to TV Show" buttons for Extras rows
-  - [ ] 6.5 Add confirmation dialog using shadcn AlertDialog when converting to/from Extra
-  - [ ] 6.6 Implement handler in `index.tsx` to call API and refresh data on success
-  - [ ] 6.7 Add toast notifications for success/error states
-  - [ ] 6.8 Update `row-mapper.tsx` to conditionally hide/show TMDb columns based on MediaType
+- [x] 6.0 Frontend: Add Media Type Conversion Actions in File Listing
+  - [x] 6.1 Update `updateScannedFile` in `endpoints.ts` to accept `mediaType` parameter
+  - [x] 6.2 Add action menu/buttons to `table-component.tsx` for each row
+  - [x] 6.3 Show "Mark as Extra" button for Movies/TvShows rows
+  - [x] 6.4 Show "Convert to Movie" and "Convert to TV Show" buttons for Extras rows
+  - [x] 6.5 Add confirmation dialog using shadcn AlertDialog when converting to/from Extra
+  - [x] 6.6 Implement handler in `index.tsx` to call API and refresh data on success
+  - [x] 6.7 Add toast notifications for success/error states
+  - [x] 6.8 Update `row-mapper.tsx` to conditionally hide/show TMDb columns based on MediaType
 
-- [ ] 7.0 Testing and Validation
-  - [ ] 7.1 Test backend: Auto-classification of files < 100 MB as Extras
-  - [ ] 7.2 Test backend: Manual conversion from Movie/TvShow to Extra (symlink deleted, metadata cleared)
-  - [ ] 7.3 Test backend: Manual conversion from Extra to Movie/TvShow (status set to Processing)
-  - [ ] 7.4 Test backend: Symlink creation skipped for Extras
-  - [ ] 7.5 Test backend: Configuration save/load with new threshold property
-  - [ ] 7.6 Test frontend: Settings UI displays and saves threshold correctly
-  - [ ] 7.7 Test frontend: Conversion buttons appear correctly based on MediaType
-  - [ ] 7.8 Test frontend: Confirmation dialogs work properly
-  - [ ] 7.9 Test frontend: Table updates after conversion actions
-  - [ ] 7.10 Run backend tests: `dotnet test` from backend directory
-  - [ ] 7.11 Run frontend linting: `bun run lint` from frontend directory
+- [x] 7.0 Testing and Validation
+  - [x] 7.1 Test backend: Auto-classification of files < 100 MB as Extras
+  - [x] 7.2 Test backend: Manual conversion from Movie/TvShow to Extra (symlink deleted, metadata cleared)
+  - [x] 7.3 Test backend: Manual conversion from Extra to Movie/TvShow (status set to Processing)
+  - [x] 7.4 Test backend: Symlink creation skipped for Extras
+  - [x] 7.5 Test backend: Configuration save/load with new threshold property
+  - [x] 7.6 Test frontend: Settings UI displays and saves threshold correctly
+  - [x] 7.7 Test frontend: Conversion buttons appear correctly based on MediaType
+  - [x] 7.8 Test frontend: Confirmation dialogs work properly
+  - [x] 7.9 Test frontend: Table updates after conversion actions
+  - [x] 7.10 Run backend tests: `dotnet test` from backend directory
+  - [x] 7.11 Run frontend linting: `bun run lint` from frontend directory
 
 ---
 

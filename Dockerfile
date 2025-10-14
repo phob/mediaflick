@@ -24,7 +24,9 @@ RUN bun run build
 FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine
 WORKDIR /app
 
-RUN apk add --no-cache icu-libs nodejs wget
+# Install Bun
+COPY --from=oven/bun:1-alpine /usr/local/bin/bun /usr/local/bin/bun
+RUN apk add --no-cache icu-libs wget
 
 # Create necessary directories
 RUN mkdir -p config/logs && mkdir -p /mnt/zurg/tvseries && mkdir -p /mnt/zurg/movies \
@@ -38,8 +40,6 @@ COPY --from=frontend-build /frontend/.next/standalone ./
 COPY --from=frontend-build /frontend/.next/static ./.next/static
 COPY --from=frontend-build /frontend/server.js ./server.js
 COPY --from=frontend-build /frontend/node_modules ./node_modules
-
-RUN mkdir -p ./.next/cache
 
 # Set environment variable for timezone and globalization
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
