@@ -2,6 +2,27 @@
 
 All notable changes to MediaFlick will be documented in this file.
 
+## [v0.1.7] - 2025-01-14
+
+### Added
+- **Extras Categorization**: Automatic classification of small undetected media files as "Extras" based on configurable file size threshold
+- **Settings UI**: Admin controls for configuring auto-extras threshold (MediaDetectionOptions.AutoExtrasThresholdBytes)
+- **Media Type Conversion**: UI actions to convert files between Movies, TvShows, and Extras in file listing
+- **AlertDialog Component**: Added @radix-ui/react-alert-dialog for confirmation dialogs
+
+### Changed
+- **Docker Runtime**: Migrated from Node.js to Bun runtime for improved performance
+- **Logging Verbosity**: Reduced production noise by changing frequent operations to Debug level (media lookup, scanned files retrieval, CORS, heartbeat)
+- **UpdateScannedFileRequest**: Extended API to support MediaType field changes
+- **Symlink Behavior**: Extras files now skip symlink creation to avoid cluttering organized directories
+- **Documentation**: Updated CLAUDE.md with correct directory paths (frontend/, backend/)
+
+### Fixed
+- **SignalR Memory Leak**: Resolved proxy middleware memory leak by creating middleware instance once
+- **Next.js Cache Permissions**: Fixed Docker cache permission errors by adding volume mount for .next/cache
+- **EditModal MediaType Switching**: Fixed bugs when converting files between media types, properly clearing TMDb fields when converting to Extras
+- **File Re-processing**: Files converted from Extras to Movies/TvShows now trigger re-detection pipeline
+
 ## [v0.1.6-0] - 2025-01-13
 
 ### Added
