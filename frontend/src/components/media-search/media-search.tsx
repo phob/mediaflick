@@ -1,20 +1,17 @@
 import Image from "next/image"
 import React, { useEffect, useRef, useState } from "react"
-import { Loader2, Search } from "lucide-react"
 
-import {
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
+import { Command as CommandPrimitive } from "cmdk"
+import { Clipboard, Loader2, Search } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
+import { CommandDialog, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 import { mediaApi } from "@/lib/api/endpoints"
 import { getTMDBImageUrl } from "@/lib/api/tmdb"
 import { MediaSearchResult, MediaType } from "@/lib/api/types"
+import { cn } from "@/lib/utils"
 
 interface MediaSearchProps {
   mediaType: MediaType.Movies | MediaType.TvShows
@@ -23,13 +20,22 @@ interface MediaSearchProps {
   label?: string
 }
 
-export function MediaSearch({ mediaType, onMediaSelect, className, label = "Search Media" }: Readonly<MediaSearchProps>) {
+export function MediaSearch({
+  mediaType,
+  onMediaSelect,
+  className,
+  label = "Search Media",
+}: Readonly<MediaSearchProps>) {
   const [open, setOpen] = useState(false)
   const [searchResults, setSearchResults] = useState<MediaSearchResult[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
   const [selectedTitle, setSelectedTitle] = useState<string>("")
   const [query, setQuery] = useState("")
   const [debouncedQuery, setDebouncedQuery] = useState("")
+  const [autoPasteEnabled, setAutoPasteEnabled] = useState(() => {
+    if (typeof window === "undefined") return false
+    return localStorage.getItem("mediaSearchAutoPaste") === "true"
+  })
   const latestRequestIdRef = useRef(0)
 
   // Debounce the input to reduce flicker and API spam
@@ -37,6 +43,31 @@ export function MediaSearch({ mediaType, onMediaSelect, className, label = "Sear
     const timeoutId = setTimeout(() => setDebouncedQuery(query), 250)
     return () => clearTimeout(timeoutId)
   }, [query])
+
+  // Persist auto-paste setting to localStorage
+  useEffect(() => {
+    localStorage.setItem("mediaSearchAutoPaste", autoPasteEnabled.toString())
+  }, [autoPasteEnabled])
+
+  // Auto-paste clipboard content when dialog opens
+  useEffect(() => {
+    if (open && autoPasteEnabled) {
+      // Small delay to ensure dialog is fully mounted and focused
+      const timeoutId = setTimeout(() => {
+        navigator.clipboard
+          .readText()
+          .then((text) => {
+            if (text && typeof text === "string") {
+              setQuery(text.trim())
+            }
+          })
+          .catch(() => {
+            // Clipboard access denied or not available - silently ignore
+          })
+      }, 100)
+      return () => clearTimeout(timeoutId)
+    }
+  }, [open, autoPasteEnabled])
 
   // Trigger search when debounced query changes
   useEffect(() => {
@@ -50,7 +81,7 @@ export function MediaSearch({ mediaType, onMediaSelect, className, label = "Sear
       try {
         const requestId = ++latestRequestIdRef.current
         // Normalize search query by replacing dots and underscores with spaces
-        const normalizedQuery = value.replace(/[._]/g, ' ')
+        const normalizedQuery = value.replace(/[._]/g, " ")
         const results = await (mediaType === MediaType.Movies
           ? mediaApi.searchMovies(normalizedQuery)
           : mediaApi.searchTvShows(normalizedQuery))
@@ -84,24 +115,39 @@ export function MediaSearch({ mediaType, onMediaSelect, className, label = "Sear
 
   return (
     <div className={className}>
-      <Button 
-        variant="outline" 
-        onClick={() => setOpen(true)}
-        className="w-full justify-between"
-      >
+      <Button variant="outline" onClick={() => setOpen(true)} className="w-full justify-between">
         {selectedTitle || label}
         <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
       </Button>
-      
+
       <CommandDialog open={open} onOpenChange={setOpen} shouldFilter={false}>
-        <CommandInput 
-          placeholder={`Search ${mediaType === MediaType.Movies ? 'movies' : 'TV shows'}...`}
-          onValueChange={setQuery}
-        />
+        <div className="flex h-12 items-center gap-2 border-b px-3 pr-12">
+          <Search className="size-4 shrink-0 opacity-50" />
+          <CommandPrimitive.Input
+            placeholder={`Search ${mediaType === MediaType.Movies ? "movies" : "TV shows"}...`}
+            value={query}
+            onValueChange={setQuery}
+            className="placeholder:text-muted-foreground flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => setAutoPasteEnabled(!autoPasteEnabled)}
+                className={cn(
+                  "rounded-sm p-1 transition-all duration-200",
+                  autoPasteEnabled ? "text-primary scale-110" : "text-muted-foreground hover:text-foreground"
+                )}
+                aria-label={autoPasteEnabled ? "Disable auto-paste" : "Enable auto-paste"}
+              >
+                <Clipboard className="size-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{autoPasteEnabled ? "Auto-paste enabled" : "Auto-paste disabled"}</TooltipContent>
+          </Tooltip>
+        </div>
         <CommandList>
-          {searchResults.length === 0 && !searchLoading && (
-            <CommandEmpty>No results found.</CommandEmpty>
-          )}
+          {searchResults.length === 0 && !searchLoading && <CommandEmpty>No results found.</CommandEmpty>}
 
           {searchLoading && (
             <div className="flex items-center justify-center p-3">
@@ -131,9 +177,7 @@ export function MediaSearch({ mediaType, onMediaSelect, className, label = "Sear
                   )}
                   <div className="flex flex-col">
                     <span className="font-medium">{item.title}</span>
-                    {item.year && (
-                      <span className="text-sm text-muted-foreground">({item.year})</span>
-                    )}
+                    {item.year && <span className="text-muted-foreground text-sm">({item.year})</span>}
                   </div>
                 </CommandItem>
               ))}

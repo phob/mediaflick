@@ -38,11 +38,14 @@ services:
     environment:
       - TZ=${TIMEZONE:-$(timedatectl | grep "Time zone" | awk '{print $3}')}  # Use system timezone
       - PLEX_CLAIM=claim-_C16H5qQ6qhHnubew_Yx
+    devices:
+      - /dev/dxg:/dev/dri
     volumes:
       - /opt/plex/config:/config
       - /opt/plex/transcode:/transcode
       - /opt/plex/media:/data
       - /mnt:/mnt
+      - /dev/shm:/data/transcode
     restart: on-failure
     depends_on:
       - rclone
