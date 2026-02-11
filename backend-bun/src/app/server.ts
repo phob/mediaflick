@@ -40,7 +40,7 @@ context.poller = poller
 poller.start(initialConfig)
 const stopRuntimeJobs = startRuntimeJobs(configStore, wsHub)
 
-const router = createRouter(context)
+const app = createRouter(context)
 
 const server = Bun.serve({
   port: env.port,
@@ -48,7 +48,7 @@ const server = Bun.serve({
     if (wsHub.tryUpgrade(request, bunServer)) {
       return undefined
     }
-    return router.handle(request)
+    return app.fetch(request)
   },
   websocket: wsHub.websocket,
 })

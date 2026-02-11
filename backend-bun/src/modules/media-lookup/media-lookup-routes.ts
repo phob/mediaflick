@@ -1,7 +1,8 @@
+import { Hono } from "hono"
+import { ENTRYPOINTS } from "@/app/entrypoints"
 import { and, eq, sql } from "drizzle-orm"
 import type { AppContext } from "@/app/context"
 import { scannedFiles } from "@/db/schema"
-import { json } from "@/shared/http"
 import type { EpisodeInfo, MediaInfo, MediaSearchResult, SeasonInfo } from "@/shared/types"
 
 function toInt(value: string): number | null {
@@ -10,21 +11,20 @@ function toInt(value: string): number | null {
   return n
 }
 
-function validateTitle(request: Request): string | null {
-  const title = new URL(request.url).searchParams.get("title")
+function validateTitle(title: string | undefined): string | null {
   if (!title || !title.trim()) {
     return null
   }
   return title.trim()
 }
 
-export async function handleMediaLookupRoute(request: Request, pathname: string, context: AppContext): Promise<Response | null> {
-  const method = request.method
+export function createMediaLookupRouter(context: AppContext) {
+  const router = new Hono()
 
-  if (method === "GET" && pathname === "/api/medialookup/movies/search") {
-    const title = validateTitle(request)
+  router.get(ENTRYPOINTS.api.mediaLookup.movieSearch, async c => {
+    const title = validateTitle(c.req.query("title"))
     if (!title) {
-      return json({ error: "Title is required" }, { status: 400 })
+      return c.json({ error: "Title is required" }, 400)
     }
 
     const results = await context.tmdb.searchMovie(title)
@@ -34,13 +34,13 @@ export async function handleMediaLookupRoute(request: Request, pathname: string,
       year: context.tmdb.movieYear(item),
       posterPath: item.poster_path ?? null,
     }))
-    return json(payload)
-  }
+    return c.json(payload)
+  })
 
-  if (method === "GET" && pathname === "/api/medialookup/tvshows/search") {
-    const title = validateTitle(request)
+  router.get(ENTRYPOINTS.api.mediaLookup.tvSearch, async c => {
+    const title = validateTitle(c.req.query("title"))
     if (!title) {
-      return json({ error: "Title is required" }, { status: 400 })
+      return c.json({ error: "Title is required" }, 400)
     }
 
     const results = await context.tmdb.searchTv(title)
@@ -50,14 +50,13 @@ export async function handleMediaLookupRoute(request: Request, pathname: string,
       year: context.tmdb.tvYear(item),
       posterPath: item.poster_path ?? null,
     }))
-    return json(payload)
-  }
+    return c.json(payload)
+  })
 
-  const movieMatch = pathname.match(/^\/api\/medialookup\/movies\/(\d+)$/)
-  if (method === "GET" && movieMatch) {
-    const tmdbId = toInt(movieMatch[1])
+  router.get(ENTRYPOINTS.api.mediaLookup.movieByTmdbId, async c => {
+    const tmdbId = toInt(c.req.param("tmdbId"))
     if (!tmdbId) {
-      return json({ error: "Invalid TMDb id" }, { status: 400 })
+      return c.json({ error: "Invalid TMDb id" }, 400)
     }
 
     const [movie, external] = await Promise.all([
@@ -78,14 +77,13 @@ export async function handleMediaLookupRoute(request: Request, pathname: string,
       genres: movie.genres?.map(g => g.name) ?? [],
     }
 
-    return json(payload)
-  }
+    return c.json(payload)
+  })
 
-  const tvMatch = pathname.match(/^\/api\/medialookup\/tvshows\/(\d+)$/)
-  if (method === "GET" && tvMatch) {
-    const tmdbId = toInt(tvMatch[1])
+  router.get(ENTRYPOINTS.api.mediaLookup.tvByTmdbId, async c => {
+    const tmdbId = toInt(c.req.param("tmdbId"))
     if (!tmdbId) {
-      return json({ error: "Invalid TMDb id" }, { status: 400 })
+      return c.json({ error: "Invalid TMDb id" }, 400)
     }
 
     const [show, external, counts] = await Promise.all([
@@ -114,15 +112,14 @@ export async function handleMediaLookupRoute(request: Request, pathname: string,
       seasonCountScanned: 0,
     }
 
-    return json(payload)
-  }
+    return c.json(payload)
+  })
 
-  const seasonMatch = pathname.match(/^\/api\/medialookup\/tvshows\/(\d+)\/seasons\/(\d+)$/)
-  if (method === "GET" && seasonMatch) {
-    const tmdbId = toInt(seasonMatch[1])
-    const seasonNumber = toInt(seasonMatch[2])
+  router.get(ENTRYPOINTS.api.mediaLookup.tvSeasonByTmdbId, async c => {
+    const tmdbId = toInt(c.req.param("tmdbId"))
+    const seasonNumber = toInt(c.req.param("seasonNumber"))
     if (!tmdbId || !seasonNumber) {
-      return json({ error: "Invalid TMDb or season number" }, { status: 400 })
+      return c.json({ error: "Invalid TMDb or season number" }, 400)
     }
 
     const [season, scannedEpisodes] = await Promise.all([
@@ -153,16 +150,15 @@ export async function handleMediaLookupRoute(request: Request, pathname: string,
       episodeCountScanned: scannedSet.size,
     }
 
-    return json(payload)
-  }
+    return c.json(payload)
+  })
 
-  const episodeMatch = pathname.match(/^\/api\/medialookup\/tvshows\/(\d+)\/seasons\/(\d+)\/episodes\/(\d+)$/)
-  if (method === "GET" && episodeMatch) {
-    const tmdbId = toInt(episodeMatch[1])
-    const seasonNumber = toInt(episodeMatch[2])
-    const episodeNumber = toInt(episodeMatch[3])
+  router.get(ENTRYPOINTS.api.mediaLookup.tvEpisodeByTmdbId, async c => {
+    const tmdbId = toInt(c.req.param("tmdbId"))
+    const seasonNumber = toInt(c.req.param("seasonNumber"))
+    const episodeNumber = toInt(c.req.param("episodeNumber"))
     if (!tmdbId || !seasonNumber || !episodeNumber) {
-      return json({ error: "Invalid episode request" }, { status: 400 })
+      return c.json({ error: "Invalid episode request" }, 400)
     }
 
     const episode = await context.tmdb.getTvEpisode(tmdbId, seasonNumber, episodeNumber)
@@ -175,20 +171,24 @@ export async function handleMediaLookupRoute(request: Request, pathname: string,
       tmdbId: episode.id,
     }
 
-    return json(payload)
-  }
+    return c.json(payload)
+  })
 
-  const imagePrefix = "/api/medialookup/images/"
-  if (method === "GET" && pathname.startsWith(imagePrefix)) {
-    const rawPath = pathname.slice(imagePrefix.length)
-    const size = new URL(request.url).searchParams.get("size") ?? "w500"
-    return json(context.tmdb.getImageUrl(rawPath, size))
-  }
+  router.get(`${ENTRYPOINTS.api.mediaLookup.imagesPrefix}/*`, c => {
+    const rawPath = c.req.path.slice(`${ENTRYPOINTS.api.mediaLookup.imagesPrefix}/`.length)
+    const size = c.req.query("size") ?? "w500"
+    return c.json(context.tmdb.getImageUrl(rawPath, size))
+  })
 
-  if (method === "DELETE" && pathname.startsWith("/api/medialookup/cache")) {
+  router.delete(ENTRYPOINTS.api.mediaLookup.cacheBase, c => {
     context.tmdb.invalidateAll()
-    return json({ ok: true })
-  }
+    return c.json({ ok: true })
+  })
 
-  return null
+  router.delete(ENTRYPOINTS.api.mediaLookup.cacheWildcard, c => {
+    context.tmdb.invalidateAll()
+    return c.json({ ok: true })
+  })
+
+  return router
 }

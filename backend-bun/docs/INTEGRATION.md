@@ -2,7 +2,7 @@
 
 ## Overview
 The Bun backend is organized as small modules around clear responsibilities:
-- `src/app/*`: server bootstrapping and request routing
+- `src/app/*`: server bootstrapping, Hono app composition, and entrypoint registry
 - `src/config/*`: environment + YAML runtime configuration
 - `src/db/*`: Drizzle schema and SQLite initialization
 - `src/modules/file-ingest/*`: poller and periodic runtime jobs
@@ -20,6 +20,20 @@ The Bun backend is organized as small modules around clear responsibilities:
 5. Create services (TMDb client, repo, WS hub, poller).
 6. Start poller and runtime jobs.
 7. Start HTTP + WS server (`Bun.serve`).
+
+## Entrypoint Registry
+- `src/app/entrypoints.ts` is the single source of truth for:
+  - all HTTP endpoint paths
+  - all path-pattern routes with params
+  - WebSocket upgrade endpoint paths
+- Route modules import entrypoint constants instead of hardcoding path strings.
+- Server WS upgrade checks import the same constants to keep HTTP and WS entrypoints aligned.
+
+### Entrypoint Consolidation Plan
+1. Add any new endpoint path only in `src/app/entrypoints.ts` first.
+2. Reference constants from route modules (`src/modules/**/**-routes.ts`) exclusively.
+3. Keep route mounting centralized in `src/app/router.ts`.
+4. Avoid direct string literals for endpoint paths elsewhere in `src/`.
 
 ## Configuration Integration
 - Config file path defaults to `backend-bun/config/config.yml`.

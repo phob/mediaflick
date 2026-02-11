@@ -4,7 +4,7 @@ import type { AppContext } from "@/app/context"
 import { detectMovieFromFileName } from "@/modules/detection/movie-detection"
 import { SeriesIdentityService } from "@/modules/detection/series-identity-service"
 import { detectTvEpisode } from "@/modules/detection/tv-detection"
-import { buildDestinationPath, createSymlinkAt } from "@/modules/symlink/symlink-service"
+import { buildDestinationPath, createSymlinkAt, isDestinationConflictError } from "@/modules/symlink/symlink-service"
 import type { RuntimeConfig } from "@/config/runtime-config"
 import type { MediaType } from "@/shared/types"
 
@@ -287,7 +287,31 @@ export class FilePoller {
         mediaType,
         error: String(error),
       })
-      await this.markFailed(tracked.id, mediaType)
+      if (isDestinationConflictError(error)) {
+        await this.markDuplicate(tracked.id, mediaType)
+      } else {
+        await this.markFailed(tracked.id, mediaType)
+      }
+    }
+  }
+
+  private async markDuplicate(id: number, mediaType: MediaType): Promise<void> {
+    const updated = await this.context.scannedFilesRepo.updateProcessed({
+      id,
+      destFile: null,
+      mediaType,
+      tmdbId: null,
+      imdbId: null,
+      title: null,
+      year: null,
+      genres: null,
+      seasonNumber: null,
+      episodeNumber: null,
+      episodeNumber2: null,
+      status: "Duplicate",
+    })
+    if (updated) {
+      this.context.wsHub.broadcast("file.updated", updated)
     }
   }
 

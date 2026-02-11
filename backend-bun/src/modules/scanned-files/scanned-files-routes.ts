@@ -1,7 +1,9 @@
+import { Hono } from "hono"
+import { ENTRYPOINTS } from "@/app/entrypoints"
 import type { AppContext } from "@/app/context"
 import { buildDestinationPath, cleanupDeadSymlinks, createSymlinkAt, removeSymlinkIfExists } from "@/modules/symlink/symlink-service"
 import { HttpError } from "@/shared/errors"
-import { json, parseJson } from "@/shared/http"
+import { parseJson } from "@/shared/http"
 import type { MediaStatus, MediaType, UpdateScannedFileRequest } from "@/shared/types"
 
 function parseNumber(value: string | null, fallback: number): number {
@@ -73,46 +75,42 @@ async function recreateSingleSymlink(id: number, context: AppContext) {
   return updated
 }
 
-export async function handleScannedFilesRoute(request: Request, pathname: string, context: AppContext): Promise<Response | null> {
-  if (!pathname.startsWith("/api/scannedfiles")) {
-    return null
-  }
+export function createScannedFilesRouter(context: AppContext) {
+  const router = new Hono()
 
-  const url = new URL(request.url)
-
-  if (request.method === "GET" && pathname === "/api/scannedfiles") {
+  router.get(ENTRYPOINTS.api.scannedFiles.base, async c => {
     const result = await context.scannedFilesRepo.list({
-      status: (url.searchParams.get("status") as MediaStatus | null) ?? undefined,
-      mediaType: (url.searchParams.get("mediaType") as MediaType | null) ?? undefined,
-      searchTerm: url.searchParams.get("searchTerm") ?? undefined,
-      sortBy: url.searchParams.get("sortBy") ?? undefined,
-      sortOrder: url.searchParams.get("sortOrder") ?? undefined,
-      page: parseNumber(url.searchParams.get("page"), 1),
-      pageSize: parseNumber(url.searchParams.get("pageSize"), 30),
-      ids: url.searchParams.getAll("ids").map(Number).filter(v => Number.isInteger(v)),
+      status: (c.req.query("status") as MediaStatus | undefined) ?? undefined,
+      mediaType: (c.req.query("mediaType") as MediaType | undefined) ?? undefined,
+      searchTerm: c.req.query("searchTerm") ?? undefined,
+      sortBy: c.req.query("sortBy") ?? undefined,
+      sortOrder: c.req.query("sortOrder") ?? undefined,
+      page: parseNumber(c.req.query("page") ?? null, 1),
+      pageSize: parseNumber(c.req.query("pageSize") ?? null, 30),
+      ids: (c.req.queries("ids") ?? []).map(Number).filter(v => Number.isInteger(v)),
     })
 
-    return json(result)
-  }
+    return c.json(result)
+  })
 
-  if (request.method === "GET" && pathname === "/api/scannedfiles/stats") {
+  router.get(ENTRYPOINTS.api.scannedFiles.stats, async c => {
     const stats = await context.scannedFilesRepo.stats()
-    return json(stats)
-  }
+    return c.json(stats)
+  })
 
-  if (request.method === "GET" && pathname === "/api/scannedfiles/tmdb-ids-and-titles") {
+  router.get(ENTRYPOINTS.api.scannedFiles.tmdbIdsAndTitles, async c => {
     const result = await context.scannedFilesRepo.listForTmdbTitles(
-      (url.searchParams.get("mediaType") as MediaType | null) ?? undefined,
-      url.searchParams.get("searchTerm") ?? undefined,
+      (c.req.query("mediaType") as MediaType | undefined) ?? undefined,
+      c.req.query("searchTerm") ?? undefined,
     )
-    return json(result)
-  }
+    return c.json(result)
+  })
 
-  if (request.method === "DELETE" && pathname === "/api/scannedfiles/batch") {
-    const body = await parseJson<number[] | { ids: number[] }>(request)
+  router.delete(ENTRYPOINTS.api.scannedFiles.batchDelete, async c => {
+    const body = await parseJson<number[] | { ids: number[] }>(c.req.raw)
     const ids = Array.isArray(body) ? body : body.ids
     if (!ids || ids.length === 0) {
-      return json({ error: "No IDs provided" }, { status: 400 })
+      return c.json({ error: "No IDs provided" }, 400)
     }
 
     const deleted = await context.scannedFilesRepo.deleteByIds(ids)
@@ -128,10 +126,10 @@ export async function handleScannedFilesRoute(request: Request, pathname: string
       await cleanupDeadSymlinks(mapping.destinationFolder)
     }
 
-    return json({ deletedIds: deleted.map(item => item.id) })
-  }
+    return c.json({ deletedIds: deleted.map(item => item.id) })
+  })
 
-  if (request.method === "POST" && pathname === "/api/scannedfiles/recreate-symlinks") {
+  router.post(ENTRYPOINTS.api.scannedFiles.recreateSymlinks, async c => {
     const all = await context.scannedFilesRepo.listSuccessfulWithDestination()
     let successCount = 0
 
@@ -143,64 +141,71 @@ export async function handleScannedFilesRoute(request: Request, pathname: string
       }
     }
 
-    return json({ successCount })
-  }
+    return c.json({ successCount })
+  })
 
-  const recreateMatch = pathname.match(/^\/api\/scannedfiles\/(\d+)\/recreate-symlink$/)
-  if (request.method === "PATCH" && recreateMatch) {
-    const id = Number(recreateMatch[1])
+  router.patch(ENTRYPOINTS.api.scannedFiles.recreateSymlinkById, async c => {
+    const id = Number(c.req.param("id"))
     if (!Number.isInteger(id)) {
-      return json({ error: "Invalid id" }, { status: 400 })
+      return c.json({ error: "Invalid id" }, 400)
     }
 
     const updated = await recreateSingleSymlink(id, context)
-    return json(updated)
-  }
+    return c.json(updated)
+  })
 
-  const idMatch = pathname.match(/^\/api\/scannedfiles\/(\d+)$/)
-  if (idMatch) {
-    const id = Number(idMatch[1])
+  router.get(ENTRYPOINTS.api.scannedFiles.byId, async c => {
+    const id = Number(c.req.param("id"))
     if (!Number.isInteger(id)) {
-      return json({ error: "Invalid id" }, { status: 400 })
+      return c.json({ error: "Invalid id" }, 400)
     }
 
-    if (request.method === "GET") {
-      const item = await context.scannedFilesRepo.findById(id)
-      if (!item) {
-        return json({ error: "Not found" }, { status: 404 })
-      }
-      return json(item)
+    const item = await context.scannedFilesRepo.findById(id)
+    if (!item) {
+      return c.json({ error: "Not found" }, 404)
+    }
+    return c.json(item)
+  })
+
+  router.patch(ENTRYPOINTS.api.scannedFiles.byId, async c => {
+    const id = Number(c.req.param("id"))
+    if (!Number.isInteger(id)) {
+      return c.json({ error: "Invalid id" }, 400)
     }
 
-    if (request.method === "PATCH") {
-      const body = await parseJson<UpdateScannedFileRequest>(request)
-      const updated = await context.scannedFilesRepo.updateById(id, body)
-      if (!updated) {
-        return json({ error: "Not found" }, { status: 404 })
-      }
-
-      context.wsHub.broadcast("file.updated", updated)
-      return json(updated)
+    const body = await parseJson<UpdateScannedFileRequest>(c.req.raw)
+    const updated = await context.scannedFilesRepo.updateById(id, body)
+    if (!updated) {
+      return c.json({ error: "Not found" }, 404)
     }
 
-    if (request.method === "DELETE") {
-      const deleted = await context.scannedFilesRepo.deleteById(id)
-      if (!deleted) {
-        return json({ error: "Not found" }, { status: 404 })
-      }
-      if (deleted.destFile) {
-        await removeSymlinkIfExists(deleted.destFile)
-      }
-      context.wsHub.broadcast("file.removed", deleted)
-      return json({ deletedId: id })
-    }
-  }
+    context.wsHub.broadcast("file.updated", updated)
+    return c.json(updated)
+  })
 
-  if (pathname === "/api/scannedfiles" && request.method === "DELETE") {
-    const ids = parseIds(url.searchParams.get("ids"))
+  router.delete(ENTRYPOINTS.api.scannedFiles.byId, async c => {
+    const id = Number(c.req.param("id"))
+    if (!Number.isInteger(id)) {
+      return c.json({ error: "Invalid id" }, 400)
+    }
+
+    const deleted = await context.scannedFilesRepo.deleteById(id)
+    if (!deleted) {
+      return c.json({ error: "Not found" }, 404)
+    }
+    if (deleted.destFile) {
+      await removeSymlinkIfExists(deleted.destFile)
+    }
+    context.wsHub.broadcast("file.removed", deleted)
+    return c.json({ deletedId: id })
+  })
+
+  router.delete(ENTRYPOINTS.api.scannedFiles.base, async c => {
+    const ids = parseIds(c.req.query("ids") ?? null)
     if (ids.length === 0) {
-      return json({ error: "No ids provided" }, { status: 400 })
+      return c.json({ error: "No ids provided" }, 400)
     }
+
     const deleted = await context.scannedFilesRepo.deleteByIds(ids)
     for (const item of deleted) {
       if (item.destFile) {
@@ -208,8 +213,8 @@ export async function handleScannedFilesRoute(request: Request, pathname: string
       }
       context.wsHub.broadcast("file.removed", item)
     }
-    return json({ deletedIds: deleted.map(item => item.id) })
-  }
+    return c.json({ deletedIds: deleted.map(item => item.id) })
+  })
 
-  return null
+  return router
 }

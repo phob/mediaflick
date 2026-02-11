@@ -12,6 +12,20 @@ interface SymlinkMeta {
   episodeTitle?: string | null
 }
 
+export class DestinationConflictError extends Error {
+  constructor(public readonly destinationFile: string) {
+    super(`Destination already points to another source: ${destinationFile}`)
+    this.name = "DestinationConflictError"
+  }
+}
+
+export function isDestinationConflictError(error: unknown): error is DestinationConflictError {
+  return (
+    error instanceof DestinationConflictError
+    || (error instanceof Error && error.message.startsWith("Destination already points to another source:"))
+  )
+}
+
 function cleanFileName(value: string): string {
   return value
     .replace(/[<>:"/\\|?*]/g, " -")
@@ -73,7 +87,7 @@ export async function createSymlinkAt(sourceFile: string, destinationFile: strin
       if (target === sourceFile) {
         return
       }
-      throw new Error(`Destination already points to another source: ${destinationFile}`)
+      throw new DestinationConflictError(destinationFile)
     }
     throw new Error(`Destination already exists and is not a symlink: ${destinationFile}`)
   } catch (error) {

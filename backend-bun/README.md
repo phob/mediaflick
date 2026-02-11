@@ -15,6 +15,8 @@ This folder contains the Bun/TypeScript backend redesign, built as an alternativ
 **Migration Status**: This is an experimental replacement, not yet production-ready. Both backends share the same SQLite schema and API contract for gradual transition.
 
 ## Current Status
+- HTTP routing is implemented with Hono on top of `Bun.serve`.
+- All HTTP and WebSocket path entrypoints are centralized in `src/app/entrypoints.ts`.
 - Poll-based ingestion pipeline is implemented (no file watcher).
 - REST API routes for config, logs, media lookup, scanned files, and symlink cleanup are implemented.
 - WebSocket realtime channel is implemented at `/ws/filetracking`.

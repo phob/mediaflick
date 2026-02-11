@@ -16,7 +16,7 @@
 - Good throughput for large file batches without unbounded concurrency.
 
 ## Proposed Stack
-- Runtime: Bun (`Bun.serve`)
+- Runtime: Bun (`Bun.serve`) + Hono (HTTP routing/middleware)
 - Language: TypeScript (strict)
 - DB: SQLite (`bun:sqlite`) + Drizzle ORM + Drizzle migrations
 - Validation: Zod

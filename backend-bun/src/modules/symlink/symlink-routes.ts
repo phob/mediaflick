@@ -1,19 +1,20 @@
+import { Hono } from "hono"
+import { ENTRYPOINTS } from "@/app/entrypoints"
 import type { AppContext } from "@/app/context"
 import { cleanupDeadSymlinks } from "@/modules/symlink/symlink-service"
-import { json } from "@/shared/http"
 
-export async function handleSymlinkRoute(request: Request, context: AppContext): Promise<Response | null> {
-  const pathname = new URL(request.url).pathname
+export function createSymlinkRouter(context: AppContext) {
+  const router = new Hono()
 
-  if (request.method === "POST" && pathname === "/api/symlink/cleanup") {
+  router.post(ENTRYPOINTS.api.symlink.cleanup, async c => {
     const config = await context.configStore.get()
 
     for (const mapping of config.plex.folderMappings) {
       await cleanupDeadSymlinks(mapping.destinationFolder)
     }
 
-    return json({ message: "Symlink cleanup completed" })
-  }
+    return c.json({ message: "Symlink cleanup completed" })
+  })
 
-  return null
+  return router
 }

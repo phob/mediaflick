@@ -1,3 +1,4 @@
+import { ENTRYPOINTS } from "@/app/entrypoints"
 import type { Logger } from "@/shared/logger"
 
 type WsData = undefined
@@ -29,7 +30,7 @@ export function createWsHub(logger: Logger): WsHub {
 
   function tryUpgrade(request: Request, server: Bun.Server<WsData>): boolean {
     const url = new URL(request.url)
-    if (url.pathname !== "/ws/filetracking") {
+    if (url.pathname !== ENTRYPOINTS.ws.filetracking) {
       return false
     }
 

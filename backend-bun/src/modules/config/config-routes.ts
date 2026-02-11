@@ -1,31 +1,32 @@
+import { Hono } from "hono"
+import { ENTRYPOINTS } from "@/app/entrypoints"
 import type { AppContext } from "@/app/context"
 import { configSchema } from "@/config/runtime-config"
-import { json, parseJson } from "@/shared/http"
+import { parseJson } from "@/shared/http"
 
-export async function handleConfigRoute(request: Request, context: AppContext): Promise<Response | null> {
-  const pathname = new URL(request.url).pathname
-  if (pathname !== "/api/config") {
-    return null
-  }
+export function createConfigRouter(context: AppContext) {
+  const router = new Hono()
 
-  if (request.method === "GET") {
+  router.get(ENTRYPOINTS.api.config, async c => {
     const config = await context.configStore.get()
-    return json(config)
-  }
+    return c.json(config)
+  })
 
-  if (request.method === "PUT") {
-    const body = await parseJson<unknown>(request)
+  router.put(ENTRYPOINTS.api.config, async c => {
+    const body = await parseJson<unknown>(c.req.raw)
     const parsed = configSchema.safeParse(body)
     if (!parsed.success) {
-      return json({ error: "Invalid configuration", details: parsed.error.issues }, { status: 400 })
+      return c.json({ error: "Invalid configuration", details: parsed.error.issues }, 400)
     }
 
     const updated = await context.configStore.update(parsed.data)
     context.tmdb = context.tmdbFactory(updated.tmDb.apiKey)
     context.poller.restart(updated)
 
-    return json(updated)
-  }
+    return c.json(updated)
+  })
 
-  return json({ error: "Method not allowed" }, { status: 405 })
+  router.all(ENTRYPOINTS.api.config, c => c.json({ error: "Method not allowed" }, 405))
+
+  return router
 }
