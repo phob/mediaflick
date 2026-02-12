@@ -10,7 +10,107 @@ interface ResolveSeriesIdentityInput {
   yearHint: number | null
 }
 
-function pickBestTmdb(candidates: string[], searchResults: TmdbTvResult[], tmdb: TmdbClient): TmdbTvResult | null {
+const genericSeriesCandidates = new Set([
+  "tv",
+  "show",
+  "shows",
+  "series",
+  "tv show",
+  "tv shows",
+  "tvshow",
+  "tvshows",
+  "tv series",
+  "tvseries",
+  "season",
+  "seasons",
+  "episode",
+  "episodes",
+  "complete",
+])
+
+function isUsefulSeriesCandidate(candidate: string): boolean {
+  const normalized = candidate.trim()
+  if (!normalized) {
+    return false
+  }
+
+  if (genericSeriesCandidates.has(normalized)) {
+    return false
+  }
+
+  const tokens = normalized.split(" ").filter(Boolean)
+  if (tokens.length === 0) {
+    return false
+  }
+
+  if (tokens.every(token => genericSeriesCandidates.has(token))) {
+    return false
+  }
+
+  return true
+}
+
+function pickAliasMatch(
+  candidate: string,
+  aliasRows: Array<{
+    identityId: number
+    tmdbId: number
+    imdbId: string | null
+    canonicalTitle: string
+    year: number | null
+  }>,
+  yearHint: number | null,
+): {
+  tmdbId: number
+  imdbId: string | null
+  canonicalTitle: string
+  year: number | null
+} | null {
+  if (aliasRows.length === 0) {
+    return null
+  }
+
+  const plausibleRows = aliasRows.filter(row => similarity(candidate, normalizeTitle(row.canonicalTitle)) > 0)
+  if (plausibleRows.length === 0) {
+    return null
+  }
+
+  const deduped = new Map<number, (typeof aliasRows)[number]>()
+  for (const row of plausibleRows) {
+    if (!deduped.has(row.identityId)) {
+      deduped.set(row.identityId, row)
+    }
+  }
+
+  const uniqueRows = [...deduped.values()]
+  if (uniqueRows.length === 1) {
+    const row = uniqueRows[0]
+    return {
+      tmdbId: row.tmdbId,
+      imdbId: row.imdbId,
+      canonicalTitle: row.canonicalTitle,
+      year: row.year,
+    }
+  }
+
+  if (!yearHint) {
+    return null
+  }
+
+  const yearRows = uniqueRows.filter(row => row.year === yearHint)
+  if (yearRows.length !== 1) {
+    return null
+  }
+
+  return {
+    tmdbId: yearRows[0].tmdbId,
+    imdbId: yearRows[0].imdbId,
+    canonicalTitle: yearRows[0].canonicalTitle,
+    year: yearRows[0].year,
+  }
+}
+
+function pickBestTmdb(candidates: string[], searchResults: TmdbTvResult[]): TmdbTvResult | null {
   let best: TmdbTvResult | null = null
   let bestScore = -1
 
@@ -42,7 +142,7 @@ export class SeriesIdentityService {
   ) {}
 
   async resolve(input: ResolveSeriesIdentityInput): Promise<ResolvedSeriesIdentity | null> {
-    const normalizedCandidates = input.candidates.map(normalizeTitle).filter(Boolean)
+    const normalizedCandidates = [...new Set(input.candidates.map(normalizeTitle).filter(isUsefulSeriesCandidate))]
     if (normalizedCandidates.length === 0) {
       return null
     }
@@ -50,6 +150,7 @@ export class SeriesIdentityService {
     for (const candidate of normalizedCandidates) {
       const aliasRows = await this.db
         .select({
+          identityId: seriesAliases.identityId,
           tmdbId: seriesIdentityMap.tmdbId,
           imdbId: seriesIdentityMap.imdbId,
           canonicalTitle: seriesIdentityMap.canonicalTitle,
@@ -58,15 +159,11 @@ export class SeriesIdentityService {
         .from(seriesAliases)
         .innerJoin(seriesIdentityMap, eq(seriesAliases.identityId, seriesIdentityMap.id))
         .where(eq(seriesAliases.aliasNormalized, candidate))
-        .limit(1)
+        .limit(25)
 
-      if (aliasRows[0]) {
-        return {
-          tmdbId: aliasRows[0].tmdbId,
-          imdbId: aliasRows[0].imdbId,
-          canonicalTitle: aliasRows[0].canonicalTitle,
-          year: aliasRows[0].year,
-        }
+      const aliasMatch = pickAliasMatch(candidate, aliasRows, input.yearHint)
+      if (aliasMatch) {
+        return aliasMatch
       }
 
       const identityRows = await this.db
@@ -90,9 +187,8 @@ export class SeriesIdentityService {
       }
     }
 
-    const uniqueCandidates = [...new Set(normalizedCandidates)]
     let searchResults: TmdbTvResult[] = []
-    for (const candidate of uniqueCandidates) {
+    for (const candidate of normalizedCandidates) {
       const results = await this.tmdb.searchTv(candidate)
       searchResults = searchResults.concat(results)
     }
@@ -101,7 +197,7 @@ export class SeriesIdentityService {
       return null
     }
 
-    const bestMatch = pickBestTmdb(uniqueCandidates, searchResults, this.tmdb)
+    const bestMatch = pickBestTmdb(normalizedCandidates, searchResults)
     if (!bestMatch) {
       return null
     }
@@ -182,7 +278,7 @@ export class SeriesIdentityService {
   private async addAliases(identityId: number, aliases: string[]): Promise<void> {
     for (const aliasRaw of aliases) {
       const aliasNormalized = normalizeTitle(aliasRaw)
-      if (!aliasNormalized) continue
+      if (!isUsefulSeriesCandidate(aliasNormalized)) continue
 
       await this.db
         .insert(seriesAliases)

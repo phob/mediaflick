@@ -62,6 +62,18 @@ function resolveSort(sortBy: string | undefined, sortOrder: string | undefined) 
 export class ScannedFilesRepo {
   constructor(private readonly db: AppDb) {}
 
+  async listBySourcePrefix(sourcePrefix: string): Promise<ScannedFile[]> {
+    const normalizedPrefix = sourcePrefix.endsWith("/") ? sourcePrefix.slice(0, -1) : sourcePrefix
+    const rows = await this.db
+      .select()
+      .from(scannedFiles)
+      .where(or(
+        eq(scannedFiles.sourceFile, normalizedPrefix),
+        like(scannedFiles.sourceFile, `${normalizedPrefix}/%`),
+      ))
+    return rows.map(mapRow)
+  }
+
   async list(params: ListParams): Promise<PagedResult<ScannedFile>> {
     const conditions = []
 
@@ -205,11 +217,11 @@ export class ScannedFilesRepo {
       updateToVersion: sql`${scannedFiles.updateToVersion} + 1`,
     }
 
-    if (request.tmdbId !== undefined) updates.tmdbId = request.tmdbId
+    if (request.tmdbId !== undefined) updates.tmdbId = request.tmdbId > 0 ? request.tmdbId : null
     if (request.mediaType !== undefined) updates.mediaType = request.mediaType
-    if (request.seasonNumber !== undefined) updates.seasonNumber = request.seasonNumber
-    if (request.episodeNumber !== undefined) updates.episodeNumber = request.episodeNumber
-    if (request.episodeNumber2 !== undefined) updates.episodeNumber2 = request.episodeNumber2
+    if (request.seasonNumber !== undefined) updates.seasonNumber = request.seasonNumber > 0 ? request.seasonNumber : null
+    if (request.episodeNumber !== undefined) updates.episodeNumber = request.episodeNumber > 0 ? request.episodeNumber : null
+    if (request.episodeNumber2 !== undefined) updates.episodeNumber2 = request.episodeNumber2 > 0 ? request.episodeNumber2 : null
 
     await this.db.update(scannedFiles).set(updates).where(eq(scannedFiles.id, id))
     return this.findById(id)

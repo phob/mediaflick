@@ -176,21 +176,22 @@ export function ScannedFilesTable({
     setConversionTargetType(null)
 
     try {
-      // Update each file
       await Promise.all(
-        updatedRows.map((row) =>
-          mediaApi.updateScannedFile(row.key, {
+        updatedRows.map(async row => {
+          await mediaApi.updateScannedFile(row.key, {
             tmdbId: row.tmdbId,
             seasonNumber: row.seasonNumber,
             episodeNumber: row.episodeNumber,
             episodeNumber2: row.episodeNumber2,
             mediaType: row.mediaType as MediaType,
           })
-        )
-      )
 
-      // Recreate all symlinks
-      await mediaApi.recreateAllSymlinks()
+          const mediaType = row.mediaType as MediaType
+          if (mediaType === MediaType.Movies || mediaType === MediaType.TvShows) {
+            await mediaApi.recreateSymlink(row.key)
+          }
+        }),
+      )
 
       if (isConversion) {
         toast({

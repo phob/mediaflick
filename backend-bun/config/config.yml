@@ -8,7 +8,7 @@ plex:
     - sourceFolder: /mnt/zurg/movies
       destinationFolder: /mnt/organized2/movies
       mediaType: Movies
-    - sourceFolder: /mnt/zurg/tvseries
+    - sourceFolder: /mnt/zurg/shows
       destinationFolder: /mnt/organized2/tvseries
       mediaType: TvShows
 tmDb:

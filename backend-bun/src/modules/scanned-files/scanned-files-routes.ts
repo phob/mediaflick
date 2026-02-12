@@ -1,7 +1,13 @@
 import { Hono } from "hono"
 import { ENTRYPOINTS } from "@/app/entrypoints"
 import type { AppContext } from "@/app/context"
-import { buildDestinationPath, cleanupDeadSymlinks, createSymlinkAt, removeSymlinkIfExists } from "@/modules/symlink/symlink-service"
+import {
+  buildDestinationPath,
+  cleanupDeadSymlinks,
+  createSymlinkAt,
+  isDestinationConflictError,
+  removeSymlinkIfExists,
+} from "@/modules/symlink/symlink-service"
 import { HttpError } from "@/shared/errors"
 import { parseJson } from "@/shared/http"
 import type { MediaStatus, MediaType, UpdateScannedFileRequest } from "@/shared/types"
@@ -24,6 +30,110 @@ function parseIds(value: string | null): number[] {
     .filter(n => Number.isInteger(n))
 }
 
+interface ResolvedSymlinkMeta {
+  mediaType: MediaType
+  tmdbId: number | null
+  imdbId: string | null
+  title: string
+  year: number | null
+  genres: string[] | null
+  seasonNumber: number | null
+  episodeNumber: number | null
+  episodeNumber2: number | null
+  episodeTitle: string | null
+}
+
+async function resolveSymlinkMeta(id: number, context: AppContext): Promise<ResolvedSymlinkMeta> {
+  const scannedFile = await context.scannedFilesRepo.findById(id)
+  if (!scannedFile) {
+    throw new HttpError(404, "Scanned file not found")
+  }
+  if (!scannedFile.mediaType || scannedFile.mediaType === "Extras" || scannedFile.mediaType === "Unknown") {
+    throw new HttpError(400, "Scanned file does not support symlink recreation")
+  }
+
+  if (scannedFile.mediaType === "Movies") {
+    if (!scannedFile.tmdbId || scannedFile.tmdbId <= 0) {
+      if (!scannedFile.title || !scannedFile.year) {
+        throw new HttpError(400, "Movie TMDb ID is required")
+      }
+
+      return {
+        mediaType: scannedFile.mediaType,
+        tmdbId: scannedFile.tmdbId,
+        imdbId: scannedFile.imdbId,
+        title: scannedFile.title,
+        year: scannedFile.year,
+        genres: scannedFile.genres,
+        seasonNumber: null,
+        episodeNumber: null,
+        episodeNumber2: null,
+        episodeTitle: null,
+      }
+    }
+
+    const [movie, externalIds] = await Promise.all([
+      context.tmdb.getMovie(scannedFile.tmdbId),
+      context.tmdb.getMovieExternalIds(scannedFile.tmdbId),
+    ])
+
+    return {
+      mediaType: scannedFile.mediaType,
+      tmdbId: movie.id,
+      imdbId: externalIds.imdb_id,
+      title: movie.title,
+      year: context.tmdb.movieYear(movie),
+      genres: movie.genres?.map(genre => genre.name) ?? [],
+      seasonNumber: null,
+      episodeNumber: null,
+      episodeNumber2: null,
+      episodeTitle: null,
+    }
+  }
+
+  if (!scannedFile.seasonNumber || !scannedFile.episodeNumber) {
+    throw new HttpError(400, "Season and episode are required for TV files")
+  }
+
+  if (!scannedFile.tmdbId || scannedFile.tmdbId <= 0) {
+    if (!scannedFile.title || !scannedFile.year) {
+      throw new HttpError(400, "TV TMDb ID is required")
+    }
+
+    return {
+      mediaType: scannedFile.mediaType,
+      tmdbId: scannedFile.tmdbId,
+      imdbId: scannedFile.imdbId,
+      title: scannedFile.title,
+      year: scannedFile.year,
+      genres: scannedFile.genres,
+      seasonNumber: scannedFile.seasonNumber,
+      episodeNumber: scannedFile.episodeNumber,
+      episodeNumber2: scannedFile.episodeNumber2,
+      episodeTitle: null,
+    }
+  }
+
+  const [show, episode, externalIds] = await Promise.all([
+    context.tmdb.getTv(scannedFile.tmdbId),
+    context.tmdb.getTvEpisode(scannedFile.tmdbId, scannedFile.seasonNumber, scannedFile.episodeNumber),
+    context.tmdb.getTvExternalIds(scannedFile.tmdbId),
+  ])
+
+  return {
+    mediaType: scannedFile.mediaType,
+    tmdbId: show.id,
+    imdbId: externalIds.imdb_id ?? scannedFile.imdbId,
+    title: show.name,
+    year: context.tmdb.tvYear(show),
+    genres: show.genres?.map(genre => genre.name) ?? [],
+    seasonNumber: scannedFile.seasonNumber,
+    episodeNumber: scannedFile.episodeNumber,
+    episodeNumber2: scannedFile.episodeNumber2,
+    episodeTitle: episode.name,
+  }
+}
+
 async function recreateSingleSymlink(id: number, context: AppContext) {
   const scannedFile = await context.scannedFilesRepo.findById(id)
   if (!scannedFile) {
@@ -32,9 +142,8 @@ async function recreateSingleSymlink(id: number, context: AppContext) {
   if (!scannedFile.mediaType || scannedFile.mediaType === "Extras" || scannedFile.mediaType === "Unknown") {
     throw new HttpError(400, "Scanned file does not support symlink recreation")
   }
-  if (!scannedFile.title) {
-    throw new HttpError(400, "Scanned file title is missing")
-  }
+
+  const meta = await resolveSymlinkMeta(id, context)
 
   const config = await context.configStore.get()
   const mapping = config.plex.folderMappings.find(m => m.mediaType === scannedFile.mediaType)
@@ -42,31 +151,58 @@ async function recreateSingleSymlink(id: number, context: AppContext) {
     throw new HttpError(400, `No destination folder mapping for ${scannedFile.mediaType}`)
   }
 
-  const destinationPath = buildDestinationPath(scannedFile.sourceFile, mapping.destinationFolder, scannedFile.mediaType, {
-    title: scannedFile.title,
-    year: scannedFile.year,
-    imdbId: scannedFile.imdbId,
-    seasonNumber: scannedFile.seasonNumber,
-    episodeNumber: scannedFile.episodeNumber,
-    episodeNumber2: scannedFile.episodeNumber2,
+  const destinationPath = buildDestinationPath(scannedFile.sourceFile, mapping.destinationFolder, meta.mediaType, {
+    title: meta.title,
+    year: meta.year,
+    imdbId: meta.imdbId,
+    seasonNumber: meta.seasonNumber,
+    episodeNumber: meta.episodeNumber,
+    episodeNumber2: meta.episodeNumber2,
+    episodeTitle: meta.episodeTitle,
   })
 
-  await createSymlinkAt(scannedFile.sourceFile, destinationPath)
+  if (scannedFile.destFile && scannedFile.destFile !== destinationPath) {
+    await removeSymlinkIfExists(scannedFile.destFile)
+  }
 
-  const updated = await context.scannedFilesRepo.updateProcessed({
-    id: scannedFile.id,
-    destFile: destinationPath,
-    mediaType: scannedFile.mediaType,
-    tmdbId: scannedFile.tmdbId,
-    imdbId: scannedFile.imdbId,
-    title: scannedFile.title,
-    year: scannedFile.year,
-    genres: scannedFile.genres,
-    seasonNumber: scannedFile.seasonNumber,
-    episodeNumber: scannedFile.episodeNumber,
-    episodeNumber2: scannedFile.episodeNumber2,
-    status: scannedFile.status,
-  })
+  let updated = null
+  try {
+    await createSymlinkAt(scannedFile.sourceFile, destinationPath)
+
+    updated = await context.scannedFilesRepo.updateProcessed({
+      id: scannedFile.id,
+      destFile: destinationPath,
+      mediaType: meta.mediaType,
+      tmdbId: meta.tmdbId,
+      imdbId: meta.imdbId,
+      title: meta.title,
+      year: meta.year,
+      genres: meta.genres,
+      seasonNumber: meta.seasonNumber,
+      episodeNumber: meta.episodeNumber,
+      episodeNumber2: meta.episodeNumber2,
+      status: "Success",
+    })
+  } catch (error) {
+    if (!isDestinationConflictError(error)) {
+      throw error
+    }
+
+    updated = await context.scannedFilesRepo.updateProcessed({
+      id: scannedFile.id,
+      destFile: null,
+      mediaType: meta.mediaType,
+      tmdbId: meta.tmdbId,
+      imdbId: meta.imdbId,
+      title: meta.title,
+      year: meta.year,
+      genres: meta.genres,
+      seasonNumber: meta.seasonNumber,
+      episodeNumber: meta.episodeNumber,
+      episodeNumber2: meta.episodeNumber2,
+      status: "Duplicate",
+    })
+  }
 
   if (updated) {
     context.wsHub.broadcast("file.updated", updated)

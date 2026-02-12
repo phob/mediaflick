@@ -4,7 +4,13 @@ import type { AppContext } from "@/app/context"
 import { detectMovieFromFileName } from "@/modules/detection/movie-detection"
 import { SeriesIdentityService } from "@/modules/detection/series-identity-service"
 import { detectTvEpisode } from "@/modules/detection/tv-detection"
-import { buildDestinationPath, createSymlinkAt, isDestinationConflictError } from "@/modules/symlink/symlink-service"
+import {
+  buildDestinationPath,
+  cleanupDeadSymlinks,
+  createSymlinkAt,
+  isDestinationConflictError,
+  removeSymlinkIfExists,
+} from "@/modules/symlink/symlink-service"
 import type { RuntimeConfig } from "@/config/runtime-config"
 import type { MediaType } from "@/shared/types"
 
@@ -68,6 +74,8 @@ async function processWithLimit<T>(items: T[], limit: number, worker: (item: T) 
 
   await Promise.all(executing)
 }
+
+type FolderMapping = RuntimeConfig["plex"]["folderMappings"][number]
 
 export class FilePoller {
   private timer: Timer | null = null
@@ -135,34 +143,84 @@ export class FilePoller {
       this.context.wsHub.broadcast("zurg.version", Date.now())
 
       for (const mapping of config.plex.folderMappings) {
-        const files = await collectFiles(mapping.sourceFolder)
-        await processWithLimit(files, 8, file => this.processFile(file, mapping.destinationFolder, mapping.mediaType))
+        await this.reconcileMapping(mapping)
       }
     } catch (error) {
       this.context.logger.error("File polling failed", { error: String(error) })
     }
   }
 
-  private async processFile(sourceFile: string, destinationFolder: string, mediaType: MediaType): Promise<void> {
-    const existing = await this.context.scannedFilesRepo.findBySource(sourceFile)
-    if (existing && existing.status === "Success") {
+  private async reconcileMapping(mapping: FolderMapping): Promise<void> {
+    if (!(await fileExists(mapping.sourceFolder))) {
+      this.context.logger.warn("Source folder not found, skipping mapping reconciliation", {
+        sourceFolder: mapping.sourceFolder,
+        mediaType: mapping.mediaType,
+      })
       return
     }
 
-    const fileInfo = await stat(sourceFile)
+    const tracked = await this.context.scannedFilesRepo.listBySourcePrefix(mapping.sourceFolder)
+    const trackedSources = new Set(tracked.map(item => item.sourceFile))
 
-    const tracked = existing
-      ? existing
-      : await this.context.scannedFilesRepo.createProcessingEntry({
-        sourceFile,
-        fileSize: fileInfo.size,
-        fileHash: null,
-        mediaType,
-      })
+    const files = await collectFiles(mapping.sourceFolder)
+    const currentSourceFiles = new Set(files)
+    const untrackedFiles = files.filter(file => !trackedSources.has(file))
 
-    if (!existing) {
-      this.context.wsHub.broadcast("file.added", tracked)
+    await processWithLimit(untrackedFiles, 8, file => this.processFile(file, mapping.destinationFolder, mapping.mediaType))
+    await this.pruneDeletedSources(tracked, currentSourceFiles)
+    await cleanupDeadSymlinks(mapping.destinationFolder)
+  }
+
+  private async pruneDeletedSources(
+    tracked: Array<{ id: number; sourceFile: string; destFile: string | null }>,
+    currentSourceFiles: Set<string>,
+  ): Promise<void> {
+    if (tracked.length === 0) {
+      return
     }
+
+    const deletedTracked = tracked.filter(item => !currentSourceFiles.has(item.sourceFile))
+
+    if (deletedTracked.length === 0) {
+      return
+    }
+
+    for (const item of deletedTracked) {
+      if (item.destFile) {
+        await removeSymlinkIfExists(item.destFile)
+      }
+    }
+
+    const deletedRows = await this.context.scannedFilesRepo.deleteByIds(deletedTracked.map(item => item.id))
+    for (const item of deletedRows) {
+      this.context.wsHub.broadcast("file.removed", item)
+    }
+  }
+
+  private async processFile(sourceFile: string, destinationFolder: string, mediaType: MediaType): Promise<void> {
+    let fileInfo
+    try {
+      fileInfo = await stat(sourceFile)
+    } catch (error) {
+      if ((error as { code?: string }).code === "ENOENT") {
+        return
+      }
+      this.context.logger.warn("Failed to read source file details", {
+        sourceFile,
+        mediaType,
+        error: String(error),
+      })
+      return
+    }
+
+    const tracked = await this.context.scannedFilesRepo.createProcessingEntry({
+      sourceFile,
+      fileSize: fileInfo.size,
+      fileHash: null,
+      mediaType,
+    })
+
+    this.context.wsHub.broadcast("file.added", tracked)
 
     if (mediaType === "Extras" || mediaType === "Unknown") {
       const updated = await this.context.scannedFilesRepo.updateProcessed({
