@@ -84,10 +84,23 @@ Important files:
 
 ### Solid patterns
 
-- Use `createQuery`/`createMutation` for server data.
+- Use `useQuery`/`useMutation` for server data.
 - Use `createMemo` for derived state instead of effect-driven state sync.
 - Use `Show` and `For` for conditional/list rendering.
 - Avoid unnecessary signals when values can be computed.
+
+## TanStack Query v5 Deprecations (Critical)
+
+These are deprecated in `@tanstack/solid-query` v5 and should be treated as migration targets.
+
+- **DO NOT** introduce `createQuery`; use `useQuery`.
+- **DO NOT** introduce `createMutation`; use `useMutation`.
+- **DO NOT** introduce `createInfiniteQuery`; use `useInfiniteQuery`.
+- **DO NOT** introduce `createQueries`; use `useQueries`.
+- **DO NOT** introduce compatibility `Create*` types; use `Use*` types (`UseQueryOptions`, `UseMutationOptions`, etc.).
+- **DO NOT** use query option `suspense`; it is deprecated in v5 (Solid query resources already suspend).
+
+When touching existing code that still uses deprecated TanStack APIs, prefer migrating that code in the same PR unless it would materially increase scope/risk.
 
 ## Data, Realtime, and Error Handling
 
