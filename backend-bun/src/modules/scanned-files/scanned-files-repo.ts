@@ -62,6 +62,22 @@ function resolveSort(sortBy: string | undefined, sortOrder: string | undefined) 
 export class ScannedFilesRepo {
   constructor(private readonly db: AppDb) {}
 
+  async listByMediaType(mediaType: MediaType): Promise<ScannedFile[]> {
+    const rows = await this.db
+      .select()
+      .from(scannedFiles)
+      .where(eq(scannedFiles.mediaType, mediaType))
+    return rows.map(mapRow)
+  }
+
+  async listByTmdbId(tmdbId: number, mediaType?: MediaType): Promise<ScannedFile[]> {
+    const rows = await this.db
+      .select()
+      .from(scannedFiles)
+      .where(mediaType ? and(eq(scannedFiles.tmdbId, tmdbId), eq(scannedFiles.mediaType, mediaType)) : eq(scannedFiles.tmdbId, tmdbId))
+    return rows.map(mapRow)
+  }
+
   async listBySourcePrefix(sourcePrefix: string): Promise<ScannedFile[]> {
     const normalizedPrefix = sourcePrefix.endsWith("/") ? sourcePrefix.slice(0, -1) : sourcePrefix
     const rows = await this.db
@@ -224,6 +240,29 @@ export class ScannedFilesRepo {
     if (request.episodeNumber2 !== undefined) updates.episodeNumber2 = request.episodeNumber2 > 0 ? request.episodeNumber2 : null
 
     await this.db.update(scannedFiles).set(updates).where(eq(scannedFiles.id, id))
+    return this.findById(id)
+  }
+
+  async markAsExtra(id: number): Promise<ScannedFile | null> {
+    await this.db
+      .update(scannedFiles)
+      .set({
+        mediaType: "Extras",
+        tmdbId: null,
+        imdbId: null,
+        title: null,
+        year: null,
+        genres: null,
+        seasonNumber: null,
+        episodeNumber: null,
+        episodeNumber2: null,
+        destFile: null,
+        status: "Success",
+        updatedAt: new Date().toISOString(),
+        updateToVersion: sql`${scannedFiles.updateToVersion} + 1`,
+      })
+      .where(eq(scannedFiles.id, id))
+
     return this.findById(id)
   }
 

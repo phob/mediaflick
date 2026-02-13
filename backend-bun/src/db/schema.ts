@@ -78,6 +78,21 @@ export const seriesAliases = sqliteTable(
   ],
 )
 
+export const tvEpisodeGroupSelections = sqliteTable(
+  "tv_episode_group_selections",
+  {
+    tmdbId: integer("tmdb_id").primaryKey(),
+    episodeGroupId: text("episode_group_id").notNull(),
+    episodeGroupName: text("episode_group_name"),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  table => [
+    index("ix_tv_episode_group_selections_group_id").on(table.episodeGroupId),
+  ],
+)
+
 export const seriesIdentityRelations = relations(seriesIdentityMap, ({ many }) => ({
   aliases: many(seriesAliases),
 }))

@@ -63,6 +63,43 @@ export interface TmdbSeasonDetails {
   episodes: TmdbEpisodeDetails[]
 }
 
+export interface TmdbTvEpisodeGroupSummary {
+  id: string
+  name: string
+  description: string | null
+  type: number
+  episode_count: number
+  group_count: number
+}
+
+interface TmdbTvEpisodeGroupSummaryResponse {
+  results: TmdbTvEpisodeGroupSummary[]
+}
+
+export interface TmdbTvEpisodeGroupEpisode {
+  id: number
+  name: string
+  season_number: number | null
+  episode_number: number | null
+  order: number | null
+}
+
+export interface TmdbTvEpisodeGroup {
+  id: string
+  name: string
+  order: number | null
+  episodes: TmdbTvEpisodeGroupEpisode[]
+}
+
+export interface TmdbTvEpisodeGroupDetails {
+  id: string
+  name: string
+  description: string | null
+  group_count: number
+  episode_count: number
+  groups: TmdbTvEpisodeGroup[]
+}
+
 function extractYear(value?: string): number | null {
   if (!value) return null
   const year = Number(value.slice(0, 4))
@@ -123,6 +160,15 @@ export class TmdbClient {
 
   async getTvEpisode(tmdbId: number, seasonNumber: number, episodeNumber: number): Promise<TmdbEpisodeDetails> {
     return this.get<TmdbEpisodeDetails>(`/tv/${tmdbId}/season/${seasonNumber}/episode/${episodeNumber}`, undefined, 2 * 60 * 60 * 1000)
+  }
+
+  async getTvEpisodeGroups(tmdbId: number): Promise<TmdbTvEpisodeGroupSummary[]> {
+    const data = await this.get<TmdbTvEpisodeGroupSummaryResponse>(`/tv/${tmdbId}/episode_groups`, undefined, 2 * 60 * 60 * 1000)
+    return data.results ?? []
+  }
+
+  async getTvEpisodeGroup(groupId: string): Promise<TmdbTvEpisodeGroupDetails> {
+    return this.get<TmdbTvEpisodeGroupDetails>(`/tv/episode_group/${groupId}`, undefined, 2 * 60 * 60 * 1000)
   }
 
   movieYear(movie: TmdbMovieResult): number | null {

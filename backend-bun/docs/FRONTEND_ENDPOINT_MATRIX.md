@@ -27,8 +27,8 @@ This is the screen-by-screen backend contract for frontend redesign.
 | Dashboard | KPI cards + recent lists | `GET /api/scannedfiles/stats`, `GET /api/scannedfiles` | Recent lists use `sortBy=createdAt&sortOrder=desc`; TV card count currently derived client-side from list dedupe by `tmdbId`. |
 | Media Library | Main file table + filters + actions | `GET /api/scannedfiles`, `GET /api/scannedfiles/:id`, `PATCH /api/scannedfiles/:id`, `DELETE /api/scannedfiles/:id`, `DELETE /api/scannedfiles/batch`, `POST /api/scannedfiles/recreate-symlinks`, `PATCH /api/scannedfiles/:id/recreate-symlink`, `GET /api/config` | Table updates should react to WS file events. |
 | Media Info Grid | Browse unique media cards | `GET /api/scannedfiles/tmdb-ids-and-titles` | Query by `mediaType` + optional `searchTerm`. |
-| Movie Details | Detail page for one movie | `GET /api/medialookup/movies/:tmdbId` | Includes genres, poster/backdrop, overview, status. |
-| TV Show Details | Detail page for show + season list | `GET /api/medialookup/tvshows/:tmdbId`, `GET /api/medialookup/tvshows/:tmdbId/seasons/:seasonNumber`, `GET /api/medialookup/tvshows/:tmdbId/seasons/:seasonNumber/episodes/:episodeNumber` | Season response includes episode `isScanned`. |
+| Movie Details | Detail page for one movie | `GET /api/medialookup/movies/:tmdbId`, `GET /api/medialookup/movies/:tmdbId/files`, `PATCH /api/scannedfiles/:id` | `/files` includes same-folder related entries for extras UX; patching `mediaType=Extras` removes symlink + clears metadata. |
+| TV Show Details | Detail page for show + season list | `GET /api/medialookup/tvshows/:tmdbId`, `GET /api/medialookup/tvshows/:tmdbId/files`, `GET /api/medialookup/tvshows/:tmdbId/episode-groups`, `PUT /api/medialookup/tvshows/:tmdbId/episode-group`, `GET /api/medialookup/tvshows/:tmdbId/seasons/:seasonNumber`, `GET /api/medialookup/tvshows/:tmdbId/seasons/:seasonNumber/episodes/:episodeNumber` | Group change triggers remove/re-add + symlink recreation; `/files` includes alias-linked uncategorized items. |
 | Search Modal | Manual TMDb picking | `GET /api/medialookup/movies/search?title=...`, `GET /api/medialookup/tvshows/search?title=...` | Debounce input in UI (existing behavior uses 250ms). |
 | Settings Modal | Edit Plex/TMDb/Zurg/media-detection config | `GET /api/config`, `PUT /api/config` | `PUT` restarts poller and swaps TMDb client immediately. |
 | Logs | Log viewer + filters | `GET /api/logs` | Supports `minLevel`, `searchTerm`, `from`, `to`, `limit`. |
@@ -97,7 +97,11 @@ This is the screen-by-screen backend contract for frontend redesign.
 
 ### Detail source
 - Movies: `GET /api/medialookup/movies/:tmdbId`
+- Movie files: `GET /api/medialookup/movies/:tmdbId/files`
 - TV show: `GET /api/medialookup/tvshows/:tmdbId`
+- TV files: `GET /api/medialookup/tvshows/:tmdbId/files`
+- TV episode groups: `GET /api/medialookup/tvshows/:tmdbId/episode-groups`
+- TV episode group selection/rebuild: `PUT /api/medialookup/tvshows/:tmdbId/episode-group`
 - Season: `GET /api/medialookup/tvshows/:tmdbId/seasons/:seasonNumber`
 - Episode: `GET /api/medialookup/tvshows/:tmdbId/seasons/:seasonNumber/episodes/:episodeNumber`
 

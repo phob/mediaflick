@@ -26,12 +26,12 @@ echo "Starting backend-bun on :${BACKEND_BUN_PORT}"
 (cd "${ROOT_DIR}/backend-bun" && PORT="${BACKEND_BUN_PORT}" bun run dev) &
 BACKEND_PID=$!
 
-echo "Starting frontend-bun on :${FRONTEND_BUN_PORT}"
+echo "Starting frontend-solid on :${FRONTEND_BUN_PORT}"
 echo "Using NEXT_PUBLIC_API_BASE_URL=${API_BASE_URL}"
 echo "Using NEXT_PUBLIC_WS_URL=${WS_URL}"
-(cd "${ROOT_DIR}/frontend-bun" && PORT="${FRONTEND_BUN_PORT}" NEXT_PUBLIC_API_BASE_URL="${API_BASE_URL}" NEXT_PUBLIC_WS_URL="${WS_URL}" bun run dev) &
+(cd "${ROOT_DIR}/frontend-solid" && PORT="${FRONTEND_BUN_PORT}" NEXT_PUBLIC_API_BASE_URL="${API_BASE_URL}" NEXT_PUBLIC_WS_URL="${WS_URL}" bun run dev) &
 FRONTEND_PID=$!
 
-echo "frontend-bun URL: http://localhost:${FRONTEND_BUN_PORT}"
+echo "frontend-solid URL: http://localhost:${FRONTEND_BUN_PORT}"
 
 wait -n "${BACKEND_PID}" "${FRONTEND_PID}"

@@ -28,6 +28,8 @@ const genericSeriesCandidates = new Set([
   "complete",
 ])
 
+const aliasMatchThreshold = 0.8
+
 function isUsefulSeriesCandidate(candidate: string): boolean {
   const normalized = candidate.trim()
   if (!normalized) {
@@ -70,7 +72,9 @@ function pickAliasMatch(
     return null
   }
 
-  const plausibleRows = aliasRows.filter(row => similarity(candidate, normalizeTitle(row.canonicalTitle)) > 0)
+  const plausibleRows = aliasRows.filter(
+    row => similarity(candidate, normalizeTitle(row.canonicalTitle)) >= aliasMatchThreshold,
+  )
   if (plausibleRows.length === 0) {
     return null
   }
@@ -177,7 +181,7 @@ export class SeriesIdentityService {
         .limit(1)
 
       if (identityRows[0]) {
-        await this.addAliases(identityRows[0].id, input.candidates)
+        await this.addAliases(identityRows[0].id, identityRows[0].canonicalTitle, input.candidates)
         return {
           tmdbId: identityRows[0].tmdbId,
           imdbId: identityRows[0].imdbId,
@@ -210,7 +214,7 @@ export class SeriesIdentityService {
       imdbId: externalIds.imdb_id,
       canonicalTitle: bestMatch.name,
     })
-    await this.addAliases(identity.id, input.candidates.concat(bestMatch.name))
+    await this.addAliases(identity.id, identity.canonicalTitle, input.candidates.concat(bestMatch.name))
 
     return {
       tmdbId: identity.tmdbId,
@@ -275,10 +279,13 @@ export class SeriesIdentityService {
     return inserted[0]
   }
 
-  private async addAliases(identityId: number, aliases: string[]): Promise<void> {
+  private async addAliases(identityId: number, canonicalTitle: string, aliases: string[]): Promise<void> {
+    const canonicalNormalized = normalizeTitle(canonicalTitle)
+
     for (const aliasRaw of aliases) {
       const aliasNormalized = normalizeTitle(aliasRaw)
       if (!isUsefulSeriesCandidate(aliasNormalized)) continue
+      if (similarity(aliasNormalized, canonicalNormalized) < aliasMatchThreshold) continue
 
       await this.db
         .insert(seriesAliases)

@@ -82,4 +82,16 @@ async function ensureSchema(db: ReturnType<typeof drizzle<typeof schema>>): Prom
     sql`CREATE UNIQUE INDEX IF NOT EXISTS "ux_series_alias_identity_alias" ON "series_aliases" ("identity_id", "alias_normalized")`,
   )
   await db.run(sql`CREATE INDEX IF NOT EXISTS "ix_series_alias_normalized" ON "series_aliases" ("alias_normalized")`)
+
+  await db.run(sql`
+    CREATE TABLE IF NOT EXISTS "tv_episode_group_selections" (
+      "tmdb_id" INTEGER PRIMARY KEY,
+      "episode_group_id" TEXT NOT NULL,
+      "episode_group_name" TEXT NULL,
+      "updated_at" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS "ix_tv_episode_group_selections_group_id" ON "tv_episode_group_selections" ("episode_group_id")`,
+  )
 }

@@ -39,7 +39,7 @@ const noisePattern = new RegExp(`\\b(${noiseTokens.join("|")})\\b`, "gi")
 
 export function normalizeTitle(input: string): string {
   return input
-    .replace(/[._]/g, " ")
+    .replace(/[._:]/g, " ")
     .replace(/\[[^\]]+\]/g, " ")
     .replace(/\([^)]*\)/g, " ")
     .replace(noisePattern, " ")

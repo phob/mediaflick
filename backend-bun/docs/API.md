@@ -106,6 +106,38 @@ Returns `MediaInfo` for a movie.
 ### `GET /api/medialookup/tvshows/:tmdbId`
 Returns `MediaInfo` for a TV show, including `episodeCount`, `episodeCountScanned`, `seasonCount`.
 
+### `GET /api/medialookup/tvshows/:tmdbId/episode-groups`
+Returns available TMDb episode groups for the show and the currently selected group (if any).
+
+### `PUT /api/medialookup/tvshows/:tmdbId/episode-group`
+Sets the selected episode group for the show.
+
+Request body:
+```json
+{ "episodeGroupId": "5f0384f7c0a3080035f2f9f0" }
+```
+
+Use `null` to clear selection and return to default ordering:
+```json
+{ "episodeGroupId": null }
+```
+
+Behavior:
+- removes existing TV rows for that show
+- removes their symlinks
+- reprocesses source files
+- recreates symlinks with the selected group ordering
+
+### `GET /api/medialookup/tvshows/:tmdbId/files`
+Returns TV files split into:
+- `categorizedFiles`: mapped episodes for the show
+- `uncategorizedFiles`: alias-linked rows (from `series_aliases`) not fully categorized
+
+### `GET /api/medialookup/movies/:tmdbId/files`
+Returns movie files split into:
+- `primaryFiles`: rows directly mapped to the movie TMDb ID
+- `extraFiles`: additional rows found in the same source directories
+
 ### `GET /api/medialookup/tvshows/:tmdbId/seasons/:seasonNumber`
 Returns `SeasonInfo` with episode list and `isScanned` flags.
 
@@ -181,6 +213,9 @@ Partial update body:
   "mediaType": "TvShows"
 }
 ```
+
+Special behavior:
+- setting `mediaType` to `Extras` clears TMDb/episode metadata, removes destination symlink, and marks the row as `Success`.
 
 ### `DELETE /api/scannedfiles/:id`
 Deletes row + removes symlink if present.

@@ -1,0 +1,10 @@
+services:
+  mediaflick-frontend-solid:
+    build: .
+    container_name: mediaflick-frontend-solid
+    ports:
+      - "3002:3002"
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=http://host.docker.internal:5000/api
+      - NEXT_PUBLIC_WS_URL=ws://host.docker.internal:5000/ws/filetracking
+    restart: unless-stopped

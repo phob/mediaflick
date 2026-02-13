@@ -310,7 +310,19 @@ export function createScannedFilesRouter(context: AppContext) {
     }
 
     const body = await parseJson<UpdateScannedFileRequest>(c.req.raw)
-    const updated = await context.scannedFilesRepo.updateById(id, body)
+    const existing = await context.scannedFilesRepo.findById(id)
+    if (!existing) {
+      return c.json({ error: "Not found" }, 404)
+    }
+
+    if (body.mediaType === "Extras" && existing.destFile) {
+      await removeSymlinkIfExists(existing.destFile)
+    }
+
+    const updated = body.mediaType === "Extras"
+      ? await context.scannedFilesRepo.markAsExtra(id)
+      : await context.scannedFilesRepo.updateById(id, body)
+
     if (!updated) {
       return c.json({ error: "Not found" }, 404)
     }

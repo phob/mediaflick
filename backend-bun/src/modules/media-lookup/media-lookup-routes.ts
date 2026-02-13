@@ -1,9 +1,30 @@
+import { basename, dirname, extname } from "node:path"
 import { Hono } from "hono"
-import { ENTRYPOINTS } from "@/app/entrypoints"
 import { and, eq, sql } from "drizzle-orm"
+import { ENTRYPOINTS } from "@/app/entrypoints"
 import type { AppContext } from "@/app/context"
-import { scannedFiles } from "@/db/schema"
-import type { EpisodeInfo, MediaInfo, MediaSearchResult, SeasonInfo } from "@/shared/types"
+import { normalizeTitle } from "@/modules/detection/normalization"
+import { scannedFiles, seriesAliases, seriesIdentityMap, tvEpisodeGroupSelections } from "@/db/schema"
+import { parseJson } from "@/shared/http"
+import type { EpisodeInfo, MediaInfo, MediaSearchResult, ScannedFile, SeasonInfo } from "@/shared/types"
+
+interface EpisodeGroupSelectionRequest {
+  episodeGroupId: string | null
+}
+
+interface TvFilesResponse {
+  tmdbId: number
+  selectedEpisodeGroupId: string | null
+  selectedEpisodeGroupName: string | null
+  categorizedFiles: ScannedFile[]
+  uncategorizedFiles: ScannedFile[]
+}
+
+interface MovieFilesResponse {
+  tmdbId: number
+  primaryFiles: ScannedFile[]
+  extraFiles: ScannedFile[]
+}
 
 function toInt(value: string): number | null {
   const n = Number(value)
@@ -16,6 +37,51 @@ function validateTitle(title: string | undefined): string | null {
     return null
   }
   return title.trim()
+}
+
+function compareScannedEpisodes(left: ScannedFile, right: ScannedFile): number {
+  const leftSeason = left.seasonNumber ?? Number.MAX_SAFE_INTEGER
+  const rightSeason = right.seasonNumber ?? Number.MAX_SAFE_INTEGER
+  if (leftSeason !== rightSeason) {
+    return leftSeason - rightSeason
+  }
+
+  const leftEpisode = left.episodeNumber ?? Number.MAX_SAFE_INTEGER
+  const rightEpisode = right.episodeNumber ?? Number.MAX_SAFE_INTEGER
+  if (leftEpisode !== rightEpisode) {
+    return leftEpisode - rightEpisode
+  }
+
+  return left.sourceFile.localeCompare(right.sourceFile)
+}
+
+function extractTvAliasCandidates(sourceFile: string): string[] {
+  const fileName = basename(sourceFile, extname(sourceFile))
+  const parent = basename(dirname(sourceFile))
+  const grandParent = basename(dirname(dirname(sourceFile)))
+  const cleanedFileName = fileName
+    .replace(/s\d{1,2}[ ._-]*(?:e|ep)\d{1,3}(?:[- ]?(?:e|ep)?\d{1,3})?/gi, " ")
+    .replace(/\d{1,2}x\d{1,3}(?:-\d{1,3})?/gi, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim()
+
+  return [cleanedFileName, parent, grandParent].map(normalizeTitle).filter(Boolean)
+}
+
+async function getEpisodeGroupSelection(context: AppContext, tmdbId: number): Promise<{ episodeGroupId: string | null; episodeGroupName: string | null }> {
+  const rows = await context.db
+    .select({
+      episodeGroupId: tvEpisodeGroupSelections.episodeGroupId,
+      episodeGroupName: tvEpisodeGroupSelections.episodeGroupName,
+    })
+    .from(tvEpisodeGroupSelections)
+    .where(eq(tvEpisodeGroupSelections.tmdbId, tmdbId))
+    .limit(1)
+
+  return {
+    episodeGroupId: rows[0]?.episodeGroupId ?? null,
+    episodeGroupName: rows[0]?.episodeGroupName ?? null,
+  }
 }
 
 export function createMediaLookupRouter(context: AppContext) {
@@ -80,6 +146,40 @@ export function createMediaLookupRouter(context: AppContext) {
     return c.json(payload)
   })
 
+  router.get(ENTRYPOINTS.api.mediaLookup.movieFilesByTmdbId, async c => {
+    const tmdbId = toInt(c.req.param("tmdbId"))
+    if (!tmdbId) {
+      return c.json({ error: "Invalid TMDb id" }, 400)
+    }
+
+    const primaryFiles = (await context.scannedFilesRepo.listByTmdbId(tmdbId, "Movies")).sort(compareScannedEpisodes)
+    const sourceFolders = [...new Set(primaryFiles.map(file => dirname(file.sourceFile)))]
+    const relatedMap = new Map<number, ScannedFile>()
+
+    for (const folder of sourceFolders) {
+      const related = await context.scannedFilesRepo.listBySourcePrefix(folder)
+      for (const row of related) {
+        if (dirname(row.sourceFile) !== folder) {
+          continue
+        }
+        relatedMap.set(row.id, row)
+      }
+    }
+
+    const primaryIds = new Set(primaryFiles.map(file => file.id))
+    const extraFiles = [...relatedMap.values()]
+      .filter(file => !primaryIds.has(file.id))
+      .sort((left, right) => left.sourceFile.localeCompare(right.sourceFile))
+
+    const payload: MovieFilesResponse = {
+      tmdbId,
+      primaryFiles,
+      extraFiles,
+    }
+
+    return c.json(payload)
+  })
+
   router.get(ENTRYPOINTS.api.mediaLookup.tvByTmdbId, async c => {
     const tmdbId = toInt(c.req.param("tmdbId"))
     if (!tmdbId) {
@@ -110,6 +210,155 @@ export function createMediaLookupRouter(context: AppContext) {
       episodeCountScanned: counts[0]?.count ?? 0,
       seasonCount: show.number_of_seasons,
       seasonCountScanned: 0,
+    }
+
+    return c.json(payload)
+  })
+
+  router.get(ENTRYPOINTS.api.mediaLookup.tvEpisodeGroupsByTmdbId, async c => {
+    const tmdbId = toInt(c.req.param("tmdbId"))
+    if (!tmdbId) {
+      return c.json({ error: "Invalid TMDb id" }, 400)
+    }
+
+    const [episodeGroups, selection] = await Promise.all([
+      context.tmdb.getTvEpisodeGroups(tmdbId),
+      getEpisodeGroupSelection(context, tmdbId),
+    ])
+
+    return c.json({
+      tmdbId,
+      selectedEpisodeGroupId: selection.episodeGroupId,
+      selectedEpisodeGroupName: selection.episodeGroupName,
+      groups: episodeGroups.map(group => ({
+        id: group.id,
+        name: group.name,
+        description: group.description,
+        type: group.type,
+        episodeCount: group.episode_count,
+        groupCount: group.group_count,
+        selected: group.id === selection.episodeGroupId,
+      })),
+    })
+  })
+
+  router.put(ENTRYPOINTS.api.mediaLookup.tvEpisodeGroupSelectionByTmdbId, async c => {
+    const tmdbId = toInt(c.req.param("tmdbId"))
+    if (!tmdbId) {
+      return c.json({ error: "Invalid TMDb id" }, 400)
+    }
+
+    const body = await parseJson<EpisodeGroupSelectionRequest>(c.req.raw)
+    const nextEpisodeGroupId = typeof body.episodeGroupId === "string" ? body.episodeGroupId.trim() : body.episodeGroupId
+    if (nextEpisodeGroupId !== null && (!nextEpisodeGroupId || nextEpisodeGroupId.length < 4)) {
+      return c.json({ error: "episodeGroupId must be a valid TMDb episode group id or null" }, 400)
+    }
+
+    if (nextEpisodeGroupId === null) {
+      await context.db.delete(tvEpisodeGroupSelections).where(eq(tvEpisodeGroupSelections.tmdbId, tmdbId))
+    } else {
+      const episodeGroups = await context.tmdb.getTvEpisodeGroups(tmdbId)
+      const matchedGroup = episodeGroups.find(group => group.id === nextEpisodeGroupId)
+      if (!matchedGroup) {
+        return c.json({ error: "Episode group not found for show" }, 404)
+      }
+
+      await context.db
+        .insert(tvEpisodeGroupSelections)
+        .values({
+          tmdbId,
+          episodeGroupId: matchedGroup.id,
+          episodeGroupName: matchedGroup.name,
+          updatedAt: new Date().toISOString(),
+        })
+        .onConflictDoUpdate({
+          target: tvEpisodeGroupSelections.tmdbId,
+          set: {
+            episodeGroupId: matchedGroup.id,
+            episodeGroupName: matchedGroup.name,
+            updatedAt: new Date().toISOString(),
+          },
+        })
+    }
+
+    const rebuildResult = await context.poller.rebuildTvShow(tmdbId)
+    const selection = await getEpisodeGroupSelection(context, tmdbId)
+
+    return c.json({
+      tmdbId,
+      selectedEpisodeGroupId: selection.episodeGroupId,
+      selectedEpisodeGroupName: selection.episodeGroupName,
+      removedCount: rebuildResult.removedCount,
+      reprocessedCount: rebuildResult.reprocessedCount,
+    })
+  })
+
+  router.get(ENTRYPOINTS.api.mediaLookup.tvFilesByTmdbId, async c => {
+    const tmdbId = toInt(c.req.param("tmdbId"))
+    if (!tmdbId) {
+      return c.json({ error: "Invalid TMDb id" }, 400)
+    }
+
+    const [selection, rawShowRows, allTvFiles, identityRows, aliasRows] = await Promise.all([
+      getEpisodeGroupSelection(context, tmdbId),
+      context.scannedFilesRepo.listByTmdbId(tmdbId, "TvShows"),
+      context.scannedFilesRepo.listByMediaType("TvShows"),
+      context.db
+        .select({
+          normalizedTitle: seriesIdentityMap.normalizedTitle,
+          canonicalTitle: seriesIdentityMap.canonicalTitle,
+        })
+        .from(seriesIdentityMap)
+        .where(eq(seriesIdentityMap.tmdbId, tmdbId)),
+      context.db
+        .select({ aliasNormalized: seriesAliases.aliasNormalized })
+        .from(seriesAliases)
+        .innerJoin(seriesIdentityMap, eq(seriesAliases.identityId, seriesIdentityMap.id))
+        .where(eq(seriesIdentityMap.tmdbId, tmdbId)),
+    ])
+
+    const categorizedFiles = rawShowRows.filter(file => file.status === "Success" && file.seasonNumber !== null && file.episodeNumber !== null)
+    const showSourceFolders = new Set(rawShowRows.map(file => dirname(file.sourceFile)))
+
+    const aliasSet = new Set<string>()
+    for (const row of identityRows) {
+      aliasSet.add(row.normalizedTitle)
+      aliasSet.add(normalizeTitle(row.canonicalTitle))
+    }
+    for (const row of aliasRows) {
+      aliasSet.add(row.aliasNormalized)
+    }
+
+    const categorizedIds = new Set(categorizedFiles.map(file => file.id))
+    const uncategorizedFiles = allTvFiles
+      .filter(file => {
+        if (categorizedIds.has(file.id)) {
+          return false
+        }
+
+        if (file.tmdbId === tmdbId) {
+          return true
+        }
+
+        if (showSourceFolders.has(dirname(file.sourceFile))) {
+          return true
+        }
+
+        if (file.tmdbId !== null || aliasSet.size === 0) {
+          return false
+        }
+
+        const candidates = extractTvAliasCandidates(file.sourceFile)
+        return candidates.some(candidate => aliasSet.has(candidate))
+      })
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+
+    const payload: TvFilesResponse = {
+      tmdbId,
+      selectedEpisodeGroupId: selection.episodeGroupId,
+      selectedEpisodeGroupName: selection.episodeGroupName,
+      categorizedFiles: [...categorizedFiles].sort(compareScannedEpisodes),
+      uncategorizedFiles,
     }
 
     return c.json(payload)
