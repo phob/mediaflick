@@ -19,7 +19,7 @@ docker-compose.override.yml
 logs/
 plexscan.db*
 plexscan.db
-!mediaflick/src/app/**/logs/
+!backend-bun/src/**/logs/
 
 # Terminal Paste Image folder
 .cp-images/

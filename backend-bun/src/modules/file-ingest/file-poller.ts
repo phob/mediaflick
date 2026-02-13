@@ -288,6 +288,15 @@ export class FilePoller {
     const currentSourceFiles = new Set(files)
     const untrackedFiles = files.filter(file => !trackedSources.has(file))
 
+    if (untrackedFiles.length > 0) {
+      this.context.logger.info("Discovered new source files", {
+        sourceFolder: mapping.sourceFolder,
+        destinationFolder: mapping.destinationFolder,
+        mediaType: mapping.mediaType,
+        discoveredCount: untrackedFiles.length,
+      })
+    }
+
     await processWithLimit(untrackedFiles, 8, file => this.processFile(file, mapping.destinationFolder, mapping.mediaType))
     await this.pruneDeletedSources(tracked, currentSourceFiles)
     await cleanupDeadSymlinks(mapping.destinationFolder)
@@ -484,6 +493,12 @@ export class FilePoller {
     })
 
     this.context.wsHub.broadcast("file.added", tracked)
+    this.context.logger.info("File discovered", {
+      id: tracked.id,
+      sourceFile,
+      mediaType,
+      fileSize: fileInfo.size,
+    })
 
     if (mediaType === "Extras" || mediaType === "Unknown") {
       const updated = await this.context.scannedFilesRepo.updateProcessed({
@@ -502,6 +517,14 @@ export class FilePoller {
       })
       if (updated) {
         this.context.wsHub.broadcast("file.updated", updated)
+        this.logProcessingOutcome({
+          id: tracked.id,
+          sourceFile,
+          mediaType,
+          status: "Success",
+          destFile: null,
+          reason: "categorized-without-symlink",
+        })
       }
       return
     }
@@ -510,7 +533,7 @@ export class FilePoller {
       if (mediaType === "Movies") {
         const detected = detectMovieFromFileName(sourceFile)
         if (!detected) {
-          await this.markFailed(tracked.id, mediaType)
+          await this.markFailed(tracked.id, mediaType, sourceFile, "movie-title-detection-failed")
           return
         }
 
@@ -520,7 +543,7 @@ export class FilePoller {
           .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))[0] ?? searchResults[0]
 
         if (!best) {
-          await this.markFailed(tracked.id, mediaType)
+          await this.markFailed(tracked.id, mediaType, sourceFile, "movie-tmdb-search-no-match")
           return
         }
 
@@ -554,6 +577,15 @@ export class FilePoller {
 
         if (updated) {
           this.context.wsHub.broadcast("file.updated", updated)
+          this.logProcessingOutcome({
+            id: tracked.id,
+            sourceFile,
+            mediaType,
+            status: "Success",
+            destFile: destinationPath,
+            tmdbId: movie.id,
+            title: movie.title,
+          })
         }
         return
       }
@@ -562,7 +594,7 @@ export class FilePoller {
         const identityService = new SeriesIdentityService(this.context.db, this.context.tmdb)
         const detected = await detectTvEpisode(sourceFile, identityService)
         if (!detected) {
-          await this.markFailed(tracked.id, mediaType)
+          await this.markFailed(tracked.id, mediaType, sourceFile, "tv-episode-detection-failed")
           return
         }
 
@@ -622,6 +654,18 @@ export class FilePoller {
 
         if (updated) {
           this.context.wsHub.broadcast("file.updated", updated)
+          this.logProcessingOutcome({
+            id: tracked.id,
+            sourceFile,
+            mediaType,
+            status: "Success",
+            destFile: destinationPath,
+            tmdbId: show.id,
+            title: show.name,
+            seasonNumber: primaryPlacement.seasonNumber,
+            episodeNumber: primaryPlacement.episodeNumber,
+            episodeNumber2: secondaryEpisodeNumber,
+          })
         }
       }
     } catch (error) {
@@ -631,14 +675,49 @@ export class FilePoller {
         error: String(error),
       })
       if (isDestinationConflictError(error)) {
-        await this.markDuplicate(tracked.id, mediaType)
+        await this.markDuplicate(tracked.id, mediaType, sourceFile, "destination-conflict")
       } else {
-        await this.markFailed(tracked.id, mediaType)
+        await this.markFailed(tracked.id, mediaType, sourceFile, "processing-exception")
       }
     }
   }
 
-  private async markDuplicate(id: number, mediaType: MediaType): Promise<void> {
+  private logProcessingOutcome(params: {
+    id: number
+    sourceFile: string
+    mediaType: MediaType
+    status: "Success" | "Failed" | "Duplicate"
+    destFile: string | null
+    tmdbId?: number | null
+    title?: string | null
+    seasonNumber?: number | null
+    episodeNumber?: number | null
+    episodeNumber2?: number | null
+    reason?: string
+  }): void {
+    const payload = {
+      id: params.id,
+      sourceFile: params.sourceFile,
+      mediaType: params.mediaType,
+      status: params.status,
+      destFile: params.destFile,
+      tmdbId: params.tmdbId ?? null,
+      title: params.title ?? null,
+      seasonNumber: params.seasonNumber ?? null,
+      episodeNumber: params.episodeNumber ?? null,
+      episodeNumber2: params.episodeNumber2 ?? null,
+      reason: params.reason ?? null,
+    }
+
+    if (params.status === "Success") {
+      this.context.logger.info("File processed", payload)
+      return
+    }
+
+    this.context.logger.warn("File processed with issue", payload)
+  }
+
+  private async markDuplicate(id: number, mediaType: MediaType, sourceFile: string, reason: string): Promise<void> {
     const updated = await this.context.scannedFilesRepo.updateProcessed({
       id,
       destFile: null,
@@ -655,10 +734,18 @@ export class FilePoller {
     })
     if (updated) {
       this.context.wsHub.broadcast("file.updated", updated)
+      this.logProcessingOutcome({
+        id,
+        sourceFile,
+        mediaType,
+        status: "Duplicate",
+        destFile: null,
+        reason,
+      })
     }
   }
 
-  private async markFailed(id: number, mediaType: MediaType): Promise<void> {
+  private async markFailed(id: number, mediaType: MediaType, sourceFile: string, reason: string): Promise<void> {
     const updated = await this.context.scannedFilesRepo.updateProcessed({
       id,
       destFile: null,
@@ -675,6 +762,14 @@ export class FilePoller {
     })
     if (updated) {
       this.context.wsHub.broadcast("file.updated", updated)
+      this.logProcessingOutcome({
+        id,
+        sourceFile,
+        mediaType,
+        status: "Failed",
+        destFile: null,
+        reason,
+      })
     }
   }
 }

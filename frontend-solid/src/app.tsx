@@ -15,6 +15,8 @@ import { createRealtimeSocket } from "@/lib/realtime";
 import type {
     ConfigurationPayload,
     FolderMappingConfig,
+    LogEntry,
+    LogLevel,
     MediaStatus,
     MediaType,
     ScannedFile,
@@ -77,6 +79,37 @@ function formatDate(value: string | null): string {
     return parsed.toLocaleString();
 }
 
+function formatLogTimestamp(value: string | undefined): string {
+    if (!value) {
+        return "Unknown";
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+        return value;
+    }
+    return parsed.toLocaleString();
+}
+
+function logLevelClass(level: string | undefined): string {
+    if (level === "Error" || level === "Fatal") {
+        return "is-error";
+    }
+    if (level === "Warning") {
+        return "is-warn";
+    }
+    if (level === "Debug" || level === "Verbose") {
+        return "is-debug";
+    }
+    return "is-info";
+}
+
+function formatLogProperties(value: Record<string, unknown> | undefined): string {
+    if (!value || Object.keys(value).length === 0) {
+        return "{}";
+    }
+    return JSON.stringify(value, null, 2);
+}
+
 function formatAirDate(value: string | null): string {
     if (!value) return "Unknown";
     const parsed = new Date(`${value}T00:00:00Z`);
@@ -87,6 +120,72 @@ function formatAirDate(value: string | null): string {
 function parseIntOr(value: string, fallback: number): number {
     const parsed = Number.parseInt(value, 10);
     return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function sourceDirectory(path: string): string {
+    const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "");
+    const slashIndex = normalized.lastIndexOf("/");
+    if (slashIndex < 0) {
+        return normalized;
+    }
+    if (slashIndex === 0) {
+        return "/";
+    }
+    return normalized.slice(0, slashIndex);
+}
+
+function sourceGroupLabel(path: string): string {
+    const label = fileName(path);
+    return label.length > 0 ? label : path;
+}
+
+function timestampValue(value: string | null | undefined): number {
+    if (!value) {
+        return 0;
+    }
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function compareByRecency(left: ScannedFile, right: ScannedFile): number {
+    const leftTime = timestampValue(left.updatedAt ?? left.createdAt);
+    const rightTime = timestampValue(right.updatedAt ?? right.createdAt);
+    return rightTime - leftTime;
+}
+
+function compareBySourceDirectoryThenRecency(
+    left: ScannedFile,
+    right: ScannedFile,
+): number {
+    const leftDirectory = sourceDirectory(left.sourceFile);
+    const rightDirectory = sourceDirectory(right.sourceFile);
+    const byDirectory = leftDirectory.localeCompare(rightDirectory);
+    if (byDirectory !== 0) {
+        return byDirectory;
+    }
+
+    const byRecency = compareByRecency(left, right);
+    if (byRecency !== 0) {
+        return byRecency;
+    }
+
+    return left.sourceFile.localeCompare(right.sourceFile);
+}
+
+function annotateFilesWithSourceDividers(files: ScannedFile[]) {
+    let previousDirectory: string | null = null;
+    return files.map((file) => {
+        const currentDirectory = sourceDirectory(file.sourceFile);
+        const sourceDividerPath =
+            previousDirectory !== null && previousDirectory !== currentDirectory
+                ? currentDirectory
+                : null;
+        previousDirectory = currentDirectory;
+        return {
+            file,
+            sourceDividerPath,
+        };
+    });
 }
 
 function compareEpisodeFiles(left: ScannedFile, right: ScannedFile): number {
@@ -114,6 +213,14 @@ function FileRowIdentity(props: { file: ScannedFile }) {
         <div>
             <p class="file-title">{primaryFileName(props.file)}</p>
             <p class="file-path">{props.file.sourceFile}</p>
+        </div>
+    );
+}
+
+function SourceSubgroupSeparator(props: { sourcePath: string }) {
+    return (
+        <div class="source-subgroup-separator" title={props.sourcePath}>
+            <span>{sourceGroupLabel(props.sourcePath)}</span>
         </div>
     );
 }
@@ -161,10 +268,203 @@ function NavLink(props: { href: string; children: string }) {
     );
 }
 
+const logLevels: LogLevel[] = [
+    "Verbose",
+    "Debug",
+    "Information",
+    "Warning",
+    "Error",
+    "Fatal",
+];
+
+function LogsViewer(props: {
+    open: boolean;
+    minLevel: LogLevel;
+    searchTerm: string;
+    limit: number;
+    logs: LogEntry[];
+    isLoading: boolean;
+    isError: boolean;
+    isFetching: boolean;
+    onClose: () => void;
+    onRefresh: () => void;
+    onMinLevelChange: (next: LogLevel) => void;
+    onSearchTermChange: (next: string) => void;
+    onLimitChange: (next: number) => void;
+}) {
+    createEffect(() => {
+        if (!props.open) {
+            return;
+        }
+
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                props.onClose();
+            }
+        };
+        window.addEventListener("keydown", handleEscape);
+        onCleanup(() => window.removeEventListener("keydown", handleEscape));
+    });
+
+    return (
+        <Show when={props.open}>
+            <div class="logs-backdrop" onClick={props.onClose}>
+                <section
+                    class="logs-modal"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Backend logs"
+                    onClick={(event) => event.stopPropagation()}
+                >
+                    <header class="logs-header">
+                        <div>
+                            <h3>Backend logs</h3>
+                            <p>Live backend events and processing outcomes.</p>
+                        </div>
+                        <button
+                            class="ghost-button"
+                            type="button"
+                            onClick={props.onClose}
+                        >
+                            Close
+                        </button>
+                    </header>
+
+                    <section class="logs-controls">
+                        <label>
+                            Min level
+                            <select
+                                class="group-select"
+                                value={props.minLevel}
+                                onChange={(event) =>
+                                    props.onMinLevelChange(
+                                        event.currentTarget.value as LogLevel,
+                                    )
+                                }
+                            >
+                                <For each={logLevels}>
+                                    {(level) => (
+                                        <option value={level}>{level}</option>
+                                    )}
+                                </For>
+                            </select>
+                        </label>
+                        <label>
+                            Search
+                            <input
+                                class="search-input"
+                                value={props.searchTerm}
+                                placeholder="Filter message text"
+                                onInput={(event) =>
+                                    props.onSearchTermChange(
+                                        event.currentTarget.value,
+                                    )
+                                }
+                            />
+                        </label>
+                        <label>
+                            Limit
+                            <select
+                                class="group-select"
+                                value={String(props.limit)}
+                                onChange={(event) =>
+                                    props.onLimitChange(
+                                        parseIntOr(event.currentTarget.value, 200),
+                                    )
+                                }
+                            >
+                                <option value="100">100</option>
+                                <option value="200">200</option>
+                                <option value="500">500</option>
+                                <option value="1000">1000</option>
+                            </select>
+                        </label>
+                        <button
+                            class="ghost-button"
+                            type="button"
+                            onClick={props.onRefresh}
+                        >
+                            Refresh
+                        </button>
+                    </section>
+
+                    <Show when={props.isLoading}>
+                        <p class="empty-state">Loading backend logs...</p>
+                    </Show>
+                    <Show when={props.isError}>
+                        <p class="empty-state">Unable to load logs right now.</p>
+                    </Show>
+
+                    <Show
+                        when={
+                            !props.isLoading &&
+                            !props.isError &&
+                            props.logs.length === 0
+                        }
+                    >
+                        <p class="empty-state">No logs match this filter.</p>
+                    </Show>
+
+                    <div class="logs-list">
+                        <For each={props.logs}>
+                            {(entry) => (
+                                <article class="log-row">
+                                    <div class="log-row-top">
+                                        <span
+                                            class={`pill log-level ${logLevelClass(entry.Level)}`}
+                                        >
+                                            {entry.Level ?? "Information"}
+                                        </span>
+                                        <span class="log-time">
+                                            {formatLogTimestamp(entry.Timestamp)}
+                                        </span>
+                                    </div>
+                                    <p class="log-message">
+                                        {entry.RenderedMessage ?? "(empty log message)"}
+                                    </p>
+                                    <Show
+                                        when={
+                                            entry.Properties &&
+                                            Object.keys(entry.Properties).length > 0
+                                        }
+                                    >
+                                        <details class="log-details">
+                                            <summary>Properties</summary>
+                                            <pre>
+                                                {formatLogProperties(
+                                                    entry.Properties,
+                                                )}
+                                            </pre>
+                                        </details>
+                                    </Show>
+                                </article>
+                            )}
+                        </For>
+                    </div>
+
+                    <footer class="logs-footer">
+                        <span class="inline-note">
+                            {props.isFetching && !props.isLoading
+                                ? "Refreshing..."
+                                : `Showing ${props.logs.length} log entries`}
+                        </span>
+                    </footer>
+                </section>
+            </div>
+        </Show>
+    );
+}
+
 const AppShell: ParentComponent = (props) => {
     const queryClient = useQueryClient();
     const [lastHeartbeat, setLastHeartbeat] = createSignal<number>(0);
     const [lastZurgSignal, setLastZurgSignal] = createSignal<number>(0);
+    const [logsOpen, setLogsOpen] = createSignal(false);
+    const [logsMinLevel, setLogsMinLevel] = createSignal<LogLevel>(
+        "Information",
+    );
+    const [logsSearchTerm, setLogsSearchTerm] = createSignal("");
+    const [logsLimit, setLogsLimit] = createSignal(200);
 
     onMount(() => {
         const cleanupSocket = createRealtimeSocket((message) => {
@@ -199,6 +499,7 @@ const AppShell: ParentComponent = (props) => {
                 void queryClient.invalidateQueries({
                     queryKey: ["unidentified-files"],
                 });
+                void queryClient.invalidateQueries({ queryKey: ["logs"] });
             }
         });
 
@@ -215,6 +516,24 @@ const AppShell: ParentComponent = (props) => {
         return lastZurgSignal() > 0 && delta < 70_000;
     });
 
+    const logsQuery = useQuery(() => ({
+        queryKey: [
+            "logs",
+            logsMinLevel(),
+            logsSearchTerm().trim().toLowerCase(),
+            logsLimit(),
+            logsOpen(),
+        ],
+        queryFn: () =>
+            mediaApi.getLogs({
+                minLevel: logsMinLevel(),
+                searchTerm: logsSearchTerm(),
+                limit: logsLimit(),
+            }),
+        enabled: logsOpen(),
+        refetchInterval: logsOpen() ? 15000 : false,
+    }));
+
     return (
         <div class="app-shell">
             <header class="hero">
@@ -226,6 +545,14 @@ const AppShell: ParentComponent = (props) => {
                                 ? "Backend Online"
                                 : "Backend Waiting"}
                         </span>
+                        <button
+                            class="chip chip-link"
+                            type="button"
+                            title="Open backend logs"
+                            onClick={() => setLogsOpen(true)}
+                        >
+                            Logs
+                        </button>
                         <span class={`chip ${zurgOnline() ? "ok" : "warn"}`}>
                             {zurgOnline() ? "Zurg Online" : "Zurg Waiting"}
                         </span>
@@ -246,6 +573,24 @@ const AppShell: ParentComponent = (props) => {
             </nav>
 
             <main class="content">{props.children}</main>
+
+            <LogsViewer
+                open={logsOpen()}
+                minLevel={logsMinLevel()}
+                searchTerm={logsSearchTerm()}
+                limit={logsLimit()}
+                logs={logsQuery.data?.logs ?? []}
+                isLoading={logsQuery.isLoading}
+                isError={logsQuery.isError}
+                isFetching={logsQuery.isFetching}
+                onClose={() => setLogsOpen(false)}
+                onRefresh={() => {
+                    void logsQuery.refetch();
+                }}
+                onMinLevelChange={setLogsMinLevel}
+                onSearchTermChange={setLogsSearchTerm}
+                onLimitChange={setLogsLimit}
+            />
         </div>
     );
 };
@@ -368,22 +713,30 @@ function MoviesPage() {
     );
 }
 
-function UnidentifiedFileRow(props: { file: ScannedFile }) {
+function UnidentifiedFileRow(props: {
+    file: ScannedFile;
+    sourceDividerPath?: string | null;
+}) {
     const typeLabel = props.file.mediaType ?? "No media type";
     const updatedLabel = formatDate(
         props.file.updatedAt ?? props.file.createdAt,
     );
 
     return (
-        <div class="file-row">
-            <FileRowIdentity file={props.file} />
-            <div class="file-meta">
-                <span>Status: {props.file.status}</span>
-                <span>Type: {typeLabel}</span>
-                <span>{formatBytes(props.file.fileSize)}</span>
-                <span>Updated: {updatedLabel}</span>
+        <>
+            <Show when={props.sourceDividerPath}>
+                {(path) => <SourceSubgroupSeparator sourcePath={path()} />}
+            </Show>
+            <div class="file-row">
+                <FileRowIdentity file={props.file} />
+                <div class="file-meta">
+                    <span>Status: {props.file.status}</span>
+                    <span>Type: {typeLabel}</span>
+                    <span>{formatBytes(props.file.fileSize)}</span>
+                    <span>Updated: {updatedLabel}</span>
+                </div>
             </div>
-        </div>
+        </>
     );
 }
 
@@ -418,15 +771,7 @@ function UnidentifiedPage() {
                 byId.set(file.id, file);
             }
 
-            const files = [...byId.values()].sort((left, right) => {
-                const leftParsed = Date.parse(left.updatedAt ?? left.createdAt);
-                const rightParsed = Date.parse(
-                    right.updatedAt ?? right.createdAt,
-                );
-                const leftTime = Number.isNaN(leftParsed) ? 0 : leftParsed;
-                const rightTime = Number.isNaN(rightParsed) ? 0 : rightParsed;
-                return rightTime - leftTime;
-            });
+            const files = [...byId.values()].sort(compareByRecency);
 
             const groupedByType = new Map<string, ScannedFile[]>();
             for (const file of files) {
@@ -458,7 +803,7 @@ function UnidentifiedPage() {
                 .map(([type, groupFiles]) => ({
                     type,
                     count: groupFiles.length,
-                    files: groupFiles,
+                    files: [...groupFiles].sort(compareBySourceDirectoryThenRecency),
                 }));
 
             return {
@@ -524,9 +869,18 @@ function UnidentifiedPage() {
                                     {group.type} ({group.count})
                                 </h4>
                                 <div class="season-list">
-                                    <For each={group.files}>
-                                        {(file) => (
-                                            <UnidentifiedFileRow file={file} />
+                                    <For
+                                        each={annotateFilesWithSourceDividers(
+                                            group.files,
+                                        )}
+                                    >
+                                        {(entry) => (
+                                            <UnidentifiedFileRow
+                                                file={entry.file}
+                                                sourceDividerPath={
+                                                    entry.sourceDividerPath
+                                                }
+                                            />
                                         )}
                                     </For>
                                 </div>
@@ -566,6 +920,29 @@ interface MissingEpisodeCard {
 
 type SeasonEpisodeCard = ScannedEpisodeCard | MissingEpisodeCard;
 
+function annotateSeasonCardsWithSourceDividers(cards: SeasonEpisodeCard[]) {
+    let previousDirectory: string | null = null;
+    return cards.map((card) => {
+        if (card.kind !== "file") {
+            return {
+                card,
+                sourceDividerPath: null,
+            };
+        }
+
+        const currentDirectory = sourceDirectory(card.file.sourceFile);
+        const sourceDividerPath =
+            previousDirectory !== null && previousDirectory !== currentDirectory
+                ? currentDirectory
+                : null;
+        previousDirectory = currentDirectory;
+        return {
+            card,
+            sourceDividerPath,
+        };
+    });
+}
+
 interface SeasonCoverageGroup {
     seasonNumber: number;
     episodeCount: number;
@@ -573,27 +950,35 @@ interface SeasonCoverageGroup {
     cards: SeasonEpisodeCard[];
 }
 
-function EpisodeFileRow(props: { file: ScannedFile }) {
+function EpisodeFileRow(props: {
+    file: ScannedFile;
+    sourceDividerPath?: string | null;
+}) {
     return (
-        <div class="file-row">
-            <FileRowIdentity file={props.file} />
-            <div class="file-meta">
-                <span>
-                    {props.file.seasonNumber
-                        ? `S${String(props.file.seasonNumber).padStart(2, "0")}`
-                        : "S??"}
-                </span>
-                <span>
-                    {props.file.episodeNumber
-                        ? `E${String(props.file.episodeNumber).padStart(2, "0")}`
-                        : "E??"}
-                </span>
-                <span>{props.file.status}</span>
-                <span>
-                    {formatDate(props.file.updatedAt ?? props.file.createdAt)}
-                </span>
+        <>
+            <Show when={props.sourceDividerPath}>
+                {(path) => <SourceSubgroupSeparator sourcePath={path()} />}
+            </Show>
+            <div class="file-row">
+                <FileRowIdentity file={props.file} />
+                <div class="file-meta">
+                    <span>
+                        {props.file.seasonNumber
+                            ? `S${String(props.file.seasonNumber).padStart(2, "0")}`
+                            : "S??"}
+                    </span>
+                    <span>
+                        {props.file.episodeNumber
+                            ? `E${String(props.file.episodeNumber).padStart(2, "0")}`
+                            : "E??"}
+                    </span>
+                    <span>{props.file.status}</span>
+                    <span>
+                        {formatDate(props.file.updatedAt ?? props.file.createdAt)}
+                    </span>
+                </div>
             </div>
-        </div>
+        </>
     );
 }
 
@@ -1034,11 +1419,18 @@ function TvShowDetailsPage() {
                                                 : ""}
                                         </h4>
                                         <div class="season-list">
-                                            <For each={group.cards}>
-                                                {(card) =>
-                                                    card.kind === "file" ? (
+                                            <For
+                                                each={annotateSeasonCardsWithSourceDividers(
+                                                    group.cards,
+                                                )}
+                                            >
+                                                {(entry) =>
+                                                    entry.card.kind === "file" ? (
                                                         <EpisodeFileRow
-                                                            file={card.file}
+                                                            file={entry.card.file}
+                                                            sourceDividerPath={
+                                                                entry.sourceDividerPath
+                                                            }
                                                         />
                                                     ) : (
                                                         <MissingEpisodeRow
@@ -1046,13 +1438,15 @@ function TvShowDetailsPage() {
                                                                 group.seasonNumber
                                                             }
                                                             episodeNumber={
-                                                                card.episodeNumber
+                                                                entry.card
+                                                                    .episodeNumber
                                                             }
                                                             episodeName={
-                                                                card.episodeName
+                                                                entry.card
+                                                                    .episodeName
                                                             }
                                                             airDate={
-                                                                card.airDate
+                                                                entry.card.airDate
                                                             }
                                                         />
                                                     )
@@ -1089,12 +1483,19 @@ function TvShowDetailsPage() {
                             </Show>
                             <div class="season-list">
                                 <For
-                                    each={
+                                    each={annotateFilesWithSourceDividers(
                                         tvFilesQuery.data?.uncategorizedFiles ??
-                                        []
-                                    }
+                                            [],
+                                    )}
                                 >
-                                    {(file) => <EpisodeFileRow file={file} />}
+                                    {(entry) => (
+                                        <EpisodeFileRow
+                                            file={entry.file}
+                                            sourceDividerPath={
+                                                entry.sourceDividerPath
+                                            }
+                                        />
+                                    )}
                                 </For>
                             </div>
                         </section>
@@ -1110,24 +1511,30 @@ function MovieFileRow(props: {
     showMarkExtra?: boolean;
     onMarkExtra?: (id: number) => void;
     disabled?: boolean;
+    sourceDividerPath?: string | null;
 }) {
     return (
-        <div class="file-row">
-            <FileRowIdentity file={props.file} />
-            <div class="file-meta">
-                <span>{formatBytes(props.file.fileSize)}</span>
-                <span>{props.file.status}</span>
-                <Show when={props.showMarkExtra}>
-                    <button
-                        class="ghost-button"
-                        disabled={props.disabled}
-                        onClick={() => props.onMarkExtra?.(props.file.id)}
-                    >
-                        Mark as extra
-                    </button>
-                </Show>
+        <>
+            <Show when={props.sourceDividerPath}>
+                {(path) => <SourceSubgroupSeparator sourcePath={path()} />}
+            </Show>
+            <div class="file-row">
+                <FileRowIdentity file={props.file} />
+                <div class="file-meta">
+                    <span>{formatBytes(props.file.fileSize)}</span>
+                    <span>{props.file.status}</span>
+                    <Show when={props.showMarkExtra}>
+                        <button
+                            class="ghost-button"
+                            disabled={props.disabled}
+                            onClick={() => props.onMarkExtra?.(props.file.id)}
+                        >
+                            Mark as extra
+                        </button>
+                    </Show>
+                </div>
             </div>
-        </div>
+        </>
     );
 }
 
@@ -1212,10 +1619,17 @@ function MovieDetailsPage() {
                                 </p>
                             </Show>
                             <div class="season-list">
-                                <For each={filesQuery.data?.primaryFiles ?? []}>
-                                    {(file) => (
+                                <For
+                                    each={annotateFilesWithSourceDividers(
+                                        filesQuery.data?.primaryFiles ?? [],
+                                    )}
+                                >
+                                    {(entry) => (
                                         <MovieFileRow
-                                            file={file}
+                                            file={entry.file}
+                                            sourceDividerPath={
+                                                entry.sourceDividerPath
+                                            }
                                             showMarkExtra
                                             onMarkExtra={markAsExtra}
                                             disabled={
@@ -1246,12 +1660,19 @@ function MovieDetailsPage() {
                                 </p>
                             </Show>
                             <div class="season-list">
-                                <For each={filesQuery.data?.extraFiles ?? []}>
-                                    {(file) => (
+                                <For
+                                    each={annotateFilesWithSourceDividers(
+                                        filesQuery.data?.extraFiles ?? [],
+                                    )}
+                                >
+                                    {(entry) => (
                                         <MovieFileRow
-                                            file={file}
+                                            file={entry.file}
+                                            sourceDividerPath={
+                                                entry.sourceDividerPath
+                                            }
                                             showMarkExtra={
-                                                file.mediaType !== "Extras"
+                                                entry.file.mediaType !== "Extras"
                                             }
                                             onMarkExtra={markAsExtra}
                                             disabled={

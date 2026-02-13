@@ -1,5 +1,6 @@
 export type MediaType = "Movies" | "TvShows" | "Extras" | "Unknown"
 export type MediaStatus = "Processing" | "Success" | "Failed" | "Duplicate"
+export type LogLevel = "Verbose" | "Debug" | "Information" | "Warning" | "Error" | "Fatal"
 
 export interface FolderMappingConfig {
   sourceFolder: string
@@ -149,4 +150,15 @@ export interface EpisodeGroupChangeResponse {
 export interface RealtimeEnvelope {
   type: "file.added" | "file.updated" | "file.removed" | "heartbeat" | "zurg.version"
   payload: unknown
+}
+
+export interface LogEntry {
+  Timestamp?: string
+  Level?: LogLevel | string
+  RenderedMessage?: string
+  Properties?: Record<string, unknown>
+}
+
+export interface LogsResponse {
+  logs: LogEntry[]
 }

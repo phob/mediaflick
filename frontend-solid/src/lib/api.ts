@@ -2,6 +2,8 @@ import { getApiBaseUrl } from "@/lib/runtime-config"
 import type {
   ConfigurationPayload,
   EpisodeGroupChangeResponse,
+  LogLevel,
+  LogsResponse,
   MediaInfo,
   MediaStatus,
   MediaType,
@@ -132,6 +134,26 @@ export const mediaApi = {
       method: "PUT",
       body: JSON.stringify(payload),
     })
+  },
+
+  getLogs(params: {
+    minLevel?: LogLevel
+    searchTerm?: string
+    limit?: number
+  }): Promise<LogsResponse> {
+    const query = new URLSearchParams()
+    if (params.minLevel) {
+      query.set("minLevel", params.minLevel)
+    }
+    if (params.searchTerm?.trim()) {
+      query.set("searchTerm", params.searchTerm.trim())
+    }
+    if (params.limit && params.limit > 0) {
+      query.set("limit", String(params.limit))
+    }
+
+    const suffix = query.toString()
+    return request(`/logs${suffix ? `?${suffix}` : ""}`)
   },
 
   markAsExtra(fileId: number): Promise<{ id: number }> {
