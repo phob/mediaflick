@@ -1,5 +1,5 @@
 import { A, Route, Router, useLocation, useParams } from "@solidjs/router"
-import { createMutation, createQuery, useQueryClient } from "@tanstack/solid-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/solid-query"
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, type ParentComponent } from "solid-js"
 import { mediaApi } from "@/lib/api"
 import { createRealtimeSocket } from "@/lib/realtime"
@@ -234,7 +234,7 @@ function MediaSearchHeader(props: {
 
 function TvShowsPage() {
   const [searchTerm, setSearchTerm] = createSignal("")
-  const titlesQuery = createQuery(() => ({
+  const titlesQuery = useQuery(() => ({
     queryKey: ["titles", "tv", searchTerm().trim().toLowerCase()],
     queryFn: () => mediaApi.listTitles("TvShows", searchTerm()),
   }))
@@ -274,7 +274,7 @@ function TvShowsPage() {
 
 function MoviesPage() {
   const [searchTerm, setSearchTerm] = createSignal("")
-  const titlesQuery = createQuery(() => ({
+  const titlesQuery = useQuery(() => ({
     queryKey: ["titles", "movies", searchTerm().trim().toLowerCase()],
     queryFn: () => mediaApi.listTitles("Movies", searchTerm()),
   }))
@@ -331,7 +331,7 @@ function UnidentifiedFileRow(props: { file: ScannedFile }) {
 
 function UnidentifiedPage() {
   const [searchTerm, setSearchTerm] = createSignal("")
-  const unidentifiedQuery = createQuery(() => ({
+  const unidentifiedQuery = useQuery(() => ({
     queryKey: ["unidentified-files", searchTerm().trim().toLowerCase()],
     queryFn: async () => {
       const normalizedSearch = searchTerm().trim()
@@ -500,25 +500,25 @@ function TvShowDetailsPage() {
   const queryClient = useQueryClient()
   const tmdbId = createMemo(() => Number(params.tmdbId))
 
-  const showQuery = createQuery(() => ({
+  const showQuery = useQuery(() => ({
     queryKey: ["show", tmdbId()],
     queryFn: () => mediaApi.getShow(tmdbId()),
     enabled: Number.isInteger(tmdbId()) && tmdbId() > 0,
   }))
 
-  const episodeGroupsQuery = createQuery(() => ({
+  const episodeGroupsQuery = useQuery(() => ({
     queryKey: ["tv-episode-groups", tmdbId()],
     queryFn: () => mediaApi.getShowEpisodeGroups(tmdbId()),
     enabled: Number.isInteger(tmdbId()) && tmdbId() > 0,
   }))
 
-  const tvFilesQuery = createQuery(() => ({
+  const tvFilesQuery = useQuery(() => ({
     queryKey: ["tv-files", tmdbId()],
     queryFn: () => mediaApi.getShowFiles(tmdbId()),
     enabled: Number.isInteger(tmdbId()) && tmdbId() > 0,
   }))
 
-  const seasonDetailsQuery = createQuery(() => ({
+  const seasonDetailsQuery = useQuery(() => ({
     queryKey: ["tv-seasons", tmdbId(), showQuery.data?.seasonCount ?? 0],
     queryFn: async () => {
       const seasonCount = showQuery.data?.seasonCount ?? 0
@@ -533,7 +533,7 @@ function TvShowDetailsPage() {
     enabled: Number.isInteger(tmdbId()) && tmdbId() > 0 && (showQuery.data?.seasonCount ?? 0) > 0,
   }))
 
-  const episodeGroupMutation = createMutation(() => ({
+  const episodeGroupMutation = useMutation(() => ({
     mutationFn: (episodeGroupId: string | null) => mediaApi.setShowEpisodeGroup(tmdbId(), episodeGroupId),
     onSuccess: async () => {
       await Promise.all([
@@ -852,19 +852,19 @@ function MovieDetailsPage() {
   const queryClient = useQueryClient()
   const tmdbId = createMemo(() => Number(params.tmdbId))
 
-  const movieQuery = createQuery(() => ({
+  const movieQuery = useQuery(() => ({
     queryKey: ["movie", tmdbId()],
     queryFn: () => mediaApi.getMovie(tmdbId()),
     enabled: Number.isInteger(tmdbId()) && tmdbId() > 0,
   }))
 
-  const filesQuery = createQuery(() => ({
+  const filesQuery = useQuery(() => ({
     queryKey: ["movie-files", tmdbId()],
     queryFn: () => mediaApi.getMovieFiles(tmdbId()),
     enabled: Number.isInteger(tmdbId()) && tmdbId() > 0,
   }))
 
-  const markExtraMutation = createMutation(() => ({
+  const markExtraMutation = useMutation(() => ({
     mutationFn: (fileId: number) => mediaApi.markAsExtra(fileId),
     onSuccess: async () => {
       await Promise.all([
@@ -955,7 +955,7 @@ function MovieDetailsPage() {
 
 function SettingsPage() {
   const queryClient = useQueryClient()
-  const configQuery = createQuery(() => ({
+  const configQuery = useQuery(() => ({
     queryKey: ["config"],
     queryFn: () => mediaApi.getConfig(),
   }))
@@ -968,7 +968,7 @@ function SettingsPage() {
     }
   })
 
-  const saveMutation = createMutation(() => ({
+  const saveMutation = useMutation(() => ({
     mutationFn: (payload: ConfigurationPayload) => mediaApi.updateConfig(payload),
     onSuccess: async updated => {
       setDraft(cloneConfig(updated))
