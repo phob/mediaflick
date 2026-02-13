@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, isNotNull, like, or, sql } from "drizzle-orm"
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, like, or, sql } from "drizzle-orm"
 import type { AppDb } from "@/db/client"
 import { scannedFiles } from "@/db/schema"
 import { formatGenres, parseGenres, type MediaStatus, type MediaType, type PagedResult, type ScannedFile, type ScannedFileStats, type UpdateScannedFileRequest } from "@/shared/types"
@@ -30,6 +30,7 @@ function mapRow(row: typeof scannedFiles.$inferSelect): ScannedFile {
     seasonNumber: row.seasonNumber,
     episodeNumber: row.episodeNumber,
     episodeNumber2: row.episodeNumber2,
+    posterPath: row.posterPath,
     status: row.status as MediaStatus,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -203,6 +204,7 @@ export class ScannedFilesRepo {
     seasonNumber: number | null
     episodeNumber: number | null
     episodeNumber2: number | null
+    posterPath?: string | null
     status: MediaStatus
   }): Promise<ScannedFile | null> {
     await this.db
@@ -218,6 +220,7 @@ export class ScannedFilesRepo {
         seasonNumber: input.seasonNumber,
         episodeNumber: input.episodeNumber,
         episodeNumber2: input.episodeNumber2,
+        posterPath: input.posterPath ?? null,
         status: input.status,
         updatedAt: new Date().toISOString(),
         updateToVersion: sql`${scannedFiles.updateToVersion} + 1`,
@@ -286,7 +289,7 @@ export class ScannedFilesRepo {
     return existing.map(mapRow)
   }
 
-  async listForTmdbTitles(mediaType?: MediaType, searchTerm?: string): Promise<Array<{ tmdbId: number | null; title: string | null }>> {
+  async listForTmdbTitles(mediaType?: MediaType, searchTerm?: string): Promise<Array<{ tmdbId: number | null; title: string | null; posterPath: string | null }>> {
     const conditions = [eq(scannedFiles.status, "Success"), isNotNull(scannedFiles.tmdbId)]
 
     if (mediaType) {
@@ -299,10 +302,33 @@ export class ScannedFilesRepo {
     }
 
     return this.db
-      .selectDistinct({ tmdbId: scannedFiles.tmdbId, title: scannedFiles.title })
+      .selectDistinct({ tmdbId: scannedFiles.tmdbId, title: scannedFiles.title, posterPath: scannedFiles.posterPath })
       .from(scannedFiles)
       .where(and(...conditions))
       .orderBy(asc(scannedFiles.title))
+  }
+
+  /** Returns distinct tmdbId + mediaType pairs that have a tmdbId but no posterPath yet. */
+  async listMissingPosters(): Promise<Array<{ tmdbId: number; mediaType: string }>> {
+    const rows = await this.db
+      .selectDistinct({ tmdbId: scannedFiles.tmdbId, mediaType: scannedFiles.mediaType })
+      .from(scannedFiles)
+      .where(and(
+        isNotNull(scannedFiles.tmdbId),
+        isNull(scannedFiles.posterPath),
+        eq(scannedFiles.status, "Success"),
+      ))
+
+    return rows
+      .filter((r): r is { tmdbId: number; mediaType: string } => r.tmdbId != null && r.mediaType != null)
+  }
+
+  /** Sets posterPath for every row with the given tmdbId. */
+  async setPosterByTmdbId(tmdbId: number, posterPath: string): Promise<void> {
+    await this.db
+      .update(scannedFiles)
+      .set({ posterPath })
+      .where(and(eq(scannedFiles.tmdbId, tmdbId), isNull(scannedFiles.posterPath)))
   }
 
   async stats(): Promise<ScannedFileStats> {

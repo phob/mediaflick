@@ -1,4 +1,4 @@
-import { basename, extname } from "node:path"
+import { basename, dirname, extname } from "node:path"
 import { extractYear, normalizeTitle } from "@/modules/detection/normalization"
 
 export interface MovieDetectionResult {
@@ -9,8 +9,40 @@ export interface MovieDetectionResult {
 
 const moviePattern = /^(?<title>.*?)(?:\s+|[._-]+)(?<year>(?:19|20)\d{2})(?:\b|[._-])/i
 
+const bluRayContainerFolders = new Set([
+  "bdmv",
+  "stream",
+  "playlist",
+  "clipinf",
+  "backup",
+  "certificate",
+  "ssif",
+])
+
+function movieNameCandidateFromPath(filePath: string): string {
+  const extension = extname(filePath).toLowerCase()
+  const fileName = basename(filePath, extension)
+
+  if (extension !== ".m2ts") {
+    return fileName
+  }
+
+  const folderCandidates = [
+    basename(dirname(filePath)),
+    basename(dirname(dirname(filePath))),
+    basename(dirname(dirname(dirname(filePath)))),
+  ]
+
+  const folderName = folderCandidates.find(
+    (candidate) =>
+      candidate && !bluRayContainerFolders.has(candidate.toLowerCase()),
+  )
+
+  return folderName ?? fileName
+}
+
 export function detectMovieFromFileName(filePath: string): MovieDetectionResult | null {
-  const fileName = basename(filePath, extname(filePath))
+  const fileName = movieNameCandidateFromPath(filePath)
   const match = fileName.match(moviePattern)
 
   if (!match?.groups) {

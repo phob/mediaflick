@@ -36,6 +36,7 @@ async function ensureSchema(db: ReturnType<typeof drizzle<typeof schema>>): Prom
       "SeasonNumber" INTEGER NULL,
       "EpisodeNumber" INTEGER NULL,
       "EpisodeNumber2" INTEGER NULL,
+      "PosterPath" TEXT NULL,
       "Status" TEXT NOT NULL,
       "CreatedAt" TEXT NOT NULL,
       "UpdatedAt" TEXT NULL,
@@ -49,6 +50,13 @@ async function ensureSchema(db: ReturnType<typeof drizzle<typeof schema>>): Prom
   await db.run(
     sql`CREATE UNIQUE INDEX IF NOT EXISTS "IX_ScannedFiles_Source_Dest_Episode" ON "ScannedFiles" ("SourceFile", "DestFile", "EpisodeNumber")`,
   )
+
+  // Add PosterPath column to existing databases
+  try {
+    await db.run(sql`ALTER TABLE "ScannedFiles" ADD COLUMN "PosterPath" TEXT NULL`)
+  } catch {
+    // Column already exists, ignore
+  }
 
   await db.run(sql`
     CREATE TABLE IF NOT EXISTS "series_identity_map" (

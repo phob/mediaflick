@@ -54,6 +54,7 @@ export interface ScannedFile {
   seasonNumber: number | null
   episodeNumber: number | null
   episodeNumber2: number | null
+  posterPath: string | null
   status: MediaStatus
   createdAt: string
   updatedAt: string | null

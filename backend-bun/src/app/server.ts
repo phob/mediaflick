@@ -60,6 +60,34 @@ logger.info("Bun backend started", {
   dbPath: env.databasePath,
 })
 
+// Backfill posterPath for existing rows that have a tmdbId but no poster yet
+;(async () => {
+  try {
+    const missing = await scannedFilesRepo.listMissingPosters()
+    if (missing.length === 0) return
+    logger.info(`Backfilling poster paths for ${missing.length} titles`)
+
+    let filled = 0
+    for (const { tmdbId, mediaType } of missing) {
+      try {
+        const posterPath = mediaType === "Movies"
+          ? (await context.tmdb.getMovie(tmdbId)).poster_path
+          : (await context.tmdb.getTv(tmdbId)).poster_path
+        if (posterPath) {
+          await scannedFilesRepo.setPosterByTmdbId(tmdbId, posterPath)
+          filled++
+        }
+      } catch {
+        // Skip individual failures silently — TMDb rate limits or missing entries
+      }
+    }
+
+    logger.info(`Poster backfill complete: ${filled}/${missing.length} updated`)
+  } catch (err) {
+    logger.error("Poster backfill failed", { error: err })
+  }
+})()
+
 function shutdown() {
   poller.stop()
   stopRuntimeJobs()

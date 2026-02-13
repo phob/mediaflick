@@ -12,8 +12,10 @@
   },
   "dependencies": {
     "@solidjs/router": "^0.15.4",
+    "@tailwindcss/vite": "^4.1.18",
     "@tanstack/solid-query": "^5.90.8",
-    "solid-js": "^1.9.10"
+    "solid-js": "^1.9.10",
+    "tailwindcss": "^4.1.18"
   },
   "devDependencies": {
     "@types/bun": "latest",

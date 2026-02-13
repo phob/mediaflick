@@ -140,6 +140,8 @@ export const mediaApi = {
     minLevel?: LogLevel
     searchTerm?: string
     limit?: number
+    from?: string
+    to?: string
   }): Promise<LogsResponse> {
     const query = new URLSearchParams()
     if (params.minLevel) {
@@ -150,6 +152,12 @@ export const mediaApi = {
     }
     if (params.limit && params.limit > 0) {
       query.set("limit", String(params.limit))
+    }
+    if (params.from) {
+      query.set("from", params.from)
+    }
+    if (params.to) {
+      query.set("to", params.to)
     }
 
     const suffix = query.toString()

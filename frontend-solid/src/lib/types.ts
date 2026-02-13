@@ -40,6 +40,7 @@ export interface ConfigurationPayload {
 export interface MediaTitleItem {
   tmdbId: number
   title: string | null
+  posterPath: string | null
 }
 
 export interface MediaInfo {

@@ -18,6 +18,7 @@ export const scannedFiles = sqliteTable(
     seasonNumber: integer("SeasonNumber"),
     episodeNumber: integer("EpisodeNumber"),
     episodeNumber2: integer("EpisodeNumber2"),
+    posterPath: text("PosterPath"),
     status: text("Status").notNull(),
     createdAt: text("CreatedAt").notNull(),
     updatedAt: text("UpdatedAt"),
