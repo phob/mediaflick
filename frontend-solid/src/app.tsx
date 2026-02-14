@@ -11,12 +11,17 @@ import {
     type ParentComponent,
 } from "solid-js";
 import { mediaApi } from "@/lib/api";
+import { parseEpisodeInfo } from "@/lib/filename-parser";
 import { createRealtimeSocket } from "@/lib/realtime";
 import type {
+    BulkUpdateApplyResponse,
+    BulkUpdateItem,
+    BulkUpdateRequest,
     ConfigurationPayload,
     FolderMappingConfig,
     LogEntry,
     LogLevel,
+    MediaSearchResult,
     MediaStatus,
     MediaType,
     ScannedFile,
@@ -164,6 +169,19 @@ function annotateFilesWithSourceDividers(files: ScannedFile[]) {
         previousDirectory = currentDirectory;
         return { file, sourceDividerPath };
     });
+}
+
+function groupFilesBySourceDirectory(files: ScannedFile[]): { directory: string; label: string; files: ScannedFile[] }[] {
+    const map = new Map<string, ScannedFile[]>()
+    for (const f of files) {
+        const dir = sourceDirectory(f.sourceFile)
+        map.set(dir, [...(map.get(dir) ?? []), f])
+    }
+    return [...map.entries()].map(([directory, dirFiles]) => ({
+        directory,
+        label: sourceGroupLabel(directory),
+        files: dirFiles,
+    }))
 }
 
 function compareEpisodeFiles(left: ScannedFile, right: ScannedFile): number {
@@ -951,18 +969,564 @@ function MoviesPage() {
     );
 }
 
+/* ────────────────── tmdb search input ────────────────── */
+
+function TmdbSearchInput(props: {
+    mediaType: "Movies" | "TvShows"
+    onSelect: (result: MediaSearchResult) => void
+    initialQuery?: string
+    placeholder?: string
+    class?: string
+}) {
+    const [query, setQuery] = createSignal(props.initialQuery ?? "")
+    const [open, setOpen] = createSignal(false)
+    let debounceTimer: ReturnType<typeof setTimeout> | undefined
+
+    const searchQuery = useQuery(() => ({
+        queryKey: ["tmdb-search", props.mediaType, query().trim().toLowerCase()],
+        queryFn: () =>
+            props.mediaType === "Movies"
+                ? mediaApi.searchMovies(query())
+                : mediaApi.searchTvShows(query()),
+        enabled: query().trim().length >= 2 && open(),
+    }))
+
+    const handleInput = (value: string) => {
+        setQuery(value)
+        clearTimeout(debounceTimer)
+        debounceTimer = setTimeout(() => {
+            if (value.trim().length >= 2) setOpen(true)
+        }, 300)
+    }
+
+    const handleSelect = (result: MediaSearchResult) => {
+        setQuery(result.title)
+        setOpen(false)
+        props.onSelect(result)
+    }
+
+    return (
+        <div class={`relative ${props.class ?? ""}`}>
+            <input
+                value={query()}
+                onInput={(e) => handleInput(e.currentTarget.value)}
+                onFocus={() => { if (query().trim().length >= 2) setOpen(true) }}
+                class="w-full bg-surface-3 border border-border-default rounded-lg px-3.5 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition"
+                placeholder={props.placeholder ?? `Search ${props.mediaType === "Movies" ? "movies" : "TV shows"}...`}
+            />
+            <Show when={open() && (searchQuery.data?.length ?? 0) > 0}>
+                <div
+                    class="absolute z-50 mt-1 w-full max-h-64 overflow-y-auto bg-surface-2 border border-border-default rounded-xl shadow-xl"
+                    onMouseDown={(e) => e.preventDefault()}
+                >
+                    <For each={searchQuery.data ?? []}>
+                        {(result) => (
+                            <button
+                                type="button"
+                                class="flex items-center gap-3 w-full px-3 py-2 text-left hover:bg-surface-3 transition text-sm"
+                                onClick={() => handleSelect(result)}
+                            >
+                                <Show
+                                    when={result.posterPath}
+                                    fallback={<div class="w-8 h-12 rounded bg-surface-3 shrink-0" />}
+                                >
+                                    {(poster) => (
+                                        <img
+                                            src={`${TMDB_IMG}/w92${poster()}`}
+                                            alt=""
+                                            class="w-8 h-12 rounded object-cover shrink-0"
+                                        />
+                                    )}
+                                </Show>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-text-primary font-medium truncate">{result.title}</p>
+                                    <p class="text-xs text-text-tertiary">{result.year ?? "Year unknown"}</p>
+                                </div>
+                                <span class="text-xs text-text-tertiary shrink-0">#{result.tmdbId}</span>
+                            </button>
+                        )}
+                    </For>
+                </div>
+            </Show>
+            <Show when={open() && searchQuery.isLoading}>
+                <div class="absolute z-50 mt-1 w-full bg-surface-2 border border-border-default rounded-xl shadow-xl px-4 py-3">
+                    <p class="text-sm text-text-secondary animate-pulse">Searching...</p>
+                </div>
+            </Show>
+        </div>
+    )
+}
+
+/* ────────────────── identify modal ────────────────── */
+
+interface EditableFile {
+    id: number
+    sourceFile: string
+    status: MediaStatus
+    tmdbId: number | null
+    seasonNumber: number | null
+    episodeNumber: number | null
+    episodeNumber2: number | null
+    mediaType: MediaType | null
+    confidence: "high" | "medium" | "low"
+    ignoreAutoIncrement: boolean
+}
+
+function IdentifyModal(props: {
+    open: boolean
+    onClose: () => void
+    initialMode: "TvShows" | "Movies"
+    files: ScannedFile[]
+    preselectedTmdbId?: number
+    reassignOldTmdbId?: number
+}) {
+    const queryClient = useQueryClient()
+    const [mode, setMode] = createSignal<"TvShows" | "Movies">(props.initialMode)
+    const [selectedMedia, setSelectedMedia] = createSignal<MediaSearchResult | null>(null)
+    const [editableFiles, setEditableFiles] = createSignal<EditableFile[]>([])
+    const [saving, setSaving] = createSignal(false)
+    const [saveResult, setSaveResult] = createSignal<string | null>(null)
+    const [showDryRun, setShowDryRun] = createSignal(false)
+    const [dryRunInfo, setDryRunInfo] = createSignal<string | null>(null)
+
+    // Initialize editable files when modal opens or files change
+    createEffect(() => {
+        if (!props.open || props.files.length === 0) return
+        setMode(props.initialMode)
+        setSaveResult(null)
+        setShowDryRun(false)
+        setDryRunInfo(null)
+
+        const parsed = props.files
+            .slice()
+            .sort((a, b) => a.sourceFile.localeCompare(b.sourceFile))
+            .map((file) => {
+                const info = parseEpisodeInfo(file.sourceFile)
+                return {
+                    id: file.id,
+                    sourceFile: file.sourceFile,
+                    status: file.status,
+                    tmdbId: file.tmdbId,
+                    seasonNumber: file.seasonNumber ?? info.season ?? null,
+                    episodeNumber: file.episodeNumber ?? info.episode ?? null,
+                    episodeNumber2: file.episodeNumber2 ?? info.episode2 ?? null,
+                    mediaType: file.mediaType,
+                    confidence: (file.seasonNumber || file.episodeNumber) ? "high" as const : info.confidence,
+                    ignoreAutoIncrement: false,
+                }
+            })
+        setEditableFiles(parsed)
+
+        // If preselectedTmdbId exists, set it up
+        if (props.preselectedTmdbId) {
+            setSelectedMedia(null) // will be resolved by user searching
+        }
+    })
+
+    const handleTvMediaSelect = (result: MediaSearchResult) => {
+        setSelectedMedia(result)
+        // Apply tmdbId to all files
+        setEditableFiles((prev) =>
+            prev.map((f) => ({ ...f, tmdbId: result.tmdbId }))
+        )
+    }
+
+    const handleMovieMediaSelect = (index: number, result: MediaSearchResult) => {
+        setEditableFiles((prev) => {
+            const next = [...prev]
+            next[index] = { ...next[index], tmdbId: result.tmdbId }
+            return next
+        })
+    }
+
+    const handleSeasonChange = (index: number, value: string) => {
+        const seasonNumber = value === "" ? null : Number(value)
+        setEditableFiles((prev) => {
+            const next = [...prev]
+            // Set this row and cascade to subsequent rows
+            for (let i = index; i < next.length; i++) {
+                next[i] = { ...next[i], seasonNumber }
+            }
+            return next
+        })
+    }
+
+    const handleEpisodeChange = (index: number, value: string) => {
+        const episodeNumber = value === "" ? null : Number(value)
+        setEditableFiles((prev) => {
+            const next = [...prev]
+            next[index] = { ...next[index], episodeNumber }
+            // Auto-increment subsequent rows in same season
+            if (episodeNumber !== null) {
+                const currentSeason = next[index].seasonNumber
+                let nextEp = episodeNumber + 1
+                for (let i = index + 1; i < next.length; i++) {
+                    if (next[i].seasonNumber === currentSeason && !next[i].ignoreAutoIncrement) {
+                        next[i] = { ...next[i], episodeNumber: nextEp }
+                        nextEp += 1
+                    }
+                }
+            }
+            return next
+        })
+    }
+
+    const handleEpisode2Change = (index: number, value: string) => {
+        setEditableFiles((prev) => {
+            const next = [...prev]
+            next[index] = { ...next[index], episodeNumber2: value === "" ? null : Number(value) }
+            return next
+        })
+    }
+
+    const handleIgnoreChange = (index: number, checked: boolean) => {
+        setEditableFiles((prev) => {
+            const next = [...prev]
+            next[index] = { ...next[index], ignoreAutoIncrement: checked }
+            return next
+        })
+    }
+
+    const buildRequest = (dryRun: boolean): BulkUpdateRequest => {
+        const updates: BulkUpdateItem[] = editableFiles().map((f) => ({
+            id: f.id,
+            tmdbId: f.tmdbId ?? undefined,
+            seasonNumber: mode() === "TvShows" ? (f.seasonNumber ?? undefined) : undefined,
+            episodeNumber: mode() === "TvShows" ? (f.episodeNumber ?? undefined) : undefined,
+            episodeNumber2: mode() === "TvShows" ? (f.episodeNumber2 ?? undefined) : undefined,
+            mediaType: mode(),
+        }))
+
+        const req: BulkUpdateRequest = { dryRun, updates }
+
+        // If this is a TV reassignment from an existing show
+        if (mode() === "TvShows" && props.reassignOldTmdbId && selectedMedia()) {
+            const media = selectedMedia()!
+            req.identityUpdate = {
+                oldTmdbId: props.reassignOldTmdbId,
+                newTmdbId: media.tmdbId,
+                newCanonicalTitle: media.title,
+                newYear: media.year,
+                newImdbId: null,
+            }
+        }
+
+        return req
+    }
+
+    const handleDryRun = async () => {
+        const req = buildRequest(true)
+        try {
+            const result = await mediaApi.batchUpdate(req)
+            if ("willUpdate" in result) {
+                let info = `Will update ${result.willUpdate} of ${result.totalFiles} files.`
+                if (result.conflicts.length > 0) {
+                    info += ` ${result.conflicts.length} conflict(s): ${result.conflicts.map(c => c.reason).join(", ")}`
+                }
+                if (result.identityUpdate) {
+                    info += ` Identity: ${result.identityUpdate.identitiesWillUpdate} mapping(s), ${result.identityUpdate.aliasesWillRedirect} alias(es) will redirect.`
+                }
+                setDryRunInfo(info)
+                setShowDryRun(true)
+            }
+        } catch (err) {
+            setDryRunInfo(`Dry-run failed: ${err instanceof Error ? err.message : "Unknown error"}`)
+            setShowDryRun(true)
+        }
+    }
+
+    const handleSave = async () => {
+        setSaving(true)
+        setSaveResult(null)
+        try {
+            const req = buildRequest(false)
+            const result = await mediaApi.batchUpdate(req) as BulkUpdateApplyResponse
+            const parts: string[] = [`Updated ${result.updated} file(s).`]
+            if (result.symlinksRecreated > 0) parts.push(`${result.symlinksRecreated} symlink(s) recreated.`)
+            if (result.symlinksFailed > 0) parts.push(`${result.symlinksFailed} symlink(s) failed.`)
+            if (result.failed.length > 0) parts.push(`${result.failed.length} file(s) failed.`)
+            if (result.identityUpdated) parts.push("Series identity updated.")
+            setSaveResult(parts.join(" "))
+
+            // Invalidate all relevant queries
+            for (const key of ["titles", "show", "movie", "tv-files", "movie-files", "unidentified-files"]) {
+                void queryClient.invalidateQueries({ queryKey: [key] })
+            }
+
+            // Auto-close after short delay on success
+            if (result.failed.length === 0) {
+                setTimeout(() => props.onClose(), 1500)
+            }
+        } catch (err) {
+            setSaveResult(`Save failed: ${err instanceof Error ? err.message : "Unknown error"}`)
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    const confidenceColor = (c: "high" | "medium" | "low") => {
+        if (c === "high") return "bg-success"
+        if (c === "medium") return "bg-warning"
+        return "bg-error"
+    }
+
+    return (
+        <Show when={props.open}>
+            <div
+                class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                onClick={props.onClose}
+            >
+                <section
+                    class="w-full max-w-6xl max-h-[90vh] bg-surface-1 border border-border-default rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Identify media files"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    {/* Header */}
+                    <header class="flex items-start justify-between gap-4 p-5 border-b border-border-subtle">
+                        <div>
+                            <h3 class="text-lg font-bold">
+                                Identify as {mode() === "TvShows" ? "TV Show" : "Movie"}
+                            </h3>
+                            <p class="text-sm text-text-secondary mt-0.5">
+                                {editableFiles().length} file(s) selected
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <select
+                                class="bg-surface-2 border border-border-default rounded-lg px-3 py-1.5 text-sm text-text-primary"
+                                value={mode()}
+                                onChange={(e) => {
+                                    const newMode = e.currentTarget.value as "TvShows" | "Movies"
+                                    setMode(newMode)
+                                    setSelectedMedia(null)
+                                }}
+                            >
+                                <option value="TvShows">TV Show</option>
+                                <option value="Movies">Movie</option>
+                            </select>
+                            <button
+                                type="button"
+                                onClick={props.onClose}
+                                class="px-3 py-1.5 text-sm rounded-lg border border-border-default bg-surface-2 text-text-secondary hover:text-text-primary hover:border-border-hover transition"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </header>
+
+                    {/* TV Show: shared search bar */}
+                    <Show when={mode() === "TvShows"}>
+                        <div class="p-4 border-b border-border-subtle flex items-center gap-4">
+                            <TmdbSearchInput
+                                mediaType="TvShows"
+                                onSelect={handleTvMediaSelect}
+                                placeholder="Search for a TV show..."
+                                class="flex-1"
+                            />
+                            <Show when={selectedMedia()}>
+                                {(media) => (
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <Show when={media().posterPath}>
+                                            {(poster) => (
+                                                <img
+                                                    src={`${TMDB_IMG}/w92${poster()}`}
+                                                    alt=""
+                                                    class="w-8 h-12 rounded object-cover"
+                                                />
+                                            )}
+                                        </Show>
+                                        <div class="text-sm">
+                                            <p class="font-medium text-text-primary">{media().title}</p>
+                                            <p class="text-xs text-text-tertiary">#{media().tmdbId} · {media().year ?? "?"}</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </Show>
+                        </div>
+                    </Show>
+
+                    {/* Edit table */}
+                    <div class="flex-1 overflow-auto min-h-0">
+                        <Show when={mode() === "TvShows"}>
+                            <table class="w-full text-sm">
+                                <thead class="sticky top-0 bg-surface-1 border-b border-border-subtle">
+                                    <tr>
+                                        <th class="text-left px-4 py-2 text-text-secondary font-medium">File</th>
+                                        <th class="text-left px-2 py-2 text-text-secondary font-medium w-16">S</th>
+                                        <th class="text-left px-2 py-2 text-text-secondary font-medium w-16">E</th>
+                                        <th class="text-left px-2 py-2 text-text-secondary font-medium w-16">E2</th>
+                                        <th class="text-center px-2 py-2 text-text-secondary font-medium w-10" title="Skip auto-increment">Skip</th>
+                                        <th class="text-center px-2 py-2 text-text-secondary font-medium w-8" title="Parse confidence">C</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <For each={editableFiles()}>
+                                        {(file, index) => (
+                                            <tr class="border-b border-border-subtle hover:bg-surface-2/50">
+                                                <td class="px-4 py-2">
+                                                    <p class="truncate max-w-md" title={file.sourceFile}>
+                                                        {fileName(file.sourceFile)}
+                                                    </p>
+                                                </td>
+                                                <td class="px-2 py-2">
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        class="w-14 bg-surface-3 border border-border-default rounded px-2 py-1 text-sm text-text-primary"
+                                                        value={file.seasonNumber?.toString() ?? ""}
+                                                        onInput={(e) => handleSeasonChange(index(), e.currentTarget.value)}
+                                                    />
+                                                </td>
+                                                <td class="px-2 py-2">
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        class="w-14 bg-surface-3 border border-border-default rounded px-2 py-1 text-sm text-text-primary"
+                                                        value={file.episodeNumber?.toString() ?? ""}
+                                                        onInput={(e) => handleEpisodeChange(index(), e.currentTarget.value)}
+                                                    />
+                                                </td>
+                                                <td class="px-2 py-2">
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        class="w-14 bg-surface-3 border border-border-default rounded px-2 py-1 text-sm text-text-primary"
+                                                        value={file.episodeNumber2?.toString() ?? ""}
+                                                        onInput={(e) => handleEpisode2Change(index(), e.currentTarget.value)}
+                                                    />
+                                                </td>
+                                                <td class="px-2 py-2 text-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={file.ignoreAutoIncrement}
+                                                        onChange={(e) => handleIgnoreChange(index(), e.currentTarget.checked)}
+                                                        class="accent-accent"
+                                                    />
+                                                </td>
+                                                <td class="px-2 py-2 text-center">
+                                                    <span
+                                                        class={`inline-block w-2.5 h-2.5 rounded-full ${confidenceColor(file.confidence)}`}
+                                                        title={`${file.confidence} confidence`}
+                                                    />
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </For>
+                                </tbody>
+                            </table>
+                        </Show>
+
+                        <Show when={mode() === "Movies"}>
+                            <table class="w-full text-sm">
+                                <thead class="sticky top-0 bg-surface-1 border-b border-border-subtle">
+                                    <tr>
+                                        <th class="text-left px-4 py-2 text-text-secondary font-medium">File</th>
+                                        <th class="text-left px-2 py-2 text-text-secondary font-medium w-20">TMDb ID</th>
+                                        <th class="text-left px-2 py-2 text-text-secondary font-medium w-64">Search</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <For each={editableFiles()}>
+                                        {(file, index) => {
+                                            const info = parseEpisodeInfo(file.sourceFile)
+                                            return (
+                                                <tr class="border-b border-border-subtle hover:bg-surface-2/50">
+                                                    <td class="px-4 py-2">
+                                                        <p class="truncate max-w-sm" title={file.sourceFile}>
+                                                            {fileName(file.sourceFile)}
+                                                        </p>
+                                                    </td>
+                                                    <td class="px-2 py-2 text-text-tertiary">
+                                                        {file.tmdbId ?? "—"}
+                                                    </td>
+                                                    <td class="px-2 py-2">
+                                                        <TmdbSearchInput
+                                                            mediaType="Movies"
+                                                            initialQuery={info.cleanTitle}
+                                                            onSelect={(r) => handleMovieMediaSelect(index(), r)}
+                                                            placeholder="Search movie..."
+                                                            class="w-full"
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            )
+                                        }}
+                                    </For>
+                                </tbody>
+                            </table>
+                        </Show>
+                    </div>
+
+                    {/* Footer */}
+                    <footer class="px-5 py-4 border-t border-border-subtle space-y-3">
+                        <Show when={showDryRun() && dryRunInfo()}>
+                            <p class="text-sm text-text-secondary bg-surface-2 border border-border-subtle rounded-lg px-3 py-2">
+                                {dryRunInfo()}
+                            </p>
+                        </Show>
+                        <Show when={saveResult()}>
+                            <p class={`text-sm ${saveResult()!.includes("failed") ? "text-error" : "text-success"}`}>
+                                {saveResult()}
+                            </p>
+                        </Show>
+                        <div class="flex justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={props.onClose}
+                                class="px-4 py-2 text-sm rounded-lg border border-border-default bg-surface-2 text-text-secondary hover:text-text-primary hover:border-border-hover transition"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleDryRun}
+                                disabled={saving()}
+                                class="px-4 py-2 text-sm rounded-lg border border-border-default bg-surface-2 text-text-secondary hover:text-text-primary hover:border-border-hover disabled:opacity-40 disabled:cursor-not-allowed transition"
+                            >
+                                Preview
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleSave}
+                                disabled={saving()}
+                                class="px-5 py-2 text-sm font-semibold rounded-lg bg-accent text-surface-0 hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed transition"
+                            >
+                                {saving() ? "Saving..." : "Save Changes"}
+                            </button>
+                        </div>
+                    </footer>
+                </section>
+            </div>
+        </Show>
+    )
+}
+
 /* ────────────────── unidentified page ────────────────── */
 
 function UnidentifiedFileRow(props: {
     file: ScannedFile;
     sourceDividerPath?: string | null;
+    selected?: boolean;
+    onToggle?: (id: number) => void;
 }) {
     return (
         <>
             <Show when={props.sourceDividerPath}>
                 {(p) => <SourceSubgroupSeparator sourcePath={p()} />}
             </Show>
-            <div class="flex items-start justify-between gap-4 bg-surface-2 border border-border-subtle rounded-lg px-4 py-3">
+            <div
+                class={`flex items-start gap-3 bg-surface-2 border rounded-lg px-4 py-3 cursor-pointer transition ${props.selected ? "border-accent/50 bg-accent/5" : "border-border-subtle hover:border-border-hover"}`}
+                onClick={() => props.onToggle?.(props.file.id)}
+            >
+                <input
+                    type="checkbox"
+                    checked={props.selected ?? false}
+                    onChange={() => props.onToggle?.(props.file.id)}
+                    class="accent-accent mt-1 shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                />
                 <FileRowIdentity file={props.file} />
                 <div class="flex flex-wrap items-center gap-1.5 shrink-0">
                     <StatusBadge status={props.file.status} />
@@ -975,7 +1539,12 @@ function UnidentifiedFileRow(props: {
 }
 
 function UnidentifiedPage() {
-    const [searchTerm, setSearchTerm] = createSignal("");
+    const queryClient = useQueryClient()
+    const [searchTerm, setSearchTerm] = createSignal("")
+    const [selectedIds, setSelectedIds] = createSignal<Set<number>>(new Set())
+    const [identifyModalOpen, setIdentifyModalOpen] = createSignal(false)
+    const [identifyMode, setIdentifyMode] = createSignal<"TvShows" | "Movies">("TvShows")
+
     const unidentifiedQuery = useQuery(() => ({
         queryKey: ["unidentified-files", searchTerm().trim().toLowerCase()],
         queryFn: async () => {
@@ -1031,7 +1600,61 @@ function UnidentifiedPage() {
                     .length,
             };
         },
-    }));
+    }))
+
+    const toggleFile = (id: number) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev)
+            if (next.has(id)) next.delete(id)
+            else next.add(id)
+            return next
+        })
+    }
+
+    const toggleGroup = (files: ScannedFile[]) => {
+        const ids = files.map((f) => f.id)
+        setSelectedIds((prev) => {
+            const next = new Set(prev)
+            const allSelected = ids.every((id) => next.has(id))
+            if (allSelected) {
+                for (const id of ids) next.delete(id)
+            } else {
+                for (const id of ids) next.add(id)
+            }
+            return next
+        })
+    }
+
+    const selectedFiles = createMemo(() => {
+        const ids = selectedIds()
+        const all = unidentifiedQuery.data?.files ?? []
+        return all.filter((f) => ids.has(f.id))
+    })
+
+    const isGroupFullySelected = (files: ScannedFile[]) => {
+        const ids = selectedIds()
+        return files.length > 0 && files.every((f) => ids.has(f.id))
+    }
+
+    const handleIdentify = (mode: "TvShows" | "Movies") => {
+        setIdentifyMode(mode)
+        setIdentifyModalOpen(true)
+    }
+
+    const markExtraMutation = useMutation(() => ({
+        mutationFn: async (ids: number[]) => {
+            const req: BulkUpdateRequest = {
+                updates: ids.map((id) => ({ id, mediaType: "Extras" as const })),
+            }
+            return mediaApi.batchUpdate(req)
+        },
+        onSuccess: async () => {
+            setSelectedIds(new Set<number>())
+            for (const key of ["titles", "unidentified-files"]) {
+                void queryClient.invalidateQueries({ queryKey: [key] })
+            }
+        },
+    }))
 
     return (
         <section>
@@ -1070,29 +1693,55 @@ function UnidentifiedPage() {
                         </Pill>
                     </div>
                     <For each={unidentifiedQuery.data?.typeGroups ?? []}>
-                        {(group) => (
-                            <div class="space-y-2">
-                                <h3 class="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                                    {group.type} ({group.count})
-                                </h3>
-                                <div class="space-y-1.5">
-                                    <For
-                                        each={annotateFilesWithSourceDividers(
-                                            group.files,
-                                        )}
-                                    >
-                                        {(entry) => (
-                                            <UnidentifiedFileRow
-                                                file={entry.file}
-                                                sourceDividerPath={
-                                                    entry.sourceDividerPath
-                                                }
-                                            />
-                                        )}
-                                    </For>
+                        {(group) => {
+                            const subgroups = () => groupFilesBySourceDirectory(group.files)
+                            return (
+                                <div class="space-y-2">
+                                    <div class="flex items-center gap-3">
+                                        <input
+                                            type="checkbox"
+                                            checked={isGroupFullySelected(group.files)}
+                                            onChange={() => toggleGroup(group.files)}
+                                            class="accent-accent"
+                                        />
+                                        <h3 class="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                                            {group.type} ({group.count})
+                                        </h3>
+                                    </div>
+                                    <div class="space-y-3">
+                                        <For each={subgroups()}>
+                                            {(sub) => (
+                                                <div class="space-y-1.5">
+                                                    <Show when={subgroups().length > 1}>
+                                                        <div class="flex items-center gap-3 mt-1" title={sub.directory}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isGroupFullySelected(sub.files)}
+                                                                onChange={() => toggleGroup(sub.files)}
+                                                                class="accent-accent"
+                                                            />
+                                                            <div class="h-px flex-1 bg-border-subtle" />
+                                                            <span class="text-[0.65rem] uppercase tracking-wider text-text-tertiary truncate max-w-[30ch]">
+                                                                {sub.label} ({sub.files.length})
+                                                            </span>
+                                                        </div>
+                                                    </Show>
+                                                    <For each={sub.files}>
+                                                        {(file) => (
+                                                            <UnidentifiedFileRow
+                                                                file={file}
+                                                                selected={selectedIds().has(file.id)}
+                                                                onToggle={toggleFile}
+                                                            />
+                                                        )}
+                                                    </For>
+                                                </div>
+                                            )}
+                                        </For>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            )
+                        }}
                     </For>
                 </div>
             </Show>
@@ -1108,6 +1757,58 @@ function UnidentifiedPage() {
                     No unidentified files found for this filter.
                 </p>
             </Show>
+
+            {/* Selection action bar */}
+            <Show when={selectedIds().size > 0}>
+                <div class="fixed bottom-0 left-0 right-0 z-40 bg-surface-1/95 backdrop-blur-xl border-t border-border-default shadow-xl">
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+                        <span class="text-sm font-medium text-text-primary">
+                            {selectedIds().size} file(s) selected
+                        </span>
+                        <div class="flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                onClick={() => handleIdentify("TvShows")}
+                                class="px-4 py-2 text-sm font-semibold rounded-lg bg-accent text-surface-0 hover:bg-accent-hover transition"
+                            >
+                                Identify as TV Show
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleIdentify("Movies")}
+                                class="px-4 py-2 text-sm font-semibold rounded-lg bg-accent text-surface-0 hover:bg-accent-hover transition"
+                            >
+                                Identify as Movie
+                            </button>
+                            <button
+                                type="button"
+                                disabled={markExtraMutation.isPending}
+                                onClick={() => markExtraMutation.mutate([...selectedIds()])}
+                                class="px-4 py-2 text-sm rounded-lg border border-border-default bg-surface-2 text-text-secondary hover:text-text-primary hover:border-border-hover disabled:opacity-40 disabled:cursor-not-allowed transition"
+                            >
+                                {markExtraMutation.isPending ? "Marking..." : "Mark as Extra"}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSelectedIds(new Set<number>())}
+                                class="px-4 py-2 text-sm rounded-lg border border-border-default bg-surface-2 text-text-secondary hover:text-text-primary hover:border-border-hover transition"
+                            >
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </Show>
+
+            <IdentifyModal
+                open={identifyModalOpen()}
+                onClose={() => {
+                    setIdentifyModalOpen(false)
+                    setSelectedIds(new Set<number>())
+                }}
+                initialMode={identifyMode()}
+                files={selectedFiles()}
+            />
         </section>
     );
 }
@@ -1206,6 +1907,7 @@ function TvShowDetailsPage() {
     const params = useParams();
     const queryClient = useQueryClient();
     const tmdbId = createMemo(() => Number(params.tmdbId));
+    const [reassignOpen, setReassignOpen] = createSignal(false);
 
     const showQuery = useQuery(() => ({
         queryKey: ["show", tmdbId()],
@@ -1465,7 +2167,7 @@ function TvShowDetailsPage() {
                                         </p>
                                     </div>
                                 </div>
-                                <div class="flex flex-wrap gap-2">
+                                <div class="flex flex-wrap items-center gap-2">
                                     <Pill variant="success">
                                         Scanned:{" "}
                                         {show().episodeCountScanned ?? 0}
@@ -1477,6 +2179,13 @@ function TvShowDetailsPage() {
                                         Seasons: {scannedSeasonCount()} /{" "}
                                         {show().seasonCount ?? 0}
                                     </Pill>
+                                    <button
+                                        type="button"
+                                        onClick={() => setReassignOpen(true)}
+                                        class="px-3 py-1.5 text-xs rounded-lg border border-border-default bg-surface-2/80 text-text-secondary hover:text-text-primary hover:border-border-hover transition"
+                                    >
+                                        Reassign Show
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1667,6 +2376,24 @@ function TvShowDetailsPage() {
                                 </For>
                             </div>
                         </div>
+
+                        <IdentifyModal
+                            open={reassignOpen()}
+                            onClose={() => {
+                                setReassignOpen(false)
+                                // Refresh data after reassignment
+                                void queryClient.invalidateQueries({ queryKey: ["show", tmdbId()] })
+                                void queryClient.invalidateQueries({ queryKey: ["tv-files", tmdbId()] })
+                                void queryClient.invalidateQueries({ queryKey: ["titles"] })
+                            }}
+                            initialMode="TvShows"
+                            files={[
+                                ...(tvFilesQuery.data?.categorizedFiles ?? []),
+                                ...(tvFilesQuery.data?.uncategorizedFiles ?? []),
+                            ]}
+                            preselectedTmdbId={tmdbId()}
+                            reassignOldTmdbId={tmdbId()}
+                        />
                     </>
                 )}
             </Show>
@@ -1714,6 +2441,7 @@ function MovieDetailsPage() {
     const params = useParams();
     const queryClient = useQueryClient();
     const tmdbId = createMemo(() => Number(params.tmdbId));
+    const [reassignOpen, setReassignOpen] = createSignal(false);
 
     const movieQuery = useQuery(() => ({
         queryKey: ["movie", tmdbId()],
@@ -1797,9 +2525,16 @@ function MovieDetailsPage() {
                                         </p>
                                     </div>
                                 </div>
-                                <div class="flex flex-wrap gap-2">
+                                <div class="flex flex-wrap items-center gap-2">
                                     <Pill>TMDb {movie().tmdbId}</Pill>
                                     <Pill>IMDb {movie().imdbId ?? "n/a"}</Pill>
+                                    <button
+                                        type="button"
+                                        onClick={() => setReassignOpen(true)}
+                                        class="px-3 py-1.5 text-xs rounded-lg border border-border-default bg-surface-2/80 text-text-secondary hover:text-text-primary hover:border-border-hover transition"
+                                    >
+                                        Reassign Movie
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1891,6 +2626,18 @@ function MovieDetailsPage() {
                                 </For>
                             </div>
                         </div>
+
+                        <IdentifyModal
+                            open={reassignOpen()}
+                            onClose={() => {
+                                setReassignOpen(false)
+                                void queryClient.invalidateQueries({ queryKey: ["movie", tmdbId()] })
+                                void queryClient.invalidateQueries({ queryKey: ["movie-files", tmdbId()] })
+                                void queryClient.invalidateQueries({ queryKey: ["titles"] })
+                            }}
+                            initialMode="Movies"
+                            files={filesQuery.data?.primaryFiles ?? []}
+                        />
                     </>
                 )}
             </Show>

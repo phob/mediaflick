@@ -10,7 +10,16 @@ import {
 } from "@/modules/symlink/symlink-service"
 import { HttpError } from "@/shared/errors"
 import { parseJson } from "@/shared/http"
-import type { MediaStatus, MediaType, UpdateScannedFileRequest } from "@/shared/types"
+import { SeriesIdentityService } from "@/modules/detection/series-identity-service"
+import type {
+  BulkUpdateApplyResponse,
+  BulkUpdateConflict,
+  BulkUpdateDryRunResponse,
+  BulkUpdateRequest,
+  MediaStatus,
+  MediaType,
+  UpdateScannedFileRequest,
+} from "@/shared/types"
 
 function parseNumber(value: string | null, fallback: number): number {
   const parsed = Number(value)
@@ -263,6 +272,132 @@ export function createScannedFilesRouter(context: AppContext) {
     }
 
     return c.json({ deletedIds: deleted.map(item => item.id) })
+  })
+
+  /* ── Batch update (dry-run + apply) ── */
+
+  router.patch(ENTRYPOINTS.api.scannedFiles.batchUpdate, async c => {
+    const body = await parseJson<BulkUpdateRequest>(c.req.raw)
+    if (!body.updates || body.updates.length === 0) {
+      return c.json({ error: "No updates provided" }, 400)
+    }
+
+    const isDryRun = body.dryRun === true
+    const identityService = new SeriesIdentityService(context.db, context.tmdb)
+
+    /* ── Dry-run mode ── */
+    if (isDryRun) {
+      const conflicts: BulkUpdateConflict[] = []
+      let willUpdate = 0
+
+      for (const item of body.updates) {
+        const existing = await context.scannedFilesRepo.findById(item.id)
+        if (!existing) {
+          conflicts.push({ id: item.id, sourceFile: "", reason: "File not found" })
+          continue
+        }
+        willUpdate += 1
+      }
+
+      let identityUpdatePreview: BulkUpdateDryRunResponse["identityUpdate"] = null
+      if (body.identityUpdate) {
+        const counts = await identityService.countForTmdbId(body.identityUpdate.oldTmdbId)
+        identityUpdatePreview = {
+          identitiesWillUpdate: counts.identities,
+          aliasesWillRedirect: counts.aliases,
+        }
+      }
+
+      const result: BulkUpdateDryRunResponse = {
+        totalFiles: body.updates.length,
+        willUpdate,
+        conflicts,
+        identityUpdate: identityUpdatePreview,
+      }
+      return c.json(result)
+    }
+
+    /* ── Apply mode ── */
+
+    // Step 1: Identity update (if applicable)
+    let identityUpdated = false
+    if (body.identityUpdate) {
+      await identityService.reassignIdentity(body.identityUpdate)
+      identityUpdated = true
+    }
+
+    // Step 2: Chunked file updates
+    const CHUNK_SIZE = 50
+    let updatedCount = 0
+    const failed: Array<{ id: number; error: string }> = []
+    const updatedIds: number[] = []
+
+    for (let i = 0; i < body.updates.length; i += CHUNK_SIZE) {
+      const chunk = body.updates.slice(i, i + CHUNK_SIZE)
+
+      for (const item of chunk) {
+        try {
+          const existing = await context.scannedFilesRepo.findById(item.id)
+          if (!existing) {
+            failed.push({ id: item.id, error: "Not found" })
+            continue
+          }
+
+          if (item.mediaType === "Extras") {
+            if (existing.destFile) {
+              await removeSymlinkIfExists(existing.destFile)
+            }
+            const updated = await context.scannedFilesRepo.markAsExtra(item.id)
+            if (updated) {
+              context.wsHub.broadcast("file.updated", updated)
+              updatedCount += 1
+            }
+          } else {
+            const updated = await context.scannedFilesRepo.updateById(item.id, {
+              tmdbId: item.tmdbId,
+              seasonNumber: item.seasonNumber,
+              episodeNumber: item.episodeNumber,
+              episodeNumber2: item.episodeNumber2,
+              mediaType: item.mediaType,
+            })
+            if (updated) {
+              context.wsHub.broadcast("file.updated", updated)
+              updatedCount += 1
+              updatedIds.push(item.id)
+            }
+          }
+        } catch (err) {
+          failed.push({ id: item.id, error: err instanceof Error ? err.message : "Unknown error" })
+        }
+      }
+    }
+
+    // Step 3: Chunked symlink recreation for non-Extras/Unknown updated files
+    const SYMLINK_CHUNK_SIZE = 10
+    let symlinksRecreated = 0
+    let symlinksFailed = 0
+
+    for (let i = 0; i < updatedIds.length; i += SYMLINK_CHUNK_SIZE) {
+      const chunk = updatedIds.slice(i, i + SYMLINK_CHUNK_SIZE)
+
+      for (const id of chunk) {
+        try {
+          await recreateSingleSymlink(id, context)
+          symlinksRecreated += 1
+        } catch {
+          symlinksFailed += 1
+        }
+      }
+    }
+
+    const result: BulkUpdateApplyResponse = {
+      updated: updatedCount,
+      failed,
+      symlinksRecreated,
+      symlinksFailed,
+      identityUpdated,
+    }
+    return c.json(result)
   })
 
   router.post(ENTRYPOINTS.api.scannedFiles.recreateSymlinks, async c => {
