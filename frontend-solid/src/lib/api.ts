@@ -1,10 +1,14 @@
 import { getApiBaseUrl } from "@/lib/runtime-config"
 import type {
+  BulkUpdateApplyResponse,
+  BulkUpdateDryRunResponse,
+  BulkUpdateRequest,
   ConfigurationPayload,
   EpisodeGroupChangeResponse,
   LogLevel,
   LogsResponse,
   MediaInfo,
+  MediaSearchResult,
   MediaStatus,
   MediaType,
   MediaTitleItem,
@@ -14,6 +18,7 @@ import type {
   SeasonInfo,
   TvEpisodeGroupsResponse,
   TvFilesResponse,
+  UpdateScannedFileRequest,
 } from "@/lib/types"
 
 export class ApiError extends Error {
@@ -168,6 +173,42 @@ export const mediaApi = {
     return request(`/scannedfiles/${fileId}`, {
       method: "PATCH",
       body: JSON.stringify({ mediaType: "Extras" }),
+    })
+  },
+
+  searchMovies(title: string): Promise<MediaSearchResult[]> {
+    const query = new URLSearchParams({ title: title.trim() })
+    return request(`/medialookup/movies/search?${query.toString()}`)
+  },
+
+  searchTvShows(title: string): Promise<MediaSearchResult[]> {
+    const query = new URLSearchParams({ title: title.trim() })
+    return request(`/medialookup/tvshows/search?${query.toString()}`)
+  },
+
+  updateScannedFile(id: number, body: UpdateScannedFileRequest): Promise<ScannedFile> {
+    return request(`/scannedfiles/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    })
+  },
+
+  batchUpdate(body: BulkUpdateRequest): Promise<BulkUpdateDryRunResponse | BulkUpdateApplyResponse> {
+    return request("/scannedfiles/batch-update", {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    })
+  },
+
+  recreateSymlink(id: number): Promise<ScannedFile> {
+    return request(`/scannedfiles/${id}/recreate-symlink`, {
+      method: "PATCH",
+    })
+  },
+
+  recreateAllSymlinks(): Promise<{ successCount: number }> {
+    return request("/scannedfiles/recreate-symlinks", {
+      method: "POST",
     })
   },
 }

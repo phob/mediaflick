@@ -149,6 +149,55 @@ export interface ResolvedSeriesIdentity {
   year: number | null
 }
 
+/* ── Bulk update types ── */
+
+export interface BulkUpdateItem {
+  id: number
+  tmdbId?: number
+  seasonNumber?: number
+  episodeNumber?: number
+  episodeNumber2?: number
+  mediaType?: MediaType
+}
+
+export interface IdentityUpdatePayload {
+  oldTmdbId: number
+  newTmdbId: number
+  newCanonicalTitle: string
+  newYear: number | null
+  newImdbId: string | null
+}
+
+export interface BulkUpdateRequest {
+  dryRun?: boolean
+  updates: BulkUpdateItem[]
+  identityUpdate?: IdentityUpdatePayload
+}
+
+export interface BulkUpdateConflict {
+  id: number
+  sourceFile: string
+  reason: string
+}
+
+export interface BulkUpdateDryRunResponse {
+  totalFiles: number
+  willUpdate: number
+  conflicts: BulkUpdateConflict[]
+  identityUpdate: {
+    aliasesWillRedirect: number
+    identitiesWillUpdate: number
+  } | null
+}
+
+export interface BulkUpdateApplyResponse {
+  updated: number
+  failed: Array<{ id: number; error: string }>
+  symlinksRecreated: number
+  symlinksFailed: number
+  identityUpdated: boolean
+}
+
 export function parseGenres(value: string | null): string[] | null {
   if (!value) {
     return null

@@ -163,3 +163,69 @@ export interface LogEntry {
 export interface LogsResponse {
   logs: LogEntry[]
 }
+
+/* ── TMDb search ── */
+
+export interface MediaSearchResult {
+  tmdbId: number
+  title: string
+  year: number | null
+  posterPath: string | null
+}
+
+/* ── Bulk update ── */
+
+export interface BulkUpdateItem {
+  id: number
+  tmdbId?: number
+  seasonNumber?: number
+  episodeNumber?: number
+  episodeNumber2?: number
+  mediaType?: MediaType
+}
+
+export interface IdentityUpdatePayload {
+  oldTmdbId: number
+  newTmdbId: number
+  newCanonicalTitle: string
+  newYear: number | null
+  newImdbId: string | null
+}
+
+export interface BulkUpdateRequest {
+  dryRun?: boolean
+  updates: BulkUpdateItem[]
+  identityUpdate?: IdentityUpdatePayload
+}
+
+export interface BulkUpdateConflict {
+  id: number
+  sourceFile: string
+  reason: string
+}
+
+export interface BulkUpdateDryRunResponse {
+  totalFiles: number
+  willUpdate: number
+  conflicts: BulkUpdateConflict[]
+  identityUpdate: {
+    aliasesWillRedirect: number
+    identitiesWillUpdate: number
+  } | null
+}
+
+export interface BulkUpdateApplyResponse {
+  updated: number
+  failed: Array<{ id: number; error: string }>
+  symlinksRecreated: number
+  symlinksFailed: number
+  identityUpdated: boolean
+}
+
+export interface UpdateScannedFileRequest {
+  tmdbId?: number
+  seasonNumber?: number
+  episodeNumber?: number
+  episodeNumber2?: number
+  mediaType?: MediaType
+}

@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from "drizzle-orm"
+import { and, count, desc, eq, inArray, isNull } from "drizzle-orm"
 import type { AppDb } from "@/db/client"
 import { seriesAliases, seriesIdentityMap } from "@/db/schema"
 import { normalizeTitle, similarity } from "@/modules/detection/normalization"
@@ -277,6 +277,116 @@ export class SeriesIdentityService {
       .returning()
 
     return inserted[0]
+  }
+
+  /** Count identities + aliases for a given tmdbId without modifying anything (for dry-run). */
+  async countForTmdbId(tmdbId: number): Promise<{ identities: number; aliases: number }> {
+    const identityRows = await this.db
+      .select({ id: seriesIdentityMap.id })
+      .from(seriesIdentityMap)
+      .where(eq(seriesIdentityMap.tmdbId, tmdbId))
+
+    if (identityRows.length === 0) {
+      return { identities: 0, aliases: 0 }
+    }
+
+    const identityIds = identityRows.map(r => r.id)
+    const aliasCountResult = await this.db
+      .select({ total: count() })
+      .from(seriesAliases)
+      .where(inArray(seriesAliases.identityId, identityIds))
+
+    return {
+      identities: identityRows.length,
+      aliases: aliasCountResult[0]?.total ?? 0,
+    }
+  }
+
+  /**
+   * Reassign all identity rows from oldTmdbId to newTmdbId.
+   * Aliases follow automatically via FK. Also upserts a new identity
+   * for the new canonical title and force-adds it as an alias.
+   */
+  async reassignIdentity(input: {
+    oldTmdbId: number
+    newTmdbId: number
+    newCanonicalTitle: string
+    newYear: number | null
+    newImdbId: string | null
+  }): Promise<{ identitiesUpdated: number; aliasesRedirected: number }> {
+    const now = new Date().toISOString()
+
+    // Find all identity rows pointing to the old tmdbId
+    const oldIdentities = await this.db
+      .select({ id: seriesIdentityMap.id })
+      .from(seriesIdentityMap)
+      .where(eq(seriesIdentityMap.tmdbId, input.oldTmdbId))
+
+    if (oldIdentities.length === 0) {
+      // No existing identity rows -- just ensure the new identity exists
+      await this.upsertIdentity({
+        normalizedTitle: normalizeTitle(input.newCanonicalTitle),
+        year: input.newYear,
+        tmdbId: input.newTmdbId,
+        imdbId: input.newImdbId,
+        canonicalTitle: input.newCanonicalTitle,
+      })
+      return { identitiesUpdated: 0, aliasesRedirected: 0 }
+    }
+
+    const identityIds = oldIdentities.map(r => r.id)
+
+    // Count aliases that will be redirected (they follow the identity FK)
+    const aliasCountResult = await this.db
+      .select({ total: count() })
+      .from(seriesAliases)
+      .where(inArray(seriesAliases.identityId, identityIds))
+    const aliasesRedirected = aliasCountResult[0]?.total ?? 0
+
+    // Update all identity rows to point to the new tmdbId
+    await this.db
+      .update(seriesIdentityMap)
+      .set({
+        tmdbId: input.newTmdbId,
+        imdbId: input.newImdbId,
+        canonicalTitle: input.newCanonicalTitle,
+        updatedAt: now,
+        lastVerifiedAt: now,
+      })
+      .where(inArray(seriesIdentityMap.id, identityIds))
+
+    // Ensure a canonical identity exists for the new title+year
+    const newIdentity = await this.upsertIdentity({
+      normalizedTitle: normalizeTitle(input.newCanonicalTitle),
+      year: input.newYear,
+      tmdbId: input.newTmdbId,
+      imdbId: input.newImdbId,
+      canonicalTitle: input.newCanonicalTitle,
+    })
+
+    // Force-add the canonical title as an alias (bypass similarity threshold)
+    await this.addAliasForced(newIdentity.id, input.newCanonicalTitle)
+
+    return {
+      identitiesUpdated: oldIdentities.length,
+      aliasesRedirected,
+    }
+  }
+
+  /** Add an alias without similarity threshold check (for manual user reassignment). */
+  private async addAliasForced(identityId: number, aliasRaw: string): Promise<void> {
+    const aliasNormalized = normalizeTitle(aliasRaw)
+    if (!isUsefulSeriesCandidate(aliasNormalized)) return
+
+    await this.db
+      .insert(seriesAliases)
+      .values({
+        identityId,
+        aliasRaw,
+        aliasNormalized,
+        createdAt: new Date().toISOString(),
+      })
+      .onConflictDoNothing()
   }
 
   private async addAliases(identityId: number, canonicalTitle: string, aliases: string[]): Promise<void> {

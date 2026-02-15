@@ -29,6 +29,7 @@ export const ENTRYPOINTS = {
       stats: "/api/scannedfiles/stats",
       tmdbIdsAndTitles: "/api/scannedfiles/tmdb-ids-and-titles",
       batchDelete: "/api/scannedfiles/batch",
+      batchUpdate: "/api/scannedfiles/batch-update",
       recreateSymlinks: "/api/scannedfiles/recreate-symlinks",
       recreateSymlinkById: "/api/scannedfiles/:id/recreate-symlink",
     },
