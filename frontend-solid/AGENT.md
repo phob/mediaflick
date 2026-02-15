@@ -114,6 +114,8 @@ When touching existing code that still uses deprecated TanStack APIs, prefer mig
 - Reuse shared row/card patterns before creating new variants.
 - Keep theme tokens and visual language consistent in `src/index.css`.
 - Preserve responsive behavior (check mobile breakpoints after layout changes).
+- The class `bg-gradient-to-r` can be written as `bg-linear-to-r`
+- Use Tailwind CSS v4 when possible
 
 ## Validation Before Finishing
 
