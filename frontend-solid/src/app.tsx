@@ -9,6 +9,7 @@ import {
     onCleanup,
     onMount,
     type ParentComponent,
+    type ParentProps,
 } from "solid-js";
 import { mediaApi } from "@/lib/api";
 import { parseEpisodeInfo } from "@/lib/filename-parser";
@@ -28,8 +29,6 @@ import type {
     SeasonInfo,
 } from "@/lib/types";
 
-/* ────────────────── constants ────────────────── */
-
 const TMDB_IMG = "https://image.tmdb.org/t/p";
 const mediaTypeOptions: MediaType[] = [
     "Movies",
@@ -37,8 +36,6 @@ const mediaTypeOptions: MediaType[] = [
     "Extras",
     "Unknown",
 ];
-
-/* ────────────────── utilities ────────────────── */
 
 function cloneConfig(config: ConfigurationPayload): ConfigurationPayload {
     return {
@@ -119,6 +116,13 @@ function parseIntOr(value: string, fallback: number): number {
     return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function errorMessage(error: unknown): string {
+    if (error instanceof Error && error.message.trim().length > 0) {
+        return error.message;
+    }
+    return "unknown error";
+}
+
 function sourceDirectory(path: string): string {
     const normalized = path.replace(/\\/g, "/").replace(/\/+$/, "");
     const slashIndex = normalized.lastIndexOf("/");
@@ -175,7 +179,9 @@ function groupFilesBySourceDirectory(files: ScannedFile[]): { directory: string;
     const map = new Map<string, ScannedFile[]>()
     for (const f of files) {
         const dir = sourceDirectory(f.sourceFile)
-        map.set(dir, [...(map.get(dir) ?? []), f])
+        const existing = map.get(dir)
+        if (existing) existing.push(f)
+        else map.set(dir, [f])
     }
     return [...map.entries()].map(([directory, dirFiles]) => ({
         directory,
@@ -211,8 +217,6 @@ function backdropUrl(path: string | null | undefined): string | null {
     return `${TMDB_IMG}/w1280${path}`;
 }
 
-/* ────────────────── shared components ────────────────── */
-
 function StatusDot(props: { online: boolean }) {
     return (
         <span
@@ -221,10 +225,9 @@ function StatusDot(props: { online: boolean }) {
     );
 }
 
-function Pill(props: {
-    children: any;
-    variant?: "default" | "success" | "warning" | "error";
-}) {
+type PillVariant = "default" | "success" | "warning" | "error";
+
+function Pill(props: ParentProps<{ variant?: PillVariant }>) {
     const colors = () => {
         if (props.variant === "success")
             return "bg-success-muted text-success border-success/20";
@@ -279,16 +282,14 @@ function SourceSubgroupSeparator(props: { sourcePath: string }) {
 }
 
 function StatusBadge(props: { status: MediaStatus }) {
-    const variant = () => {
+    const variant = (): PillVariant => {
         if (props.status === "Success") return "success";
         if (props.status === "Failed") return "error";
         if (props.status === "Duplicate") return "warning";
         return "default";
     };
-    return <Pill variant={variant() as any}>{props.status}</Pill>;
+    return <Pill variant={variant()}>{props.status}</Pill>;
 }
-
-/* ────────────────── data helpers ────────────────── */
 
 async function listAllScannedFiles(params: {
     status?: MediaStatus;
@@ -317,8 +318,6 @@ async function listAllScannedFiles(params: {
     return items;
 }
 
-/* ────────────────── nav ────────────────── */
-
 function NavLink(props: { href: string; children: string }) {
     const location = useLocation();
     const active = createMemo(
@@ -339,8 +338,6 @@ function NavLink(props: { href: string; children: string }) {
         </A>
     );
 }
-
-/* ────────────────── logs viewer ────────────────── */
 
 const logLevels: LogLevel[] = [
     "Verbose",
@@ -609,8 +606,6 @@ function LogsViewer(props: {
     );
 }
 
-/* ────────────────── app shell ────────────────── */
-
 const AppShell: ParentComponent = (props) => {
     const queryClient = useQueryClient();
     const [lastHeartbeat, setLastHeartbeat] = createSignal<number>(0);
@@ -676,12 +671,13 @@ const AppShell: ParentComponent = (props) => {
                 minLevel: logsMinLevel(),
                 searchTerm: logsSearchTerm(),
                 limit: logsLimit(),
-                from:
-                    logsRecentMinutes() !== null
-                        ? new Date(
-                              Date.now() - logsRecentMinutes()! * 60_000,
-                          ).toISOString()
-                        : undefined,
+                from: (() => {
+                    const recentMinutes = logsRecentMinutes()
+                    if (recentMinutes === null) return undefined
+                    return new Date(
+                        Date.now() - recentMinutes * 60_000,
+                    ).toISOString()
+                })(),
             }),
         enabled: logsOpen(),
         refetchInterval: logsOpen() ? 15000 : false,
@@ -708,7 +704,6 @@ const AppShell: ParentComponent = (props) => {
 
     return (
         <div class="min-h-screen flex flex-col">
-            {/* ── top bar ── */}
             <header class="sticky top-0 z-30 bg-surface-1/80 backdrop-blur-xl border-b border-border-subtle">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
                     <A href="/" class="text-lg font-bold tracking-tight">
@@ -737,7 +732,6 @@ const AppShell: ParentComponent = (props) => {
                         </button>
                     </div>
                 </div>
-                {/* mobile nav */}
                 <nav class="sm:hidden flex items-center gap-1 px-4 pb-2 overflow-x-auto">
                     <NavLink href="/shows">TV Shows</NavLink>
                     <NavLink href="/movies">Movies</NavLink>
@@ -786,8 +780,6 @@ const AppShell: ParentComponent = (props) => {
     );
 };
 
-/* ────────────────── search header ────────────────── */
-
 function MediaSearchHeader(props: {
     title: string;
     subtitle: string;
@@ -809,8 +801,6 @@ function MediaSearchHeader(props: {
         </div>
     );
 }
-
-/* ────────────────── poster card ────────────────── */
 
 function PosterCard(props: {
     href: string;
@@ -858,8 +848,6 @@ function PosterCard(props: {
         </A>
     );
 }
-
-/* ────────────────── tv shows page ────────────────── */
 
 function TvShowsPage() {
     const [searchTerm, setSearchTerm] = createSignal("");
@@ -914,8 +902,6 @@ function TvShowsPage() {
     );
 }
 
-/* ────────────────── movies page ────────────────── */
-
 function MoviesPage() {
     const [searchTerm, setSearchTerm] = createSignal("");
     const titlesQuery = useQuery(() => ({
@@ -968,8 +954,6 @@ function MoviesPage() {
         </section>
     );
 }
-
-/* ────────────────── tmdb search input ────────────────── */
 
 function TmdbSearchInput(props: {
     mediaType: "Movies" | "TvShows"
@@ -1057,8 +1041,6 @@ function TmdbSearchInput(props: {
     )
 }
 
-/* ────────────────── identify modal ────────────────── */
-
 interface EditableFile {
     id: number
     sourceFile: string
@@ -1089,7 +1071,6 @@ function IdentifyModal(props: {
     const [showDryRun, setShowDryRun] = createSignal(false)
     const [dryRunInfo, setDryRunInfo] = createSignal<string | null>(null)
 
-    // Initialize editable files when modal opens or files change
     createEffect(() => {
         if (!props.open || props.files.length === 0) return
         setMode(props.initialMode)
@@ -1117,15 +1098,13 @@ function IdentifyModal(props: {
             })
         setEditableFiles(parsed)
 
-        // If preselectedTmdbId exists, set it up
         if (props.preselectedTmdbId) {
-            setSelectedMedia(null) // will be resolved by user searching
+            setSelectedMedia(null)
         }
     })
 
     const handleTvMediaSelect = (result: MediaSearchResult) => {
         setSelectedMedia(result)
-        // Apply tmdbId to all files
         setEditableFiles((prev) =>
             prev.map((f) => ({ ...f, tmdbId: result.tmdbId }))
         )
@@ -1143,7 +1122,6 @@ function IdentifyModal(props: {
         const seasonNumber = value === "" ? null : Number(value)
         setEditableFiles((prev) => {
             const next = [...prev]
-            // Set this row and cascade to subsequent rows
             for (let i = index; i < next.length; i++) {
                 next[i] = { ...next[i], seasonNumber }
             }
@@ -1156,7 +1134,6 @@ function IdentifyModal(props: {
         setEditableFiles((prev) => {
             const next = [...prev]
             next[index] = { ...next[index], episodeNumber }
-            // Auto-increment subsequent rows in same season
             if (episodeNumber !== null) {
                 const currentSeason = next[index].seasonNumber
                 let nextEp = episodeNumber + 1
@@ -1199,9 +1176,8 @@ function IdentifyModal(props: {
 
         const req: BulkUpdateRequest = { dryRun, updates }
 
-        // If this is a TV reassignment from an existing show
-        if (mode() === "TvShows" && props.reassignOldTmdbId && selectedMedia()) {
-            const media = selectedMedia()!
+        const media = selectedMedia()
+        if (mode() === "TvShows" && props.reassignOldTmdbId && media) {
             req.identityUpdate = {
                 oldTmdbId: props.reassignOldTmdbId,
                 newTmdbId: media.tmdbId,
@@ -1248,12 +1224,10 @@ function IdentifyModal(props: {
             if (result.identityUpdated) parts.push("Series identity updated.")
             setSaveResult(parts.join(" "))
 
-            // Invalidate all relevant queries
             for (const key of ["titles", "show", "movie", "tv-files", "movie-files", "unidentified-files"]) {
                 void queryClient.invalidateQueries({ queryKey: [key] })
             }
 
-            // Auto-close after short delay on success
             if (result.failed.length === 0) {
                 setTimeout(() => props.onClose(), 1500)
             }
@@ -1283,7 +1257,6 @@ function IdentifyModal(props: {
                     aria-label="Identify media files"
                     onClick={(e) => e.stopPropagation()}
                 >
-                    {/* Header */}
                     <header class="flex items-start justify-between gap-4 p-5 border-b border-border-subtle">
                         <div>
                             <h3 class="text-lg font-bold">
@@ -1316,7 +1289,6 @@ function IdentifyModal(props: {
                         </div>
                     </header>
 
-                    {/* TV Show: shared search bar */}
                     <Show when={mode() === "TvShows"}>
                         <div class="p-4 border-b border-border-subtle flex items-center gap-4">
                             <TmdbSearchInput
@@ -1347,7 +1319,6 @@ function IdentifyModal(props: {
                         </div>
                     </Show>
 
-                    {/* Edit table */}
                     <div class="flex-1 overflow-auto min-h-0">
                         <Show when={mode() === "TvShows"}>
                             <table class="w-full text-sm">
@@ -1459,7 +1430,6 @@ function IdentifyModal(props: {
                         </Show>
                     </div>
 
-                    {/* Footer */}
                     <footer class="px-5 py-4 border-t border-border-subtle space-y-3">
                         <Show when={showDryRun() && dryRunInfo()}>
                             <p class="text-sm text-text-secondary bg-surface-2 border border-border-subtle rounded-lg px-3 py-2">
@@ -1467,9 +1437,11 @@ function IdentifyModal(props: {
                             </p>
                         </Show>
                         <Show when={saveResult()}>
-                            <p class={`text-sm ${saveResult()!.includes("failed") ? "text-error" : "text-success"}`}>
-                                {saveResult()}
-                            </p>
+                            {(message) => (
+                                <p class={`text-sm ${message().includes("failed") ? "text-error" : "text-success"}`}>
+                                    {message()}
+                                </p>
+                            )}
                         </Show>
                         <div class="flex justify-end gap-2">
                             <button
@@ -1503,8 +1475,6 @@ function IdentifyModal(props: {
     )
 }
 
-/* ────────────────── unidentified page ────────────────── */
-
 function UnidentifiedFileRow(props: {
     file: ScannedFile;
     sourceDividerPath?: string | null;
@@ -1517,14 +1487,14 @@ function UnidentifiedFileRow(props: {
                 {(p) => <SourceSubgroupSeparator sourcePath={p()} />}
             </Show>
             <div
-                class={`flex items-start gap-3 bg-surface-2 border rounded-lg px-4 py-3 cursor-pointer transition ${props.selected ? "border-accent/50 bg-accent/5" : "border-border-subtle hover:border-border-hover"}`}
+                class={`flex items-center gap-3 bg-surface-2 border rounded-lg px-4 py-3 cursor-pointer transition ${props.selected ? "border-accent/50 bg-accent/5" : "border-border-subtle hover:border-border-hover"}`}
                 onClick={() => props.onToggle?.(props.file.id)}
             >
                 <input
                     type="checkbox"
                     checked={props.selected ?? false}
                     onChange={() => props.onToggle?.(props.file.id)}
-                    class="accent-accent mt-1 shrink-0"
+                    class="unidentified-checkbox shrink-0"
                     onClick={(e) => e.stopPropagation()}
                 />
                 <FileRowIdentity file={props.file} />
@@ -1569,7 +1539,9 @@ function UnidentifiedPage() {
             const groupedByType = new Map<string, ScannedFile[]>();
             for (const f of files) {
                 const k = f.mediaType ?? "No media type";
-                groupedByType.set(k, [...(groupedByType.get(k) ?? []), f]);
+                const existing = groupedByType.get(k)
+                if (existing) existing.push(f)
+                else groupedByType.set(k, [f])
             }
             const typeOrder: Record<string, number> = {
                 "No media type": 0,
@@ -1694,7 +1666,7 @@ function UnidentifiedPage() {
                     </div>
                     <For each={unidentifiedQuery.data?.typeGroups ?? []}>
                         {(group) => {
-                            const subgroups = () => groupFilesBySourceDirectory(group.files)
+                            const subgroups = groupFilesBySourceDirectory(group.files)
                             return (
                                 <div class="space-y-2">
                                     <div class="flex items-center gap-3">
@@ -1702,23 +1674,23 @@ function UnidentifiedPage() {
                                             type="checkbox"
                                             checked={isGroupFullySelected(group.files)}
                                             onChange={() => toggleGroup(group.files)}
-                                            class="accent-accent"
+                                            class="unidentified-checkbox"
                                         />
                                         <h3 class="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
                                             {group.type} ({group.count})
                                         </h3>
                                     </div>
                                     <div class="space-y-3">
-                                        <For each={subgroups()}>
+                                        <For each={subgroups}>
                                             {(sub) => (
                                                 <div class="space-y-1.5">
-                                                    <Show when={subgroups().length > 1}>
+                                                    <Show when={subgroups.length > 1}>
                                                         <div class="flex items-center gap-3 mt-1" title={sub.directory}>
                                                             <input
                                                                 type="checkbox"
                                                                 checked={isGroupFullySelected(sub.files)}
                                                                 onChange={() => toggleGroup(sub.files)}
-                                                                class="accent-accent"
+                                                                class="unidentified-checkbox"
                                                             />
                                                             <div class="h-px flex-1 bg-border-subtle" />
                                                             <span class="text-[0.65rem] uppercase tracking-wider text-text-tertiary truncate max-w-[30ch]">
@@ -1758,7 +1730,6 @@ function UnidentifiedPage() {
                 </p>
             </Show>
 
-            {/* Selection action bar */}
             <Show when={selectedIds().size > 0}>
                 <div class="fixed bottom-0 left-0 right-0 z-40 bg-surface-1/95 backdrop-blur-xl border-t border-border-default shadow-xl">
                     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
@@ -1812,8 +1783,6 @@ function UnidentifiedPage() {
         </section>
     );
 }
-
-/* ────────────────── episode cards ────────────────── */
 
 interface ScannedEpisodeCard {
     kind: "file";
@@ -1901,8 +1870,6 @@ function MissingEpisodeRow(props: {
     );
 }
 
-/* ────────────────── tv show details ────────────────── */
-
 function TvShowDetailsPage() {
     const params = useParams();
     const queryClient = useQueryClient();
@@ -1961,7 +1928,9 @@ function TvShowDetailsPage() {
         const seasons = new Map<number, ScannedFile[]>();
         for (const item of tvFilesQuery.data?.categorizedFiles ?? []) {
             const s = item.seasonNumber ?? 0;
-            seasons.set(s, [...(seasons.get(s) ?? []), item]);
+            const existing = seasons.get(s)
+            if (existing) existing.push(item)
+            else seasons.set(s, [item])
         }
         return [...seasons.entries()]
             .sort((a, b) => a[0] - b[0])
@@ -2128,7 +2097,6 @@ function TvShowDetailsPage() {
             <Show when={showQuery.data}>
                 {(show) => (
                     <>
-                        {/* backdrop + header */}
                         <div class="relative rounded-2xl overflow-hidden bg-surface-2 border border-border-subtle">
                             <Show when={backdropUrl(show().backdropPath)}>
                                 {(url) => (
@@ -2190,7 +2158,6 @@ function TvShowDetailsPage() {
                             </div>
                         </div>
 
-                        {/* episode group selector */}
                         <Show
                             when={
                                 (episodeGroupsQuery.data?.groups.length ?? 0) >
@@ -2244,7 +2211,6 @@ function TvShowDetailsPage() {
                             </div>
                         </Show>
 
-                        {/* categorized episodes */}
                         <div class="space-y-4">
                             <h2 class="text-lg font-bold">
                                 Categorized Episodes
@@ -2332,7 +2298,6 @@ function TvShowDetailsPage() {
                             </For>
                         </div>
 
-                        {/* uncategorized files */}
                         <div class="space-y-4">
                             <h2 class="text-lg font-bold">
                                 Uncategorized Related Files
@@ -2381,7 +2346,6 @@ function TvShowDetailsPage() {
                             open={reassignOpen()}
                             onClose={() => {
                                 setReassignOpen(false)
-                                // Refresh data after reassignment
                                 void queryClient.invalidateQueries({ queryKey: ["show", tmdbId()] })
                                 void queryClient.invalidateQueries({ queryKey: ["tv-files", tmdbId()] })
                                 void queryClient.invalidateQueries({ queryKey: ["titles"] })
@@ -2400,8 +2364,6 @@ function TvShowDetailsPage() {
         </section>
     );
 }
-
-/* ────────────────── movie file row ────────────────── */
 
 function MovieFileRow(props: {
     file: ScannedFile;
@@ -2434,8 +2396,6 @@ function MovieFileRow(props: {
         </>
     );
 }
-
-/* ────────────────── movie details page ────────────────── */
 
 function MovieDetailsPage() {
     const params = useParams();
@@ -2645,8 +2605,6 @@ function MovieDetailsPage() {
     );
 }
 
-/* ────────────────── settings page ────────────────── */
-
 function SettingsPage() {
     const queryClient = useQueryClient();
     const configQuery = useQuery(() => ({
@@ -2736,7 +2694,6 @@ function SettingsPage() {
                             if (p) saveMutation.mutate(p);
                         }}
                     >
-                        {/* Plex */}
                         <div class="bg-surface-2 border border-border-subtle rounded-xl p-5 space-y-4">
                             <h3 class="text-base font-bold">Plex</h3>
                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -2851,7 +2808,6 @@ function SettingsPage() {
                             </label>
                         </div>
 
-                        {/* TMDb + Detection + Zurg */}
                         <div class="bg-surface-2 border border-border-subtle rounded-xl p-5 space-y-4">
                             <h3 class="text-base font-bold">
                                 TMDb + Detection + Zurg
@@ -2953,7 +2909,6 @@ function SettingsPage() {
                             </div>
                         </div>
 
-                        {/* Folder mappings */}
                         <div class="bg-surface-2 border border-border-subtle rounded-xl p-5 space-y-4">
                             <div class="flex items-center justify-between">
                                 <h3 class="text-base font-bold">
@@ -3077,7 +3032,6 @@ function SettingsPage() {
                             </div>
                         </div>
 
-                        {/* actions */}
                         <div class="flex justify-end gap-3">
                             <button
                                 type="button"
@@ -3104,8 +3058,7 @@ function SettingsPage() {
                         <Show when={saveMutation.isError}>
                             <p class="text-error text-sm">
                                 Save failed:{" "}
-                                {(saveMutation.error as Error)?.message ??
-                                    "unknown error"}
+                                {errorMessage(saveMutation.error)}
                             </p>
                         </Show>
                         <Show
@@ -3125,8 +3078,6 @@ function SettingsPage() {
         </section>
     );
 }
-
-/* ────────────────── 404 ────────────────── */
 
 function NotFoundPage() {
     return (
@@ -3162,8 +3113,6 @@ function NotFoundPage() {
         </section>
     );
 }
-
-/* ────────────────── router ────────────────── */
 
 export default function App() {
     return (
