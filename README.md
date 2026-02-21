@@ -1,210 +1,88 @@
 ![GitHub License](https://img.shields.io/github/license/phob/mediaflick)
-![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fphob%2Fmediaflick%2Frefs%2Fheads%2Fmain%2Fbackend%2Fglobal.json&query=%24.sdk.version&label=.NET)
-![GitHub package.json version](https://img.shields.io/github/package-json/v/phob/mediaflick?filename=frontend%2Fpackage.json)
 
 # MediaFlick
 
-![alt text](mediaflick1.jpg)
+![MediaFlick screenshot](mediaflick1.jpg)
 
 ## Description
 
-MediaFlick is a media management tool that allows you to scan your media library and automatically organize your files into folders based on their metadata. It uses the TMDb API to get information about movies and TV shows, and it can also detect and rename files based on their metadata.
+MediaFlick scans media libraries, matches titles with TMDb metadata, and organizes files based on your configured folder mappings.
 
-## Installation
+## Docker (single container)
 
-MediaFlick can be installed in multiple ways:
+The current setup runs `frontend-solid` and `backend-bun` inside one container.
 
-### Docker Installation (Recommended)
+- Only the frontend port is exposed: `3867`
+- Backend listens on `5000` internally and is not published
+- Frontend proxies `/api/*` and `/ws/*` to the internal backend
 
-#### Using Docker Run
+### Quick start
+
+From repo root:
 
 ```bash
+mkdir -p /opt/mediaflick/config /opt/mediaflick/logs
+cp -n backend-bun/config/config.yml /opt/mediaflick/config/config.yml
+docker compose up -d --build
+```
+
+Open `http://localhost:3867`.
+
+### Compose mounts used by default
+
+- `/opt/mediaflick/config:/app/backend-bun/config`
+- `/opt/mediaflick/logs:/app/backend-bun/logs`
+- `/mnt/zurg:/mnt/zurg:rshared`
+- `/mnt/organized:/mnt/organized`
+- `/mnt/organized2:/mnt/organized2`
+
+If your media paths are different, update `docker-compose.yml` and `config.yml` accordingly.
+
+### Build image manually
+
+```bash
+docker build -t mediaflick:latest .
+
 docker run -d \
   --name mediaflick \
-  -p 3000:3000 \
-  -v /mnt/zurg:/mnt/zurg \
-  -v /opt/mediaflick/config:/config \
-  -v /opt/mediaflick/logs:/logs \
-  ghcr.io/phob/mediaflick:latest
+  -p 3867:3867 \
+  -v /opt/mediaflick/config:/app/backend-bun/config \
+  -v /opt/mediaflick/logs:/app/backend-bun/logs \
+  -v /mnt/zurg:/mnt/zurg:rshared \
+  -v /mnt/organized:/mnt/organized \
+  -v /mnt/organized2:/mnt/organized2 \
+  mediaflick:latest
 ```
 
-#### Using Docker Compose
+## Local development (Bun)
 
-Create a `docker-compose.yml` file:
+### Backend
 
-```yaml
-services:
-  mediaflick:
-    image: ghcr.io/phob/mediaflick:latest
-    container_name: mediaflick
-    ports:
-      - "3000:3000"
-    volumes:
-      - /mnt/zurg:/mnt/zurg
-      - /opt/mediaflick/config:/config
-      - /opt/mediaflick/logs:/logs
-    restart: unless-stopped
-```
-
-Then run:
 ```bash
-docker-compose up -d
+cd backend-bun
+bun install
+bun run dev
 ```
 
-### Manual Installation
+### Frontend
 
-MediaFlick consists of two components: a backend service (.NET) and a frontend web application (Next.js). Both need to be installed and running for the application to work properly.
+```bash
+cd frontend-solid
+bun install
+bun run dev
+```
 
-### Backend Installation
+Default dev ports:
 
-1. Download the appropriate backend package for your operating system from the [latest release](https://github.com/phob/mediaflick/releases/latest):
-   - For Windows: `mediaflick-backend-windows.zip`
-   - For Linux: `mediaflick-backend-linux.tar.gz`
-
-2. Extract the archive to your desired location:
-   - Windows:
-     ```powershell
-     Expand-Archive mediaflick-backend-windows.zip -DestinationPath C:\mediaflick
-     ```
-   - Linux:
-     ```bash
-     mkdir -p /opt/mediaflick
-     tar -xzf mediaflick-backend-linux.tar.gz -C /opt/mediaflick
-     ```
-
-3. Start the backend service:
-   - Windows:
-     ```powershell
-     cd C:\mediaflick
-     .\PlexLocalScan.Api.exe
-     ```
-   - Linux:
-     ```bash
-     cd /opt/mediaflick
-     chmod +x PlexLocalScan.Api
-     ./PlexLocalScan.Api
-     ```
-
-### Frontend Installation
-
-1. Download the frontend package `mediaflick-frontend.zip` from the [latest release](https://github.com/phob/mediaflick/releases/latest)
-
-2. Extract the archive to a web server directory:
-   - For nginx:
-     ```bash
-     unzip mediaflick-frontend.zip -d /var/www/mediaflick
-     ```
-   - For Apache:
-     ```bash
-     unzip mediaflick-frontend.zip -d /var/www/html/mediaflick
-     ```
-
-3. Configure your web server to serve the Next.js application. Example nginx configuration:
-   ```nginx
-   server {
-       listen 80;
-       server_name mediaflick.local;
-       root /var/www/mediaflick;
-       
-       location / {
-           try_files $uri $uri/ /_next/static/$uri /_next/static/$uri/ =404;
-       }
-       
-       location /_next/ {
-           alias /var/www/mediaflick/_next/;
-       }
-   }
-   ```
-
-4. Access the application through your web browser at `http://localhost` or your configured domain.
+- frontend: `5173` (Vite dev)
+- backend: `5000`
 
 ## Configuration
 
-After installation, you'll need to configure both components:
+Primary runtime config is in `backend-bun/config/config.yml`.
 
-1. Backend configuration file is located at:
-   - Windows: `C:\mediaflick\appsettings.json`
-   - Linux: `/opt/mediaflick/appsettings.json`
+When running with Docker bind mounts, edit:
 
-2. Frontend configuration can be done through the web interface under Settings.
+- `/opt/mediaflick/config/config.yml`
 
-3. Runtime API configuration can be set via environment variables:
-   - `API_URL`: Backend API endpoint URL (default: `http://localhost:5000/api`)
-   - `SIGNALR_URL`: SignalR hub URL (default: `http://localhost:5000/hubs`)
-
-   These variables can be changed without rebuilding the Docker image and are useful for deployment scenarios where the backend is accessed through a proxy or different hostname.
-
-For detailed configuration options, please refer to the [Configuration Guide](docs/configuration.md).
-
-### Saltbox Installation
-
-For Saltbox users, you can integrate MediaFlick with Authelia authentication and Traefik using a single container deployment. MediaFlick uses an internal architecture where the Next.js frontend proxies all API requests to the backend, eliminating the need to expose the backend API to the internet.
-
-Create a `docker-compose.yml` file in your `/opt/mediaflick/` directory:
-
-```yaml
-services:
-  mediaflick:
-    restart: unless-stopped
-    container_name: mediaflick
-    image: ghcr.io/phob/mediaflick:latest
-    hostname: mediaflick
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Etc/UTC
-      - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://localhost:5000
-      - NODE_ENV=production
-      - CORS_ORIGINS=http://localhost:3000
-      # Internal API endpoints (used by Next.js server-side proxy)
-      - API_URL=http://localhost:5000/api
-      - SIGNALR_URL=http://localhost:5000/hubs
-    networks:
-      - saltbox
-    labels:
-      com.github.saltbox.saltbox_managed: true
-      traefik.enable: true
-      traefik.http.routers.mediaflick-http.entrypoints: web
-      traefik.http.routers.mediaflick-http.middlewares: globalHeaders@file,redirect-to-https@docker,robotHeaders@file,cloudflarewarp@docker,authelia@docker
-      traefik.http.routers.mediaflick-http.rule: Host(`mediaflick.yourdomain.com`)
-      traefik.http.routers.mediaflick-http.service: mediaflick
-      traefik.http.routers.mediaflick.entrypoints: websecure
-      traefik.http.routers.mediaflick.middlewares: globalHeaders@file,secureHeaders@file,robotHeaders@file,cloudflarewarp@docker,authelia@docker
-      traefik.http.routers.mediaflick.rule: Host(`mediaflick.yourdomain.com`)
-      traefik.http.routers.mediaflick.service: mediaflick
-      traefik.http.routers.mediaflick.tls.certresolver: cfdns
-      traefik.http.routers.mediaflick.tls.options: securetls@file
-      traefik.http.services.mediaflick.loadbalancer.server.port: 3000
-    volumes:
-      - /opt/mediaflick:/app/config
-      - /opt/mediaflick/logs:/app/logs
-      - /mnt/unionfs:/mnt/unionfs
-      - /etc/localtime:/etc/localtime:ro
-      - /mnt/zurg:/mnt/zurg
-      - /mnt/organized:/mnt/organized
-
-networks:
-  saltbox:
-    external: true
-```
-
-**Security Note**: Only port 3000 (Next.js frontend) is exposed to Traefik. The backend API (port 5000) runs on localhost only and is accessed internally through Next.js API proxy routes. This architecture ensures the backend is never directly exposed to the internet.
-
-Then create the necessary directories and set permissions:
-
-```bash
-mkdir -p /opt/mediaflick/logs
-chown -R 1000:1000 /opt/mediaflick
-```
-
-Start the container:
-
-```bash
-cd /opt/mediaflick
-docker-compose up -d
-```
-
-MediaFlick will be available at `https://mediaflick.yourdomain.com` with Authelia authentication through Traefik.
-
-**Note**: Make sure you have properly configured your Saltbox installation with Traefik and Authelia before proceeding.
+Make sure `folderMappings` match your mounted media paths and set your TMDb API key there.

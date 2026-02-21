@@ -31,22 +31,64 @@ services:
       - /dev/fuse
     command: "mount zurg: /data --allow-non-empty --allow-other --attr-timeout 10y --buffer-size 64M --dir-cache-time 120s --poll-interval 60s --vfs-cache-max-age 2M --vfs-cache-max-size 30G --vfs-cache-min-free-space 1G --vfs-cache-mode full --vfs-cache-poll-interval 30s --vfs-disk-space-total-size 32G --vfs-fast-fingerprint --vfs-read-ahead 64M --vfs-read-chunk-size 1M --vfs-read-chunk-size-limit 32M --vfs-read-wait 40ms --vfs-refresh --transfers 16 --checkers 16 --multi-thread-streams 8 --uid=1000 --gid=1000 --umask=002"
 
-  plex:
-    container_name: plex
-    image: plexinc/pms-docker
-    network_mode: host  # Using host network for optimal performance
-    environment:
-      - TZ=${TIMEZONE:-$(timedatectl | grep "Time zone" | awk '{print $3}')}  # Use system timezone
-      - PLEX_CLAIM=claim-_C16H5qQ6qhHnubew_Yx
-    devices:
-      - /dev/dxg:/dev/dri
+#  plex:
+#    container_name: plex
+#    image: plexinc/pms-docker
+#    network_mode: host  # Using host network for optimal performance
+#    environment:
+#      - TZ=${TIMEZONE:-$(timedatectl | grep "Time zone" | awk '{print $3}')}  # Use system timezone
+#      - PLEX_CLAIM=claim-_C16H5qQ6qhHnubew_Yx
+#    devices:
+#      - /dev/dxg:/dev/dri
+#    volumes:
+#      - /opt/plex/config:/config
+#      - /dev/shm:/transcode
+#      - /opt/plex/media:/data
+#      - /mnt:/mnt
+#    restart: on-failure
+#    depends_on:
+#      - rclone
+#    healthcheck:
+#      test: ["CMD", "test", "-f", "/mnt/zurg/version.txt"]
+#      interval: 5s
+#      timeout: 2s
+#      retries: 3
+
+  jellyfin:
+    container_name: jellyfin
+    image: lscr.io/linuxserver/jellyfin:latest
+    # Optional - specify the uid and gid you would like Jellyfin to use instead of root
+    ports:
+      - 8096:8096/tcp
+      - 7359:7359/udp
+    network_mode: host
     volumes:
-      - /opt/plex/config:/config
-      - /opt/plex/transcode:/transcode
-      - /opt/plex/media:/data
-      - /mnt:/mnt
-      - /dev/shm:/data/transcode
-    restart: on-failure
+      - /opt/jellyfin:/config
+      - /mnt/organized/movies:/data/movies
+      - /mnt/organized/tvseries:/data/tvshows
+      - type: bind
+        source: /mnt
+        target: /mnt
+    restart: 'unless-stopped'
+    # Optional - may be necessary for docker healthcheck to pass if running in host network mode
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    # Optional - alternative address used for autodiscovery
+    environment:
+      - JELLYFIN_PublishedServerUrl=http://localhost
+      - TZ=Europe/Berlin
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,video,utility
+      - PUID=1000
+      - PGID=1000
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     depends_on:
       - rclone
     healthcheck:
