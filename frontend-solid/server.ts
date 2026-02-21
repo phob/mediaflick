@@ -3,6 +3,13 @@ import { extname, join } from "node:path"
 const rootDir = process.cwd()
 const distDir = join(rootDir, "dist")
 const port = Number(process.env.PORT ?? "3002")
+const backendHttpOrigin = process.env.BACKEND_HTTP_ORIGIN ?? process.env.BACKEND_URL ?? "http://127.0.0.1:5000"
+const backendWsOrigin = process.env.BACKEND_WS_ORIGIN ?? process.env.BACKEND_WS_URL ?? "ws://127.0.0.1:5000"
+
+interface ProxySocketData {
+  upstreamUrl: string
+  upstream?: WebSocket
+}
 
 const mimeTypeByExt: Record<string, string> = {
   ".js": "text/javascript; charset=utf-8",
@@ -22,9 +29,17 @@ function getMimeType(pathname: string): string {
   return mimeTypeByExt[extension] ?? "application/octet-stream"
 }
 
-function buildRuntimeConfigScript(): string {
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.API_BASE_URL ?? "http://localhost:5000/api"
-  const wsUrl = process.env.NEXT_PUBLIC_WS_URL ?? process.env.WS_URL ?? "ws://localhost:5000/ws/filetracking"
+function withTrailingSlash(value: string): string {
+  return value.endsWith("/") ? value : `${value}/`
+}
+
+function buildRuntimeConfigScriptForRequest(requestUrl: URL): string {
+  const protocol = requestUrl.protocol === "https:" ? "wss" : "ws"
+  const defaultApiBaseUrl = `${requestUrl.origin}/api`
+  const defaultWsUrl = `${protocol}://${requestUrl.host}/ws/filetracking`
+
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.API_BASE_URL ?? defaultApiBaseUrl
+  const wsUrl = process.env.NEXT_PUBLIC_WS_URL ?? process.env.WS_URL ?? defaultWsUrl
 
   const payload = {
     apiBaseUrl,
@@ -34,13 +49,47 @@ function buildRuntimeConfigScript(): string {
   return `window.__MEDIAFLICK_CONFIG__=${JSON.stringify(payload)};`
 }
 
-const server = Bun.serve({
+function isApiPath(pathname: string): boolean {
+  return pathname === "/api" || pathname.startsWith("/api/")
+}
+
+function isWebSocketPath(pathname: string): boolean {
+  return pathname === "/ws" || pathname.startsWith("/ws/")
+}
+
+function buildBackendApiUrl(pathname: string, search: string): string {
+  return new URL(`${pathname}${search}`, withTrailingSlash(backendHttpOrigin)).toString()
+}
+
+function buildBackendWsUrl(pathname: string, search: string): string {
+  return new URL(`${pathname}${search}`, withTrailingSlash(backendWsOrigin)).toString()
+}
+
+const server = Bun.serve<ProxySocketData>({
   port,
-  async fetch(request: Request) {
+  async fetch(request: Request, bunServer) {
     const url = new URL(request.url)
 
+    if (isApiPath(url.pathname)) {
+      const proxiedRequest = new Request(buildBackendApiUrl(url.pathname, url.search), request)
+      return fetch(proxiedRequest)
+    }
+
+    if (isWebSocketPath(url.pathname)) {
+      const upgraded = bunServer.upgrade(request, {
+        data: {
+          upstreamUrl: buildBackendWsUrl(url.pathname, url.search),
+        },
+      })
+      if (upgraded) {
+        return undefined
+      }
+
+      return new Response("WebSocket upgrade failed.", { status: 400 })
+    }
+
     if (url.pathname === "/runtime-config.js") {
-      return new Response(buildRuntimeConfigScript(), {
+      return new Response(buildRuntimeConfigScriptForRequest(url), {
         headers: {
           "content-type": "text/javascript; charset=utf-8",
           "cache-control": "no-store",
@@ -68,6 +117,48 @@ const server = Bun.serve({
         "content-type": "text/html; charset=utf-8",
       },
     })
+  },
+  websocket: {
+    open(client) {
+      const upstream = new WebSocket(client.data.upstreamUrl)
+      client.data.upstream = upstream
+
+      upstream.onmessage = event => {
+        client.send(event.data as string | ArrayBuffer | Uint8Array)
+      }
+
+      upstream.onclose = () => {
+        if (client.readyState === WebSocket.OPEN || client.readyState === WebSocket.CONNECTING) {
+          client.close()
+        }
+      }
+
+      upstream.onerror = () => {
+        if (client.readyState === WebSocket.OPEN || client.readyState === WebSocket.CONNECTING) {
+          client.close(1011, "Upstream websocket error")
+        }
+      }
+    },
+
+    message(client, message) {
+      const upstream = client.data.upstream
+      if (!upstream || upstream.readyState !== WebSocket.OPEN) {
+        return
+      }
+
+      upstream.send(message as string | Uint8Array)
+    },
+
+    close(client) {
+      const upstream = client.data.upstream
+      if (!upstream) {
+        return
+      }
+
+      if (upstream.readyState === WebSocket.OPEN || upstream.readyState === WebSocket.CONNECTING) {
+        upstream.close()
+      }
+    },
   },
 })
 

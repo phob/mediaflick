@@ -1,60 +1,38 @@
-# Build Stage
-FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS backend-build
-WORKDIR /backend
+FROM oven/bun:1.3.1-alpine AS frontend-build
+WORKDIR /build/frontend-solid
 
-# Copy the rest of the source code
-COPY backend/ .
-
-# Restore dependencies
-RUN dotnet restore "PlexLocalScan.Api/PlexLocalScan.Api.csproj" && \
-dotnet publish "PlexLocalScan.Api/PlexLocalScan.Api.csproj" -c Release -o /app/publish
-
-# Frontend Build Stage
-FROM oven/bun:1-alpine AS frontend-build
-WORKDIR /frontend
-
-# Copy frontend files
-COPY frontend/package.json frontend/bun.lock ./
+COPY frontend-solid/package.json frontend-solid/bun.lock ./
 RUN bun install --frozen-lockfile
 
-COPY frontend .
+COPY frontend-solid/ ./
 RUN bun run build
 
-# Runtime Stage
-FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine
+FROM oven/bun:1.3.1-alpine AS backend-deps
+WORKDIR /build/backend-bun
+
+COPY backend-bun/package.json backend-bun/bun.lock ./
+RUN bun install --frozen-lockfile --production
+
+FROM oven/bun:1.3.1-alpine AS runtime
 WORKDIR /app
 
-# Install Bun
-COPY --from=oven/bun:1-alpine /usr/local/bin/bun /usr/local/bin/bun
-RUN apk add --no-cache icu-libs wget
+ENV NODE_ENV=production \
+    FRONTEND_PORT=3867 \
+    BACKEND_PORT=5000 \
+    BACKEND_BUN_ROOT_DIR=/app/backend-bun \
+    BACKEND_BUN_CONFIG_PATH=/app/backend-bun/config/config.yml \
+    BACKEND_BUN_LOGS_DIR=/app/backend-bun/logs \
+    BACKEND_BUN_DB_PATH=/app/backend-bun/config/plexscan.db
 
-# Create necessary directories
-RUN mkdir -p config/logs && mkdir -p /mnt/zurg/tvseries && mkdir -p /mnt/zurg/movies \
-&& mkdir -p /mnt/organized/tvseries && mkdir -p /mnt/organized/movies
+COPY --from=backend-deps /build/backend-bun/node_modules /app/backend-bun/node_modules
+COPY backend-bun/package.json backend-bun/bun.lock backend-bun/tsconfig.json /app/backend-bun/
+COPY backend-bun/src /app/backend-bun/src
+COPY backend-bun/config /app/backend-bun/config
+RUN mkdir -p /app/backend-bun/logs
 
-# Copy the published backend app
-COPY --from=backend-build /app/publish .
+COPY frontend-solid/package.json frontend-solid/server.ts /app/frontend-solid/
+COPY --from=frontend-build /build/frontend-solid/dist /app/frontend-solid/dist
 
-# Copy the built frontend app
-COPY --from=frontend-build /frontend/.next/standalone ./
-COPY --from=frontend-build /frontend/.next/static ./.next/static
-COPY --from=frontend-build /frontend/server.js ./server.js
-COPY --from=frontend-build /frontend/node_modules ./node_modules
+EXPOSE 3867
 
-# Set environment variable for timezone and globalization
-ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
-ENV NODE_ENV=production
-
-# Expose only the frontend port (backend is internal only)
-EXPOSE 3000
-
-# Set environment variables for PUID and PGID
-ENV PUID=1000
-ENV PGID=1000
-ENV TZ=UTC
-
-# Start both services using a shell script
-COPY scripts/start.sh .
-
-RUN chmod +x start.sh
-ENTRYPOINT ["./start.sh"]
+CMD ["sh", "-c", "set -e; PORT=${BACKEND_PORT} bun run --cwd /app/backend-bun start & backend_pid=$!; trap 'kill ${backend_pid} >/dev/null 2>&1 || true' INT TERM EXIT; PORT=${FRONTEND_PORT} BACKEND_HTTP_ORIGIN=http://127.0.0.1:${BACKEND_PORT} BACKEND_WS_ORIGIN=ws://127.0.0.1:${BACKEND_PORT} bun run --cwd /app/frontend-solid start"]

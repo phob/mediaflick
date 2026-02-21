@@ -19,6 +19,8 @@ The app supports both build-time and runtime configuration.
   - `VITE_API_BASE_URL` (default `http://localhost:5000/api`)
   - `VITE_WS_URL` (default `ws://localhost:5000/ws/filetracking`)
 - Runtime (Docker/server):
+  - `BACKEND_HTTP_ORIGIN` (default `http://127.0.0.1:5000`)
+  - `BACKEND_WS_ORIGIN` (default `ws://127.0.0.1:5000`)
   - `NEXT_PUBLIC_API_BASE_URL` or `API_BASE_URL`
   - `NEXT_PUBLIC_WS_URL` or `WS_URL`
 
@@ -35,11 +37,18 @@ Build and run:
 
 ```bash
 docker build -t mediaflick-frontend-solid .
-docker run --rm -p 3002:3002 \
-  -e NEXT_PUBLIC_API_BASE_URL=http://localhost:5000/api \
-  -e NEXT_PUBLIC_WS_URL=ws://localhost:5000/ws/filetracking \
+docker run --rm -p 3867:3867 \
+  -e BACKEND_HTTP_ORIGIN=http://127.0.0.1:5000 \
+  -e BACKEND_WS_ORIGIN=ws://127.0.0.1:5000 \
   mediaflick-frontend-solid
 ```
+
+Default runtime URL: `http://localhost:3867`
+
+The Bun server in this project serves static assets and can proxy:
+
+- `/api/*` to `BACKEND_HTTP_ORIGIN`
+- `/ws/*` to `BACKEND_WS_ORIGIN`
 
 Or run with Compose:
 
