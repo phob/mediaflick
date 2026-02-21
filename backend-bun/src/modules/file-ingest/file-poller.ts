@@ -10,8 +10,8 @@ import { detectTvEpisode } from "@/modules/detection/tv-detection";
 import {
     seriesAliases,
     seriesIdentityMap,
-    tvEpisodeGroupSelections,
 } from "@/db/schema";
+import { MediaMetadataResolver } from "@/modules/media-lookup/media-metadata-resolver";
 import {
     buildDestinationPath,
     cleanupDeadSymlinks,
@@ -21,7 +21,6 @@ import {
 } from "@/modules/symlink/symlink-service";
 import type { RuntimeConfig } from "@/config/runtime-config";
 import type { MediaType } from "@/shared/types";
-import type { TmdbTvEpisodeGroupEpisode } from "@/modules/media-lookup/tmdb-client";
 
 const mediaExtensions = new Set([
     ".mkv",
@@ -99,34 +98,19 @@ async function processWithLimit<T>(
 
 type FolderMapping = RuntimeConfig["plex"]["folderMappings"][number];
 
-interface GroupEpisodePlacement {
-    seasonNumber: number;
-    episodeNumber: number;
-    name: string | null;
-}
-
-interface EpisodeGroupPlacementCache {
-    byEpisodeId: Map<number, GroupEpisodePlacement>;
-    byDetectedOrder: Map<string, GroupEpisodePlacement>;
-}
-
-interface ResolvedEpisodePlacement {
-    seasonNumber: number;
-    episodeNumber: number;
-    episodeTitle: string | null;
-}
-
 export class FilePoller {
     private timer: Timer | null = null;
     private isRunning = false;
     private currentRun: Promise<void> | null = null;
     private currentConfig: RuntimeConfig | null = null;
-    private readonly episodeGroupCache = new Map<
-        string,
-        EpisodeGroupPlacementCache
-    >();
+    private readonly metadataResolver: MediaMetadataResolver;
 
-    constructor(private readonly context: AppContext) {}
+    constructor(private readonly context: AppContext) {
+        this.metadataResolver = new MediaMetadataResolver(
+            context.db,
+            context.tmdb,
+        );
+    }
 
     start(config: RuntimeConfig): void {
         this.currentConfig = config;
@@ -403,202 +387,6 @@ export class FilePoller {
         }
     }
 
-    private episodePlacementFromGroupEpisode(
-        entry: TmdbTvEpisodeGroupEpisode,
-        groupSeasonNumber: number | null,
-        groupIndex: number,
-        episodeIndex: number,
-    ): GroupEpisodePlacement {
-        const seasonNumber =
-            Number.isInteger(entry.season_number) &&
-            (entry.season_number ?? 0) > 0
-                ? (entry.season_number as number)
-                : groupSeasonNumber !== null
-                  ? groupSeasonNumber
-                  : groupIndex + 1;
-        const episodeNumber =
-            Number.isInteger(entry.order) && (entry.order ?? -1) >= 0
-                ? (entry.order as number) + 1
-                : Number.isInteger(entry.episode_number) &&
-                    (entry.episode_number ?? 0) > 0
-                  ? (entry.episode_number as number)
-                  : episodeIndex + 1;
-
-        return {
-            seasonNumber,
-            episodeNumber,
-            name: entry.name ?? null,
-        };
-    }
-
-    private detectGroupSeasonNumber(
-        groupName: string,
-        episodes: TmdbTvEpisodeGroupEpisode[],
-    ): number | null {
-        const positiveSeasons = [
-            ...new Set(
-                episodes
-                    .map((episode) => episode.season_number)
-                    .filter(
-                        (season) =>
-                            Number.isInteger(season) && (season ?? 0) > 0,
-                    ),
-            ),
-        ] as number[];
-        if (positiveSeasons.length === 1) {
-            return positiveSeasons[0];
-        }
-
-        const seasonMatch = groupName.match(/season\s*(\d+)/i);
-        if (!seasonMatch) {
-            return null;
-        }
-
-        const seasonNumber = Number(seasonMatch[1]);
-        return Number.isInteger(seasonNumber) && seasonNumber > 0
-            ? seasonNumber
-            : null;
-    }
-
-    private async getSelectedEpisodeGroupId(
-        tmdbId: number,
-    ): Promise<string | null> {
-        const rows = await this.context.db
-            .select({ episodeGroupId: tvEpisodeGroupSelections.episodeGroupId })
-            .from(tvEpisodeGroupSelections)
-            .where(eq(tvEpisodeGroupSelections.tmdbId, tmdbId))
-            .limit(1);
-
-        return rows[0]?.episodeGroupId ?? null;
-    }
-
-    private async getEpisodeGroupMap(
-        episodeGroupId: string,
-    ): Promise<EpisodeGroupPlacementCache> {
-        const cached = this.episodeGroupCache.get(episodeGroupId);
-        if (cached) {
-            return cached;
-        }
-
-        const episodeGroup =
-            await this.context.tmdb.getTvEpisodeGroup(episodeGroupId);
-        const byEpisodeId = new Map<number, GroupEpisodePlacement>();
-        const byDetectedOrder = new Map<string, GroupEpisodePlacement>();
-        const groups = [...(episodeGroup.groups ?? [])].sort(
-            (a, b) => (a.order ?? 0) - (b.order ?? 0),
-        );
-
-        groups.forEach((group, groupIndex) => {
-            const episodes = [...(group.episodes ?? [])].sort((a, b) => {
-                const left = a.order ?? a.episode_number ?? 0;
-                const right = b.order ?? b.episode_number ?? 0;
-                return left - right;
-            });
-            const detectedSeason = this.detectGroupSeasonNumber(
-                group.name,
-                episodes,
-            );
-
-            episodes.forEach((entry, episodeIndex) => {
-                const placement = this.episodePlacementFromGroupEpisode(
-                    entry,
-                    detectedSeason,
-                    groupIndex,
-                    episodeIndex,
-                );
-                byEpisodeId.set(entry.id, placement);
-
-                if (detectedSeason !== null) {
-                    byDetectedOrder.set(
-                        `${detectedSeason}:${episodeIndex + 1}`,
-                        placement,
-                    );
-                }
-            });
-        });
-
-        const result: EpisodeGroupPlacementCache = {
-            byEpisodeId,
-            byDetectedOrder,
-        };
-
-        this.episodeGroupCache.set(episodeGroupId, result);
-        return result;
-    }
-
-    private async resolveEpisodePlacement(
-        tmdbId: number,
-        seasonNumber: number,
-        episodeNumber: number,
-    ): Promise<ResolvedEpisodePlacement> {
-        const selectedEpisodeGroupId =
-            await this.getSelectedEpisodeGroupId(tmdbId);
-
-        if (!selectedEpisodeGroupId) {
-            const defaultEpisode = await this.context.tmdb.getTvEpisode(
-                tmdbId,
-                seasonNumber,
-                episodeNumber,
-            );
-            return {
-                seasonNumber,
-                episodeNumber,
-                episodeTitle: defaultEpisode.name,
-            };
-        }
-
-        const episodeGroupMap = await this.getEpisodeGroupMap(
-            selectedEpisodeGroupId,
-        );
-        const groupedByDetectedOrder = episodeGroupMap.byDetectedOrder.get(
-            `${seasonNumber}:${episodeNumber}`,
-        );
-        if (groupedByDetectedOrder) {
-            return {
-                seasonNumber: groupedByDetectedOrder.seasonNumber,
-                episodeNumber: groupedByDetectedOrder.episodeNumber,
-                episodeTitle: groupedByDetectedOrder.name,
-            };
-        }
-
-        try {
-            const defaultEpisode = await this.context.tmdb.getTvEpisode(
-                tmdbId,
-                seasonNumber,
-                episodeNumber,
-            );
-            const groupedByEpisodeId = episodeGroupMap.byEpisodeId.get(
-                defaultEpisode.id,
-            );
-            if (groupedByEpisodeId) {
-                return {
-                    seasonNumber: groupedByEpisodeId.seasonNumber,
-                    episodeNumber: groupedByEpisodeId.episodeNumber,
-                    episodeTitle:
-                        groupedByEpisodeId.name ?? defaultEpisode.name,
-                };
-            }
-
-            return {
-                seasonNumber,
-                episodeNumber,
-                episodeTitle: defaultEpisode.name,
-            };
-        } catch (error) {
-            if (
-                error instanceof Error &&
-                error.message.includes("TMDb request failed: 404")
-            ) {
-                return {
-                    seasonNumber,
-                    episodeNumber,
-                    episodeTitle: null,
-                };
-            }
-            throw error;
-        }
-    }
-
     private async processFile(
         sourceFile: string,
         destinationFolder: string,
@@ -704,10 +492,7 @@ export class FilePoller {
                     return;
                 }
 
-                const [movie, externalIds] = await Promise.all([
-                    this.context.tmdb.getMovie(best.id),
-                    this.context.tmdb.getMovieExternalIds(best.id),
-                ]);
+                const movie = await this.metadataResolver.resolveMovie(best.id);
 
                 const destinationPath = buildDestinationPath(
                     sourceFile,
@@ -715,8 +500,8 @@ export class FilePoller {
                     mediaType,
                     {
                         title: movie.title,
-                        year: this.context.tmdb.movieYear(movie),
-                        imdbId: externalIds.imdb_id,
+                        year: movie.year,
+                        imdbId: movie.imdbId,
                     },
                 );
 
@@ -727,15 +512,15 @@ export class FilePoller {
                         id: tracked.id,
                         destFile: destinationPath,
                         mediaType,
-                        tmdbId: movie.id,
-                        imdbId: externalIds.imdb_id,
+                        tmdbId: movie.tmdbId,
+                        imdbId: movie.imdbId,
                         title: movie.title,
-                        year: this.context.tmdb.movieYear(movie),
-                        genres: movie.genres?.map((g) => g.name) ?? [],
+                        year: movie.year,
+                        genres: movie.genres,
                         seasonNumber: null,
                         episodeNumber: null,
                         episodeNumber2: null,
-                        posterPath: movie.poster_path ?? null,
+                        posterPath: movie.posterPath,
                         status: "Success",
                     });
 
@@ -747,7 +532,7 @@ export class FilePoller {
                         mediaType,
                         status: "Success",
                         destFile: destinationPath,
-                        tmdbId: movie.id,
+                        tmdbId: movie.tmdbId,
                         title: movie.title,
                     });
                 }
@@ -773,54 +558,27 @@ export class FilePoller {
                     return;
                 }
 
-                const show = await this.context.tmdb.getTv(detected.tmdbId);
-                const primaryPlacement = await this.resolveEpisodePlacement(
-                    detected.tmdbId,
-                    detected.seasonNumber,
-                    detected.episodeNumber,
-                );
-
-                let secondaryEpisodeNumber: number | null = null;
-                if (detected.episodeNumber2) {
-                    let secondaryPlacement: ResolvedEpisodePlacement | null =
-                        null;
-                    try {
-                        secondaryPlacement = await this.resolveEpisodePlacement(
-                            detected.tmdbId,
-                            detected.seasonNumber,
-                            detected.episodeNumber2,
-                        );
-                    } catch (error) {
-                        if (
-                            !(error instanceof Error) ||
-                            !error.message.includes("TMDb request failed: 404")
-                        ) {
-                            throw error;
-                        }
-                    }
-
-                    if (
-                        secondaryPlacement &&
-                        secondaryPlacement.seasonNumber ===
-                            primaryPlacement.seasonNumber
-                    ) {
-                        secondaryEpisodeNumber =
-                            secondaryPlacement.episodeNumber;
-                    }
-                }
+                const show = await this.metadataResolver.resolveTv({
+                    tmdbId: detected.tmdbId,
+                    seasonNumber: detected.seasonNumber,
+                    episodeNumber: detected.episodeNumber,
+                    episodeNumber2: detected.episodeNumber2,
+                    imdbIdFallback: detected.imdbId,
+                    sourceFile,
+                });
 
                 const destinationPath = buildDestinationPath(
                     sourceFile,
                     destinationFolder,
                     mediaType,
                     {
-                        title: show.name,
-                        year: this.context.tmdb.tvYear(show),
-                        imdbId: detected.imdbId,
-                        seasonNumber: primaryPlacement.seasonNumber,
-                        episodeNumber: primaryPlacement.episodeNumber,
-                        episodeNumber2: secondaryEpisodeNumber,
-                        episodeTitle: primaryPlacement.episodeTitle,
+                        title: show.title,
+                        year: show.year,
+                        imdbId: show.imdbId,
+                        seasonNumber: show.seasonNumber,
+                        episodeNumber: show.episodeNumber,
+                        episodeNumber2: show.episodeNumber2,
+                        episodeTitle: show.episodeTitle,
                     },
                 );
 
@@ -831,15 +589,15 @@ export class FilePoller {
                         id: tracked.id,
                         destFile: destinationPath,
                         mediaType,
-                        tmdbId: show.id,
-                        imdbId: detected.imdbId,
-                        title: show.name,
-                        year: this.context.tmdb.tvYear(show),
-                        genres: show.genres?.map((g) => g.name) ?? [],
-                        seasonNumber: primaryPlacement.seasonNumber,
-                        episodeNumber: primaryPlacement.episodeNumber,
-                        episodeNumber2: secondaryEpisodeNumber,
-                        posterPath: show.poster_path ?? null,
+                        tmdbId: show.tmdbId,
+                        imdbId: show.imdbId,
+                        title: show.title,
+                        year: show.year,
+                        genres: show.genres,
+                        seasonNumber: show.seasonNumber,
+                        episodeNumber: show.episodeNumber,
+                        episodeNumber2: show.episodeNumber2,
+                        posterPath: show.posterPath,
                         status: "Success",
                     });
 
@@ -851,11 +609,11 @@ export class FilePoller {
                         mediaType,
                         status: "Success",
                         destFile: destinationPath,
-                        tmdbId: show.id,
-                        title: show.name,
-                        seasonNumber: primaryPlacement.seasonNumber,
-                        episodeNumber: primaryPlacement.episodeNumber,
-                        episodeNumber2: secondaryEpisodeNumber,
+                        tmdbId: show.tmdbId,
+                        title: show.title,
+                        seasonNumber: show.seasonNumber,
+                        episodeNumber: show.episodeNumber,
+                        episodeNumber2: show.episodeNumber2,
                     });
                 }
             }

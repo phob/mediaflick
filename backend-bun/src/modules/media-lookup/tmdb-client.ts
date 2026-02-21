@@ -32,6 +32,25 @@ export interface TmdbGenre {
 export interface TmdbMovieDetails extends TmdbMovieResult {
   genres: TmdbGenre[]
   status?: string
+  tagline?: string | null
+  runtime?: number | null
+  vote_average?: number
+  vote_count?: number
+  original_language?: string | null
+}
+
+export interface TmdbNetwork {
+  id: number
+  name: string
+}
+
+export interface TmdbTvSeasonSummary {
+  season_number: number
+  name: string
+  overview: string | null
+  poster_path: string | null
+  air_date: string | null
+  episode_count: number
 }
 
 export interface TmdbTvDetails extends TmdbTvResult {
@@ -39,10 +58,30 @@ export interface TmdbTvDetails extends TmdbTvResult {
   status?: string
   number_of_episodes: number
   number_of_seasons: number
+  tagline?: string | null
+  last_air_date?: string | null
+  vote_average?: number
+  vote_count?: number
+  original_language?: string | null
+  origin_country?: string[]
+  networks?: TmdbNetwork[]
+  seasons?: TmdbTvSeasonSummary[]
 }
 
 export interface TmdbExternalIds {
   imdb_id: string | null
+}
+
+export interface TmdbCastMember {
+  id: number
+  name: string
+  character?: string | null
+  profile_path?: string | null
+  order?: number | null
+}
+
+interface TmdbCreditsResponse {
+  cast: TmdbCastMember[]
 }
 
 export interface TmdbEpisodeDetails {
@@ -146,12 +185,22 @@ export class TmdbClient {
     return this.get<TmdbExternalIds>(`/movie/${tmdbId}/external_ids`, undefined, 24 * 60 * 60 * 1000)
   }
 
+  async getMovieCredits(tmdbId: number): Promise<TmdbCastMember[]> {
+    const data = await this.get<TmdbCreditsResponse>(`/movie/${tmdbId}/credits`, undefined, 24 * 60 * 60 * 1000)
+    return data.cast ?? []
+  }
+
   async getTv(tmdbId: number): Promise<TmdbTvDetails> {
     return this.get<TmdbTvDetails>(`/tv/${tmdbId}`, undefined, 6 * 60 * 60 * 1000)
   }
 
   async getTvExternalIds(tmdbId: number): Promise<TmdbExternalIds> {
     return this.get<TmdbExternalIds>(`/tv/${tmdbId}/external_ids`, undefined, 24 * 60 * 60 * 1000)
+  }
+
+  async getTvCredits(tmdbId: number): Promise<TmdbCastMember[]> {
+    const data = await this.get<TmdbCreditsResponse>(`/tv/${tmdbId}/credits`, undefined, 24 * 60 * 60 * 1000)
+    return data.cast ?? []
   }
 
   async getTvSeason(tmdbId: number, seasonNumber: number): Promise<TmdbSeasonDetails> {

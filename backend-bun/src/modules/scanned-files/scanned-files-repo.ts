@@ -158,6 +158,19 @@ export class ScannedFilesRepo {
     return mapRow(rows[0])
   }
 
+  async findByDestination(destFile: string): Promise<ScannedFile | null> {
+    const rows = await this.db
+      .select()
+      .from(scannedFiles)
+      .where(eq(scannedFiles.destFile, destFile))
+      .orderBy(desc(scannedFiles.id))
+      .limit(1)
+    if (!rows[0]) {
+      return null
+    }
+    return mapRow(rows[0])
+  }
+
   async createProcessingEntry(input: {
     sourceFile: string
     fileSize: number | null
@@ -301,11 +314,25 @@ export class ScannedFilesRepo {
       conditions.push(like(sql`lower(${scannedFiles.title})`, pattern))
     }
 
-    return this.db
-      .selectDistinct({ tmdbId: scannedFiles.tmdbId, title: scannedFiles.title, posterPath: scannedFiles.posterPath })
+    const rows = await this.db
+      .select({ tmdbId: scannedFiles.tmdbId, title: scannedFiles.title, posterPath: scannedFiles.posterPath })
       .from(scannedFiles)
       .where(and(...conditions))
-      .orderBy(asc(scannedFiles.title))
+      .orderBy(
+        asc(scannedFiles.title),
+        desc(sql<number>`case when ${scannedFiles.posterPath} is not null then 1 else 0 end`),
+        desc(scannedFiles.updatedAt),
+      )
+
+    const byTmdbId = new Map<number, { tmdbId: number | null; title: string | null; posterPath: string | null }>()
+    for (const row of rows) {
+      if (row.tmdbId == null || byTmdbId.has(row.tmdbId)) {
+        continue
+      }
+      byTmdbId.set(row.tmdbId, row)
+    }
+
+    return [...byTmdbId.values()]
   }
 
   /** Returns distinct tmdbId + mediaType pairs that have a tmdbId but no posterPath yet. */

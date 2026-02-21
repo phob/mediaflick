@@ -22,6 +22,7 @@ import type {
     FolderMappingConfig,
     LogEntry,
     LogLevel,
+    MediaCastMember,
     MediaSearchResult,
     MediaStatus,
     MediaType,
@@ -109,6 +110,33 @@ function formatAirDate(value: string | null): string {
     const parsed = new Date(`${value}T00:00:00Z`);
     if (Number.isNaN(parsed.getTime())) return "Unknown";
     return parsed.toLocaleDateString();
+}
+
+function formatReleaseDate(value: string | null | undefined): string {
+    if (!value) return "Unknown";
+    const parsed = new Date(`${value}T00:00:00Z`);
+    if (Number.isNaN(parsed.getTime())) return "Unknown";
+    return parsed.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+    });
+}
+
+function formatRuntime(runtimeMinutes: number | null | undefined): string {
+    if (!runtimeMinutes || runtimeMinutes <= 0) return "Unknown";
+    const hours = Math.floor(runtimeMinutes / 60);
+    const minutes = runtimeMinutes % 60;
+    if (hours <= 0) return `${minutes}m`;
+    if (minutes <= 0) return `${hours}h`;
+    return `${hours}h ${minutes}m`;
+}
+
+function formatRating(value: number | null | undefined): string {
+    if (value === null || value === undefined || Number.isNaN(value)) {
+        return "N/A";
+    }
+    return `${value.toFixed(1)} / 10`;
 }
 
 function parseIntOr(value: string, fallback: number): number {
@@ -200,6 +228,37 @@ function compareEpisodeFiles(left: ScannedFile, right: ScannedFile): number {
     return left.sourceFile.localeCompare(right.sourceFile);
 }
 
+function formatEpisodeCode(
+    seasonNumber: number | null,
+    episodeNumber: number | null,
+    episodeNumber2: number | null,
+): string {
+    const seasonLabel =
+        seasonNumber && seasonNumber > 0
+            ? `S${String(seasonNumber).padStart(2, "0")}`
+            : "S??";
+    const episodeLabel =
+        episodeNumber && episodeNumber > 0
+            ? `E${String(episodeNumber).padStart(2, "0")}`
+            : "E??";
+    if (episodeNumber2 && episodeNumber2 > (episodeNumber ?? 0)) {
+        return `${seasonLabel}${episodeLabel}E${String(episodeNumber2).padStart(2, "0")}`;
+    }
+    return `${seasonLabel}${episodeLabel}`;
+}
+
+function remapRangeSummary(file: ScannedFile): string | null {
+    const remap = file.episodeRemap;
+    if (!remap || remap.collapsedRanges.length === 0) return null;
+    return remap.collapsedRanges
+        .map((range) =>
+            range.sourceStart === range.sourceEnd
+                ? `E${String(range.sourceStart).padStart(2, "0")}`
+                : `E${String(range.sourceStart).padStart(2, "0")}-E${String(range.sourceEnd).padStart(2, "0")}`,
+        )
+        .join(", ");
+}
+
 function primaryFileName(file: ScannedFile): string {
     return fileName(file.destFile ?? file.sourceFile);
 }
@@ -225,14 +284,24 @@ function StatusDot(props: { online: boolean }) {
     );
 }
 
-type PillVariant = "default" | "success" | "warning" | "error";
+type PillVariant = "default" | "success" | "info" | "warning" | "error";
 
-function Pill(props: ParentProps<{ variant?: PillVariant }>) {
+function Pill(props: ParentProps<{ variant?: PillVariant; solid?: boolean }>) {
     const colors = () => {
+        if (props.variant === "success" && props.solid)
+            return "bg-success text-surface-0 border-success/80";
         if (props.variant === "success")
             return "bg-success-muted text-success border-success/20";
+        if (props.variant === "info" && props.solid)
+            return "bg-info text-surface-0 border-info/80";
+        if (props.variant === "info")
+            return "bg-info/15 text-info border-info/30";
+        if (props.variant === "warning" && props.solid)
+            return "bg-warning text-surface-0 border-warning/80";
         if (props.variant === "warning")
             return "bg-warning-muted text-warning border-warning/20";
+        if (props.variant === "error" && props.solid)
+            return "bg-error text-surface-0 border-error/80";
         if (props.variant === "error")
             return "bg-error-muted text-error border-error/20";
         return "bg-surface-3 text-text-secondary border-border-default";
@@ -263,6 +332,25 @@ function FileRowIdentity(props: { file: ScannedFile }) {
             <p class="text-xs text-text-tertiary mt-0.5 break-all line-clamp-1">
                 {props.file.sourceFile}
             </p>
+            <Show when={props.file.episodeRemap}>
+                {(remap) => (
+                    <p class="text-[0.72rem] text-info mt-1">
+                        Remapped {formatEpisodeCode(
+                            remap().sourceSeasonNumber,
+                            remap().sourceEpisodeNumber,
+                            remap().sourceEpisodeNumber2,
+                        )}{" "}
+                        to {formatEpisodeCode(
+                            remap().remappedSeasonNumber,
+                            remap().remappedEpisodeNumber,
+                            remap().remappedEpisodeNumber2,
+                        )}
+                        <Show when={remapRangeSummary(props.file)}>
+                            {(ranges) => ` · merged source ranges: ${ranges()}`}
+                        </Show>
+                    </p>
+                )}
+            </Show>
         </div>
     );
 }
@@ -328,11 +416,7 @@ function NavLink(props: { href: string; children: string }) {
     return (
         <A
             href={props.href}
-            class={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
-                active()
-                    ? "bg-accent text-surface-0"
-                    : "text-text-secondary hover:text-text-primary hover:bg-surface-3"
-            }`}
+            class={`nav-pill${active() ? " is-active" : ""}`}
         >
             {props.children}
         </A>
@@ -703,12 +787,14 @@ const AppShell: ParentComponent = (props) => {
     });
 
     return (
-        <div class="min-h-screen flex flex-col">
-            <header class="sticky top-0 z-30 bg-surface-1/80 backdrop-blur-xl border-b border-border-subtle">
-                <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
-                    <A href="/" class="text-lg font-bold tracking-tight">
-                        <span class="text-text-primary">Media</span>
-                        <span class="text-accent">Flick</span>
+        <div class="app-shell min-h-screen flex flex-col">
+            <header class="sticky top-0 z-30 px-4 pt-4 sm:px-6">
+                <div class="topbar-shell max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+                    <A href="/" class="brand-lockup shrink-0">
+                        <span class="brand-kicker">Library Console</span>
+                        <span class="brand-title">
+                            Media<span>Flick</span>
+                        </span>
                     </A>
                     <nav class="hidden sm:flex items-center gap-1">
                         <NavLink href="/shows">TV Shows</NavLink>
@@ -726,13 +812,13 @@ const AppShell: ParentComponent = (props) => {
                         <button
                             type="button"
                             onClick={() => setLogsOpen(true)}
-                            class="px-3 py-1.5 rounded-lg border border-border-default bg-surface-2 text-text-secondary hover:text-text-primary hover:border-border-hover transition text-xs font-medium"
+                            class="toolbar-chip text-text-secondary hover:text-text-primary hover:border-border-hover transition"
                         >
                             Logs
                         </button>
                     </div>
                 </div>
-                <nav class="sm:hidden flex items-center gap-1 px-4 pb-2 overflow-x-auto">
+                <nav class="sm:hidden flex items-center gap-1 px-2 py-2 overflow-x-auto max-w-7xl mx-auto">
                     <NavLink href="/shows">TV Shows</NavLink>
                     <NavLink href="/movies">Movies</NavLink>
                     <NavLink href="/unidentified">Unidentified</NavLink>
@@ -740,10 +826,7 @@ const AppShell: ParentComponent = (props) => {
                 </nav>
             </header>
 
-            <main
-                class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 py-6"
-                style="animation: fade-in 250ms ease-out"
-            >
+            <main class="content-stage flex-1">
                 {props.children}
             </main>
 
@@ -787,17 +870,34 @@ function MediaSearchHeader(props: {
     onSearch: (next: string) => void;
 }) {
     return (
-        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+        <div class="media-header flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div>
-                <h1 class="text-2xl font-bold">{props.title}</h1>
-                <p class="text-sm text-text-secondary mt-1">{props.subtitle}</p>
+                <p class="section-kicker">Curation Desk</p>
+                <h1 class="section-title">{props.title}</h1>
+                <p class="section-subtitle">{props.subtitle}</p>
             </div>
-            <input
-                value={props.searchValue}
-                onInput={(e) => props.onSearch(e.currentTarget.value)}
-                class="w-full sm:w-72 bg-surface-2 border border-border-default rounded-lg px-3.5 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 transition"
-                placeholder="Search titles..."
-            />
+            <div class="search-shell">
+                <span class="search-icon" aria-hidden="true">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        class="w-4 h-4"
+                    >
+                        <circle cx="11" cy="11" r="7" />
+                        <path d="m20 20-3.8-3.8" />
+                    </svg>
+                </span>
+                <input
+                    value={props.searchValue}
+                    onInput={(e) => props.onSearch(e.currentTarget.value)}
+                    class="search-input"
+                    placeholder="Search titles..."
+                    aria-label={`Search ${props.title}`}
+                />
+            </div>
         </div>
     );
 }
@@ -812,16 +912,14 @@ function PosterCard(props: {
     return (
         <A
             href={props.href}
-            class="group relative block rounded-xl overflow-hidden bg-surface-2 border border-border-subtle hover:border-accent/40 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:shadow-accent/5"
+            class="poster-card group block"
         >
             <div class="aspect-2/3 relative">
                 <Show
                     when={url()}
                     fallback={
-                        <div class="absolute inset-0 flex items-center justify-center bg-linear-to-b from-surface-3 to-surface-2 p-4">
-                            <span class="text-center text-sm font-semibold text-text-secondary">
-                                {props.title}
-                            </span>
+                        <div class="poster-fallback">
+                            <span>{props.title}</span>
                         </div>
                     }
                 >
@@ -830,11 +928,11 @@ function PosterCard(props: {
                             src={src()}
                             alt={props.title}
                             loading="lazy"
-                            class="absolute inset-0 w-full h-full object-cover"
+                            class="absolute inset-0 w-full h-full object-cover transition-transform duration-300"
                         />
                     )}
                 </Show>
-                <div class="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/90 via-black/50 to-transparent pt-16 pb-3 px-3">
+                <div class="poster-caption">
                     <p class="text-sm font-semibold text-white leading-tight line-clamp-2">
                         {props.title}
                     </p>
@@ -846,6 +944,102 @@ function PosterCard(props: {
                 </div>
             </div>
         </A>
+    );
+}
+
+function CastPanel(props: { cast: MediaCastMember[] | null | undefined }) {
+    const cast = createMemo(() => (props.cast ?? []).slice(0, 14));
+
+    return (
+        <Show when={cast().length > 0}>
+            <section class="space-y-3">
+                <h2 class="text-lg font-bold">Cast</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                    <For each={cast()}>
+                        {(member) => (
+                            <article class="flex items-center gap-3 rounded-lg border border-border-subtle bg-surface-2 px-3 py-2.5">
+                                <Show
+                                    when={posterUrl(member.profilePath, "w185")}
+                                    fallback={
+                                        <div class="w-12 h-12 rounded-md bg-surface-3 border border-border-default flex items-center justify-center text-[0.62rem] text-text-tertiary font-mono uppercase tracking-wider">
+                                            Cast
+                                        </div>
+                                    }
+                                >
+                                    {(url) => (
+                                        <img
+                                            src={url()}
+                                            alt={member.name}
+                                            loading="lazy"
+                                            class="w-12 h-12 rounded-md object-cover border border-border-default"
+                                        />
+                                    )}
+                                </Show>
+                                <div class="min-w-0">
+                                    <p class="text-sm font-semibold text-text-primary truncate">
+                                        {member.name}
+                                    </p>
+                                    <p class="text-xs text-text-secondary truncate">
+                                        {member.character ?? "Character unknown"}
+                                    </p>
+                                </div>
+                            </article>
+                        )}
+                    </For>
+                </div>
+            </section>
+        </Show>
+    );
+}
+
+function DetailPageBackdrop(props: {
+    backdropPath: string | null | undefined;
+}) {
+    const url = createMemo(() => backdropUrl(props.backdropPath));
+
+    return (
+        <Show when={url()}>
+            {(src) => (
+                <div class="pointer-events-none fixed inset-0 overflow-hidden z-[1]">
+                    <div
+                        class="absolute inset-0 bg-cover bg-center scale-110 opacity-32"
+                        style={{ "background-image": `url(${src()})` }}
+                    />
+                    <div class="absolute inset-0 bg-linear-to-b from-surface-0/22 via-surface-1/72 to-surface-1" />
+                    <div class="absolute inset-0 bg-[radial-gradient(circle_at_84%_10%,rgb(249_115_22_/_0.2),transparent_54%)]" />
+                </div>
+            )}
+        </Show>
+    );
+}
+
+function showStatusVariant(status: string | null | undefined): PillVariant {
+    const normalized = status?.trim().toLowerCase();
+    if (normalized === "returning series" || normalized === "in production")
+        return "info";
+    if (normalized === "canceled") return "error";
+    if (normalized === "planned" || normalized === "pilot") return "warning";
+    return "default";
+}
+
+function TvShowPosterCard(props: {
+    href: string;
+    fallbackTitle: string;
+    fallbackYear: number | null;
+    fallbackPosterPath: string | null | undefined;
+}) {
+    const displayTitle = createMemo(() =>
+        props.fallbackYear
+            ? `${props.fallbackTitle} (${props.fallbackYear})`
+            : props.fallbackTitle,
+    );
+
+    return (
+        <PosterCard
+            href={props.href}
+            title={displayTitle()}
+            posterPath={props.fallbackPosterPath}
+        />
     );
 }
 
@@ -890,10 +1084,11 @@ function TvShowsPage() {
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 <For each={titlesQuery.data ?? []}>
                     {(item) => (
-                        <PosterCard
+                        <TvShowPosterCard
                             href={`/shows/${item.tmdbId}`}
-                            title={item.title ?? "Unknown title"}
-                            posterPath={item.posterPath}
+                            fallbackTitle={item.title ?? "Unknown title"}
+                            fallbackYear={item.year}
+                            fallbackPosterPath={item.posterPath}
                         />
                     )}
                 </For>
@@ -1828,12 +2023,11 @@ function EpisodeFileRow(props: {
                 <FileRowIdentity file={props.file} />
                 <div class="flex flex-wrap items-center gap-1.5 shrink-0">
                     <Pill variant="success">
-                        {props.file.seasonNumber
-                            ? `S${String(props.file.seasonNumber).padStart(2, "0")}`
-                            : "S??"}
-                        {props.file.episodeNumber
-                            ? `E${String(props.file.episodeNumber).padStart(2, "0")}`
-                            : "E??"}
+                        {formatEpisodeCode(
+                            props.file.seasonNumber,
+                            props.file.episodeNumber,
+                            props.file.episodeNumber2,
+                        )}
                     </Pill>
                     <StatusBadge status={props.file.status} />
                 </div>
@@ -1895,10 +2089,15 @@ function TvShowDetailsPage() {
         queryKey: ["tv-seasons", tmdbId(), showQuery.data?.seasonCount ?? 0],
         queryFn: async () => {
             const count = showQuery.data?.seasonCount ?? 0;
-            const reqs: Promise<SeasonInfo>[] = [];
-            for (let s = 1; s <= count; s += 1)
-                reqs.push(mediaApi.getShowSeason(tmdbId(), s));
-            return (await Promise.all(reqs)).sort(
+            const reqs: Promise<SeasonInfo | null>[] = [];
+            for (let s = 0; s <= count; s += 1) {
+                reqs.push(
+                    mediaApi.getShowSeason(tmdbId(), s).catch(() => null),
+                );
+            }
+            return (await Promise.all(reqs))
+                .filter((season): season is SeasonInfo => season !== null)
+                .sort(
                 (a, b) => a.seasonNumber - b.seasonNumber,
             );
         },
@@ -2029,6 +2228,14 @@ function TvShowDetailsPage() {
         }));
     });
 
+    const seasonMetaByNumber = createMemo(() => {
+        const map = new Map<number, SeasonInfo>();
+        for (const season of seasonDetailsQuery.data ?? []) {
+            map.set(season.seasonNumber, season);
+        }
+        return map;
+    });
+
     const selectedEpisodeGroup = createMemo(() => {
         const id = episodeGroupsQuery.data?.selectedEpisodeGroupId;
         if (!id) return null;
@@ -2061,6 +2268,17 @@ function TvShowDetailsPage() {
             0,
         ),
     );
+    const remappedEpisodeFileCount = createMemo(
+        () =>
+            new Set(
+                [
+                    ...(tvFilesQuery.data?.categorizedFiles ?? []),
+                    ...(tvFilesQuery.data?.uncategorizedFiles ?? []),
+                ]
+                    .filter((f) => f.episodeRemap)
+                    .map((f) => f.id),
+            ).size,
+    );
 
     const handleEpisodeGroupChange = (v: string) => {
         const cur = episodeGroupsQuery.data?.selectedEpisodeGroupId ?? "";
@@ -2076,13 +2294,15 @@ function TvShowDetailsPage() {
     };
 
     return (
-        <section class="space-y-6">
-            <A
-                href="/shows"
-                class="inline-flex items-center gap-1 text-sm text-accent hover:text-accent-hover transition"
-            >
-                <span>&larr;</span> Back to TV shows
-            </A>
+        <section class="space-y-6 relative isolate">
+            <DetailPageBackdrop backdropPath={showQuery.data?.backdropPath} />
+            <div class="relative z-10 space-y-6">
+                <A
+                    href="/shows"
+                    class="inline-flex items-center gap-1 text-sm text-accent hover:text-accent-hover transition"
+                >
+                    <span>&larr;</span> Back to TV shows
+                </A>
 
             <Show when={showQuery.isLoading}>
                 <div class="space-y-4">
@@ -2094,7 +2314,7 @@ function TvShowDetailsPage() {
                 <p class="text-error text-sm">Unable to load show details.</p>
             </Show>
 
-            <Show when={showQuery.data}>
+                <Show when={showQuery.data}>
                 {(show) => (
                     <>
                         <div class="relative rounded-2xl overflow-hidden bg-surface-2 border border-border-subtle">
@@ -2147,6 +2367,11 @@ function TvShowDetailsPage() {
                                         Seasons: {scannedSeasonCount()} /{" "}
                                         {show().seasonCount ?? 0}
                                     </Pill>
+                                    <Show when={remappedEpisodeFileCount() > 0}>
+                                        <Pill variant="info">
+                                            Remapped from source: {remappedEpisodeFileCount()}
+                                        </Pill>
+                                    </Show>
                                     <button
                                         type="button"
                                         onClick={() => setReassignOpen(true)}
@@ -2157,6 +2382,78 @@ function TvShowDetailsPage() {
                                 </div>
                             </div>
                         </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-4">
+                            <article class="bg-surface-2 border border-border-subtle rounded-xl p-4 space-y-2.5">
+                                <h2 class="text-base font-bold">Story</h2>
+                                <Show when={show().tagline}>
+                                    {(tagline) => (
+                                        <p class="text-sm text-accent italic">{tagline()}</p>
+                                    )}
+                                </Show>
+                                <p class="text-sm text-text-secondary leading-relaxed">
+                                    {show().overview ??
+                                        "No TMDb overview is available for this show yet."}
+                                </p>
+                            </article>
+
+                            <article class="bg-surface-2 border border-border-subtle rounded-xl p-4 space-y-3">
+                                <h2 class="text-base font-bold">Show Details</h2>
+                                <div class="grid grid-cols-2 gap-2 text-sm">
+                                    <div class="rounded-lg border border-border-subtle bg-surface-1 px-3 py-2">
+                                        <p class="text-[0.68rem] uppercase tracking-wide text-text-tertiary">
+                                            First Air Date
+                                        </p>
+                                        <p class="text-text-primary font-semibold mt-1">
+                                            {formatReleaseDate(show().firstAirDate)}
+                                        </p>
+                                    </div>
+                                    <div class="rounded-lg border border-border-subtle bg-surface-1 px-3 py-2">
+                                        <p class="text-[0.68rem] uppercase tracking-wide text-text-tertiary">
+                                            Last Air Date
+                                        </p>
+                                        <p class="text-text-primary font-semibold mt-1">
+                                            {formatReleaseDate(show().lastAirDate)}
+                                        </p>
+                                    </div>
+                                    <div class="rounded-lg border border-border-subtle bg-surface-1 px-3 py-2">
+                                        <p class="text-[0.68rem] uppercase tracking-wide text-text-tertiary">
+                                            Network
+                                        </p>
+                                        <p class="text-text-primary font-semibold mt-1 truncate">
+                                            {show().networks?.join(", ") ||
+                                                "Unknown"}
+                                        </p>
+                                    </div>
+                                    <div class="rounded-lg border border-border-subtle bg-surface-1 px-3 py-2">
+                                        <p class="text-[0.68rem] uppercase tracking-wide text-text-tertiary">
+                                            Rating
+                                        </p>
+                                        <p class="text-text-primary font-semibold mt-1">
+                                            {formatRating(show().voteAverage)}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <Pill>
+                                        Votes: {show().voteCount?.toLocaleString() ?? "N/A"}
+                                    </Pill>
+                                    <Pill>
+                                        Language: {show().originalLanguage?.toUpperCase() ?? "N/A"}
+                                    </Pill>
+                                    <Show when={show().originCountry?.length}>
+                                        <Pill>
+                                            Countries: {show().originCountry?.join(", ")}
+                                        </Pill>
+                                    </Show>
+                                    <Pill variant={showStatusVariant(show().status)}>
+                                        Status: {show().status ?? "Unknown"}
+                                    </Pill>
+                                </div>
+                            </article>
+                        </div>
+
+                        <CastPanel cast={show().cast} />
 
                         <Show
                             when={
@@ -2234,6 +2531,13 @@ function TvShowDetailsPage() {
                                     from TMDb season order
                                 </p>
                             </Show>
+                            <Show when={remappedEpisodeFileCount() > 0}>
+                                <p class="text-xs text-info">
+                                    {remappedEpisodeFileCount()} files use
+                                    season remapping where source tuple numbering
+                                    is compacted to TMDb season order.
+                                </p>
+                            </Show>
                             <Show when={seasonGroupsToRender().length === 0}>
                                 <p class="text-text-tertiary text-sm py-8 text-center">
                                     No categorized episodes found for this show
@@ -2241,60 +2545,132 @@ function TvShowDetailsPage() {
                                 </p>
                             </Show>
                             <For each={seasonGroupsToRender()}>
-                                {(group) => (
-                                    <div class="space-y-2">
-                                        <h3 class="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                                            Season{" "}
-                                            {group.seasonNumber > 0
-                                                ? String(
-                                                      group.seasonNumber,
-                                                  ).padStart(2, "0")
-                                                : "Unassigned"}
-                                            {group.episodeCount > 0
-                                                ? ` · ${group.episodeCountScanned}/${group.episodeCount} scanned`
-                                                : ""}
-                                        </h3>
-                                        <div class="space-y-1.5">
-                                            <For
-                                                each={annotateSeasonCardsWithSourceDividers(
-                                                    group.cards,
-                                                )}
-                                            >
-                                                {(entry) =>
-                                                    entry.card.kind ===
-                                                    "file" ? (
-                                                        <EpisodeFileRow
-                                                            file={
-                                                                entry.card.file
+                                {(group) => {
+                                    const seasonMeta = seasonMetaByNumber().get(
+                                        group.seasonNumber,
+                                    );
+                                    const seasonLabel =
+                                        group.seasonNumber > 0
+                                            ? `Season ${String(group.seasonNumber).padStart(2, "0")}`
+                                            : "Unassigned";
+                                    const missingCount = group.cards.filter(
+                                        (card) => card.kind === "missing",
+                                    ).length;
+                                    return (
+                                        <details
+                                            class="group rounded-xl border border-border-subtle bg-surface-2/65 overflow-hidden"
+                                            open={group.seasonNumber === 1}
+                                        >
+                                            <summary class="list-none [&::-webkit-details-marker]:hidden cursor-pointer px-4 py-3.5 flex items-center gap-3.5">
+                                                <Show
+                                                    when={posterUrl(
+                                                        seasonMeta?.posterPath,
+                                                        "w154",
+                                                    )}
+                                                    fallback={
+                                                        <div class="w-14 h-20 rounded-md border border-border-default bg-surface-3 flex items-center justify-center text-[0.62rem] text-text-tertiary font-mono uppercase tracking-wider text-center px-1">
+                                                            {seasonLabel}
+                                                        </div>
+                                                    }
+                                                >
+                                                    {(url) => (
+                                                        <img
+                                                            src={url()}
+                                                            alt={
+                                                                seasonMeta?.name ??
+                                                                seasonLabel
                                                             }
-                                                            sourceDividerPath={
-                                                                entry.sourceDividerPath
-                                                            }
+                                                            loading="lazy"
+                                                            class="w-14 h-20 rounded-md object-cover border border-border-default"
                                                         />
-                                                    ) : (
-                                                        <MissingEpisodeRow
-                                                            seasonNumber={
-                                                                group.seasonNumber
-                                                            }
-                                                            episodeNumber={
-                                                                entry.card
-                                                                    .episodeNumber
-                                                            }
-                                                            episodeName={
-                                                                entry.card
-                                                                    .episodeName
-                                                            }
-                                                            airDate={
-                                                                entry.card
-                                                                    .airDate
-                                                            }
-                                                        />
-                                                    )
-                                                }
-                                            </For>
-                                        </div>
-                                    </div>
-                                )}
+                                                    )}
+                                                </Show>
+                                                <div class="min-w-0 flex-1">
+                                                    <h3 class="text-sm font-semibold uppercase tracking-wide text-text-secondary group-open:text-text-primary transition">
+                                                        {seasonLabel}
+                                                    </h3>
+                                                    <p class="text-xs text-text-tertiary mt-0.5">
+                                                        {group.episodeCountScanned}/
+                                                        {group.episodeCount ||
+                                                            group.cards.length}{" "}
+                                                        scanned
+                                                        <Show
+                                                            when={missingCount > 0}
+                                                        >
+                                                            <span>
+                                                                {` · ${missingCount} missing`}
+                                                            </span>
+                                                        </Show>
+                                                    </p>
+                                                    <Show
+                                                        when={
+                                                            seasonMeta?.overview
+                                                        }
+                                                    >
+                                                        {(overview) => (
+                                                            <p class="text-xs text-text-secondary mt-1 line-clamp-2">
+                                                                {overview()}
+                                                            </p>
+                                                        )}
+                                                    </Show>
+                                                </div>
+                                                <span class="text-text-tertiary group-open:rotate-180 transition-transform">
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        stroke-width="2"
+                                                        class="w-4 h-4"
+                                                    >
+                                                        <path d="m6 9 6 6 6-6" />
+                                                    </svg>
+                                                </span>
+                                            </summary>
+
+                                            <div class="border-t border-border-subtle px-3.5 py-3 space-y-1.5">
+                                                <For
+                                                    each={annotateSeasonCardsWithSourceDividers(
+                                                        group.cards,
+                                                    )}
+                                                >
+                                                    {(entry) =>
+                                                        entry.card.kind ===
+                                                        "file" ? (
+                                                            <EpisodeFileRow
+                                                                file={
+                                                                    entry.card
+                                                                        .file
+                                                                }
+                                                                sourceDividerPath={
+                                                                    entry.sourceDividerPath
+                                                                }
+                                                            />
+                                                        ) : (
+                                                            <MissingEpisodeRow
+                                                                seasonNumber={
+                                                                    group.seasonNumber
+                                                                }
+                                                                episodeNumber={
+                                                                    entry.card
+                                                                        .episodeNumber
+                                                                }
+                                                                episodeName={
+                                                                    entry.card
+                                                                        .episodeName
+                                                                }
+                                                                airDate={
+                                                                    entry.card
+                                                                        .airDate
+                                                                }
+                                                            />
+                                                        )
+                                                    }
+                                                </For>
+                                            </div>
+                                        </details>
+                                    );
+                                }}
                             </For>
                         </div>
 
@@ -2360,7 +2736,8 @@ function TvShowDetailsPage() {
                         />
                     </>
                 )}
-            </Show>
+                </Show>
+            </div>
         </section>
     );
 }
@@ -2426,13 +2803,15 @@ function MovieDetailsPage() {
     }));
 
     return (
-        <section class="space-y-6">
-            <A
-                href="/movies"
-                class="inline-flex items-center gap-1 text-sm text-accent hover:text-accent-hover transition"
-            >
-                <span>&larr;</span> Back to movies
-            </A>
+        <section class="space-y-6 relative isolate">
+            <DetailPageBackdrop backdropPath={movieQuery.data?.backdropPath} />
+            <div class="relative z-10 space-y-6">
+                <A
+                    href="/movies"
+                    class="inline-flex items-center gap-1 text-sm text-accent hover:text-accent-hover transition"
+                >
+                    <span>&larr;</span> Back to movies
+                </A>
 
             <Show when={movieQuery.isLoading}>
                 <div class="space-y-4">
@@ -2444,7 +2823,7 @@ function MovieDetailsPage() {
                 <p class="text-error text-sm">Unable to load movie details.</p>
             </Show>
 
-            <Show when={movieQuery.data}>
+                <Show when={movieQuery.data}>
                 {(movie) => (
                     <>
                         <div class="relative rounded-2xl overflow-hidden bg-surface-2 border border-border-subtle">
@@ -2488,6 +2867,12 @@ function MovieDetailsPage() {
                                 <div class="flex flex-wrap items-center gap-2">
                                     <Pill>TMDb {movie().tmdbId}</Pill>
                                     <Pill>IMDb {movie().imdbId ?? "n/a"}</Pill>
+                                    <Pill>
+                                        Runtime: {formatRuntime(movie().runtimeMinutes)}
+                                    </Pill>
+                                    <Pill>
+                                        Rating: {formatRating(movie().voteAverage)}
+                                    </Pill>
                                     <button
                                         type="button"
                                         onClick={() => setReassignOpen(true)}
@@ -2498,6 +2883,70 @@ function MovieDetailsPage() {
                                 </div>
                             </div>
                         </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-4">
+                            <article class="bg-surface-2 border border-border-subtle rounded-xl p-4 space-y-2.5">
+                                <h2 class="text-base font-bold">Story</h2>
+                                <Show when={movie().tagline}>
+                                    {(tagline) => (
+                                        <p class="text-sm text-accent italic">{tagline()}</p>
+                                    )}
+                                </Show>
+                                <p class="text-sm text-text-secondary leading-relaxed">
+                                    {movie().overview ??
+                                        "No TMDb overview is available for this movie yet."}
+                                </p>
+                            </article>
+
+                            <article class="bg-surface-2 border border-border-subtle rounded-xl p-4 space-y-3">
+                                <h2 class="text-base font-bold">Movie Details</h2>
+                                <div class="grid grid-cols-2 gap-2 text-sm">
+                                    <div class="rounded-lg border border-border-subtle bg-surface-1 px-3 py-2">
+                                        <p class="text-[0.68rem] uppercase tracking-wide text-text-tertiary">
+                                            Release Date
+                                        </p>
+                                        <p class="text-text-primary font-semibold mt-1">
+                                            {formatReleaseDate(movie().releaseDate)}
+                                        </p>
+                                    </div>
+                                    <div class="rounded-lg border border-border-subtle bg-surface-1 px-3 py-2">
+                                        <p class="text-[0.68rem] uppercase tracking-wide text-text-tertiary">
+                                            Runtime
+                                        </p>
+                                        <p class="text-text-primary font-semibold mt-1">
+                                            {formatRuntime(movie().runtimeMinutes)}
+                                        </p>
+                                    </div>
+                                    <div class="rounded-lg border border-border-subtle bg-surface-1 px-3 py-2">
+                                        <p class="text-[0.68rem] uppercase tracking-wide text-text-tertiary">
+                                            Rating
+                                        </p>
+                                        <p class="text-text-primary font-semibold mt-1">
+                                            {formatRating(movie().voteAverage)}
+                                        </p>
+                                    </div>
+                                    <div class="rounded-lg border border-border-subtle bg-surface-1 px-3 py-2">
+                                        <p class="text-[0.68rem] uppercase tracking-wide text-text-tertiary">
+                                            Language
+                                        </p>
+                                        <p class="text-text-primary font-semibold mt-1">
+                                            {movie().originalLanguage?.toUpperCase() ??
+                                                "N/A"}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <Pill>
+                                        Votes: {movie().voteCount?.toLocaleString() ?? "N/A"}
+                                    </Pill>
+                                    <Pill variant={showStatusVariant(movie().status)}>
+                                        Status: {movie().status ?? "Unknown"}
+                                    </Pill>
+                                </div>
+                            </article>
+                        </div>
+
+                        <CastPanel cast={movie().cast} />
 
                         <div class="space-y-4">
                             <h2 class="text-lg font-bold">Main Movie Files</h2>
@@ -2600,7 +3049,8 @@ function MovieDetailsPage() {
                         />
                     </>
                 )}
-            </Show>
+                </Show>
+            </div>
         </section>
     );
 }

@@ -4,9 +4,17 @@ import { and, eq, sql } from "drizzle-orm"
 import { ENTRYPOINTS } from "@/app/entrypoints"
 import type { AppContext } from "@/app/context"
 import { normalizeTitle } from "@/modules/detection/normalization"
+import {
+  applySeasonRemap,
+  buildSeasonRemapPlan,
+  createEpisodeRemapInfo,
+  parseSourceEpisodeTuple,
+  type SourceEpisodeTuple,
+} from "@/modules/media-lookup/tv-season-remapper"
+import type { TmdbCastMember } from "@/modules/media-lookup/tmdb-client"
 import { scannedFiles, seriesAliases, seriesIdentityMap, tvEpisodeGroupSelections } from "@/db/schema"
 import { parseJson } from "@/shared/http"
-import type { EpisodeInfo, MediaInfo, MediaSearchResult, ScannedFile, SeasonInfo } from "@/shared/types"
+import type { EpisodeInfo, MediaCastMember, MediaInfo, MediaSearchResult, ScannedFile, SeasonInfo } from "@/shared/types"
 
 interface EpisodeGroupSelectionRequest {
   episodeGroupId: string | null
@@ -68,6 +76,30 @@ function extractTvAliasCandidates(sourceFile: string): string[] {
   return [cleanedFileName, parent, grandParent].map(normalizeTitle).filter(Boolean)
 }
 
+function sourceTupleFromScannedFile(file: ScannedFile): SourceEpisodeTuple | null {
+  return parseSourceEpisodeTuple(file.sourceFile)
+}
+
+function toCastMembers(items: TmdbCastMember[], limit = 12): MediaCastMember[] {
+  return [...items]
+    .sort((left, right) => {
+      const leftOrder = left.order ?? Number.MAX_SAFE_INTEGER
+      const rightOrder = right.order ?? Number.MAX_SAFE_INTEGER
+      if (leftOrder !== rightOrder) {
+        return leftOrder - rightOrder
+      }
+      return left.name.localeCompare(right.name)
+    })
+    .slice(0, limit)
+    .map(item => ({
+      id: item.id,
+      name: item.name,
+      character: item.character?.trim() || null,
+      profilePath: item.profile_path ?? null,
+      order: item.order ?? null,
+    }))
+}
+
 async function getEpisodeGroupSelection(context: AppContext, tmdbId: number): Promise<{ episodeGroupId: string | null; episodeGroupName: string | null }> {
   const rows = await context.db
     .select({
@@ -125,9 +157,10 @@ export function createMediaLookupRouter(context: AppContext) {
       return c.json({ error: "Invalid TMDb id" }, 400)
     }
 
-    const [movie, external] = await Promise.all([
+    const [movie, external, cast] = await Promise.all([
       context.tmdb.getMovie(tmdbId),
       context.tmdb.getMovieExternalIds(tmdbId),
+      context.tmdb.getMovieCredits(tmdbId),
     ])
 
     const payload: MediaInfo = {
@@ -141,6 +174,13 @@ export function createMediaLookupRouter(context: AppContext) {
       overview: movie.overview ?? null,
       status: movie.status ?? null,
       genres: movie.genres?.map(g => g.name) ?? [],
+      tagline: movie.tagline ?? null,
+      releaseDate: movie.release_date ?? null,
+      runtimeMinutes: movie.runtime ?? null,
+      voteAverage: movie.vote_average ?? null,
+      voteCount: movie.vote_count ?? null,
+      originalLanguage: movie.original_language ?? null,
+      cast: toCastMembers(cast),
     }
 
     return c.json(payload)
@@ -186,13 +226,14 @@ export function createMediaLookupRouter(context: AppContext) {
       return c.json({ error: "Invalid TMDb id" }, 400)
     }
 
-    const [show, external, counts] = await Promise.all([
+    const [show, external, counts, cast] = await Promise.all([
       context.tmdb.getTv(tmdbId),
       context.tmdb.getTvExternalIds(tmdbId),
       context.db
         .select({ count: sql<number>`count(*)` })
         .from(scannedFiles)
         .where(and(eq(scannedFiles.tmdbId, tmdbId), eq(scannedFiles.mediaType, "TvShows"), eq(scannedFiles.status, "Success"))),
+      context.tmdb.getTvCredits(tmdbId),
     ])
 
     const payload: MediaInfo = {
@@ -206,6 +247,15 @@ export function createMediaLookupRouter(context: AppContext) {
       overview: show.overview ?? null,
       status: show.status ?? null,
       genres: show.genres?.map(g => g.name) ?? [],
+      tagline: show.tagline ?? null,
+      firstAirDate: show.first_air_date ?? null,
+      lastAirDate: show.last_air_date ?? null,
+      voteAverage: show.vote_average ?? null,
+      voteCount: show.vote_count ?? null,
+      originalLanguage: show.original_language ?? null,
+      originCountry: show.origin_country ?? [],
+      networks: show.networks?.map(network => network.name) ?? [],
+      cast: toCastMembers(cast),
       episodeCount: show.number_of_episodes,
       episodeCountScanned: counts[0]?.count ?? 0,
       seasonCount: show.number_of_seasons,
@@ -353,12 +403,67 @@ export function createMediaLookupRouter(context: AppContext) {
       })
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
 
+    const relatedForRemap = [...categorizedFiles, ...uncategorizedFiles]
+    const tuplesBySeason = new Map<number, SourceEpisodeTuple[]>()
+    for (const file of relatedForRemap) {
+      const sourceTuple = sourceTupleFromScannedFile(file)
+      if (!sourceTuple) {
+        continue
+      }
+      const existing = tuplesBySeason.get(sourceTuple.seasonNumber)
+      if (existing) {
+        existing.push(sourceTuple)
+      } else {
+        tuplesBySeason.set(sourceTuple.seasonNumber, [sourceTuple])
+      }
+    }
+
+    const remapPlanBySeason = new Map<number, ReturnType<typeof buildSeasonRemapPlan>>()
+    await Promise.all(
+      [...tuplesBySeason.entries()].map(async ([seasonNumber, tuples]) => {
+        try {
+          const season = await context.tmdb.getTvSeason(tmdbId, seasonNumber)
+          const plan = buildSeasonRemapPlan({
+            seasonNumber,
+            tmdbEpisodeCount: season.episodes.length,
+            tuples,
+          })
+          remapPlanBySeason.set(seasonNumber, plan)
+        } catch {
+          remapPlanBySeason.set(seasonNumber, null)
+        }
+      }),
+    )
+
+    const annotateEpisodeRemap = (file: ScannedFile): ScannedFile => {
+      const sourceTuple = sourceTupleFromScannedFile(file)
+      if (!sourceTuple) {
+        return file
+      }
+
+      const plan = remapPlanBySeason.get(sourceTuple.seasonNumber) ?? null
+      if (!plan) {
+        return file
+      }
+
+      const remappedTuple = applySeasonRemap(sourceTuple, plan)
+      const episodeRemap = createEpisodeRemapInfo(sourceTuple, remappedTuple, plan)
+      if (!episodeRemap) {
+        return file
+      }
+
+      return {
+        ...file,
+        episodeRemap,
+      }
+    }
+
     const payload: TvFilesResponse = {
       tmdbId,
       selectedEpisodeGroupId: selection.episodeGroupId,
       selectedEpisodeGroupName: selection.episodeGroupName,
-      categorizedFiles: [...categorizedFiles].sort(compareScannedEpisodes),
-      uncategorizedFiles,
+      categorizedFiles: [...categorizedFiles].sort(compareScannedEpisodes).map(annotateEpisodeRemap),
+      uncategorizedFiles: uncategorizedFiles.map(annotateEpisodeRemap),
     }
 
     return c.json(payload)
@@ -374,12 +479,29 @@ export function createMediaLookupRouter(context: AppContext) {
     const [season, scannedEpisodes] = await Promise.all([
       context.tmdb.getTvSeason(tmdbId, seasonNumber),
       context.db
-        .select({ episodeNumber: scannedFiles.episodeNumber })
+        .select({ episodeNumber: scannedFiles.episodeNumber, episodeNumber2: scannedFiles.episodeNumber2 })
         .from(scannedFiles)
-        .where(and(eq(scannedFiles.tmdbId, tmdbId), eq(scannedFiles.seasonNumber, seasonNumber))),
+        .where(and(
+          eq(scannedFiles.tmdbId, tmdbId),
+          eq(scannedFiles.seasonNumber, seasonNumber),
+          eq(scannedFiles.status, "Success"),
+        )),
     ])
 
-    const scannedSet = new Set(scannedEpisodes.map(row => row.episodeNumber).filter(v => v !== null) as number[])
+    const scannedSet = new Set<number>()
+    for (const row of scannedEpisodes) {
+      if (row.episodeNumber === null) {
+        continue
+      }
+
+      const endEpisode = row.episodeNumber2 !== null && row.episodeNumber2 > row.episodeNumber
+        ? row.episodeNumber2
+        : row.episodeNumber
+
+      for (let episode = row.episodeNumber; episode <= endEpisode; episode += 1) {
+        scannedSet.add(episode)
+      }
+    }
 
     const payload: SeasonInfo = {
       seasonNumber: season.season_number,

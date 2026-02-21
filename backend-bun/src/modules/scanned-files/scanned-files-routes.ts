@@ -11,6 +11,7 @@ import {
 import { HttpError } from "@/shared/errors"
 import { parseJson } from "@/shared/http"
 import { SeriesIdentityService } from "@/modules/detection/series-identity-service"
+import { MediaMetadataResolver } from "@/modules/media-lookup/media-metadata-resolver"
 import type {
   BulkUpdateApplyResponse,
   BulkUpdateConflict,
@@ -46,13 +47,18 @@ interface ResolvedSymlinkMeta {
   title: string
   year: number | null
   genres: string[] | null
+  posterPath: string | null
   seasonNumber: number | null
   episodeNumber: number | null
   episodeNumber2: number | null
   episodeTitle: string | null
 }
 
-async function resolveSymlinkMeta(id: number, context: AppContext): Promise<ResolvedSymlinkMeta> {
+async function resolveSymlinkMeta(
+  id: number,
+  context: AppContext,
+  metadataResolver: MediaMetadataResolver,
+): Promise<ResolvedSymlinkMeta> {
   const scannedFile = await context.scannedFilesRepo.findById(id)
   if (!scannedFile) {
     throw new HttpError(404, "Scanned file not found")
@@ -74,6 +80,7 @@ async function resolveSymlinkMeta(id: number, context: AppContext): Promise<Reso
         title: scannedFile.title,
         year: scannedFile.year,
         genres: scannedFile.genres,
+        posterPath: scannedFile.posterPath,
         seasonNumber: null,
         episodeNumber: null,
         episodeNumber2: null,
@@ -81,18 +88,15 @@ async function resolveSymlinkMeta(id: number, context: AppContext): Promise<Reso
       }
     }
 
-    const [movie, externalIds] = await Promise.all([
-      context.tmdb.getMovie(scannedFile.tmdbId),
-      context.tmdb.getMovieExternalIds(scannedFile.tmdbId),
-    ])
-
+    const movie = await metadataResolver.resolveMovie(scannedFile.tmdbId)
     return {
       mediaType: scannedFile.mediaType,
-      tmdbId: movie.id,
-      imdbId: externalIds.imdb_id,
+      tmdbId: movie.tmdbId,
+      imdbId: movie.imdbId,
       title: movie.title,
-      year: context.tmdb.movieYear(movie),
-      genres: movie.genres?.map(genre => genre.name) ?? [],
+      year: movie.year,
+      genres: movie.genres,
+      posterPath: movie.posterPath,
       seasonNumber: null,
       episodeNumber: null,
       episodeNumber2: null,
@@ -116,6 +120,7 @@ async function resolveSymlinkMeta(id: number, context: AppContext): Promise<Reso
       title: scannedFile.title,
       year: scannedFile.year,
       genres: scannedFile.genres,
+      posterPath: scannedFile.posterPath,
       seasonNumber: scannedFile.seasonNumber,
       episodeNumber: scannedFile.episodeNumber,
       episodeNumber2: scannedFile.episodeNumber2,
@@ -123,27 +128,31 @@ async function resolveSymlinkMeta(id: number, context: AppContext): Promise<Reso
     }
   }
 
-  const [show, episode, externalIds] = await Promise.all([
-    context.tmdb.getTv(scannedFile.tmdbId),
-    context.tmdb.getTvEpisode(scannedFile.tmdbId, scannedFile.seasonNumber, scannedFile.episodeNumber),
-    context.tmdb.getTvExternalIds(scannedFile.tmdbId),
-  ])
-
-  return {
-    mediaType: scannedFile.mediaType,
-    tmdbId: show.id,
-    imdbId: externalIds.imdb_id ?? scannedFile.imdbId,
-    title: show.name,
-    year: context.tmdb.tvYear(show),
-    genres: show.genres?.map(genre => genre.name) ?? [],
+  const show = await metadataResolver.resolveTv({
+    tmdbId: scannedFile.tmdbId,
     seasonNumber: scannedFile.seasonNumber,
     episodeNumber: scannedFile.episodeNumber,
     episodeNumber2: scannedFile.episodeNumber2,
-    episodeTitle: episode.name,
+    imdbIdFallback: scannedFile.imdbId,
+    sourceFile: scannedFile.sourceFile,
+  })
+
+  return {
+    mediaType: scannedFile.mediaType,
+    tmdbId: show.tmdbId,
+    imdbId: show.imdbId,
+    title: show.title,
+    year: show.year,
+    genres: show.genres,
+    posterPath: show.posterPath,
+    seasonNumber: show.seasonNumber,
+    episodeNumber: show.episodeNumber,
+    episodeNumber2: show.episodeNumber2,
+    episodeTitle: show.episodeTitle,
   }
 }
 
-async function recreateSingleSymlink(id: number, context: AppContext) {
+async function recreateSingleSymlink(id: number, context: AppContext, metadataResolver: MediaMetadataResolver) {
   const scannedFile = await context.scannedFilesRepo.findById(id)
   if (!scannedFile) {
     throw new HttpError(404, "Scanned file not found")
@@ -152,7 +161,7 @@ async function recreateSingleSymlink(id: number, context: AppContext) {
     throw new HttpError(400, "Scanned file does not support symlink recreation")
   }
 
-  const meta = await resolveSymlinkMeta(id, context)
+  const meta = await resolveSymlinkMeta(id, context, metadataResolver)
 
   const config = await context.configStore.get()
   const mapping = config.plex.folderMappings.find(m => m.mediaType === scannedFile.mediaType)
@@ -187,6 +196,7 @@ async function recreateSingleSymlink(id: number, context: AppContext) {
       title: meta.title,
       year: meta.year,
       genres: meta.genres,
+      posterPath: meta.posterPath,
       seasonNumber: meta.seasonNumber,
       episodeNumber: meta.episodeNumber,
       episodeNumber2: meta.episodeNumber2,
@@ -197,20 +207,74 @@ async function recreateSingleSymlink(id: number, context: AppContext) {
       throw error
     }
 
-    updated = await context.scannedFilesRepo.updateProcessed({
-      id: scannedFile.id,
-      destFile: null,
-      mediaType: meta.mediaType,
-      tmdbId: meta.tmdbId,
-      imdbId: meta.imdbId,
-      title: meta.title,
-      year: meta.year,
-      genres: meta.genres,
-      seasonNumber: meta.seasonNumber,
-      episodeNumber: meta.episodeNumber,
-      episodeNumber2: meta.episodeNumber2,
-      status: "Duplicate",
-    })
+    const conflictPath = (error as { destinationFile?: string }).destinationFile ?? destinationPath
+    const existingOwner = await context.scannedFilesRepo.findByDestination(conflictPath)
+
+    if (!existingOwner) {
+      context.logger.warn("Removing orphaned conflicting symlink", {
+        id: scannedFile.id,
+        sourceFile: scannedFile.sourceFile,
+        destinationFile: conflictPath,
+      })
+
+      await removeSymlinkIfExists(conflictPath)
+
+      try {
+        await createSymlinkAt(scannedFile.sourceFile, destinationPath)
+        updated = await context.scannedFilesRepo.updateProcessed({
+          id: scannedFile.id,
+          destFile: destinationPath,
+          mediaType: meta.mediaType,
+          tmdbId: meta.tmdbId,
+          imdbId: meta.imdbId,
+          title: meta.title,
+          year: meta.year,
+          genres: meta.genres,
+          posterPath: meta.posterPath,
+          seasonNumber: meta.seasonNumber,
+          episodeNumber: meta.episodeNumber,
+          episodeNumber2: meta.episodeNumber2,
+          status: "Success",
+        })
+      } catch (retryError) {
+        if (!isDestinationConflictError(retryError)) {
+          throw retryError
+        }
+      }
+    } else {
+      context.logger.warn("Symlink destination conflict during recreation", {
+        id: scannedFile.id,
+        sourceFile: scannedFile.sourceFile,
+        destinationFile: conflictPath,
+        existingOwnerId: existingOwner.id,
+        existingOwnerSourceFile: existingOwner.sourceFile,
+      })
+    }
+
+    if (updated) {
+      context.logger.info("Recovered symlink from orphaned conflict", {
+        id: scannedFile.id,
+        destinationFile: destinationPath,
+      })
+    }
+
+    if (!updated) {
+      updated = await context.scannedFilesRepo.updateProcessed({
+        id: scannedFile.id,
+        destFile: null,
+        mediaType: meta.mediaType,
+        tmdbId: meta.tmdbId,
+        imdbId: meta.imdbId,
+        title: meta.title,
+        year: meta.year,
+        genres: meta.genres,
+        posterPath: meta.posterPath,
+        seasonNumber: meta.seasonNumber,
+        episodeNumber: meta.episodeNumber,
+        episodeNumber2: meta.episodeNumber2,
+        status: "Duplicate",
+      })
+    }
   }
 
   if (updated) {
@@ -222,6 +286,7 @@ async function recreateSingleSymlink(id: number, context: AppContext) {
 
 export function createScannedFilesRouter(context: AppContext) {
   const router = new Hono()
+  const metadataResolver = new MediaMetadataResolver(context.db, context.tmdb)
 
   router.get(ENTRYPOINTS.api.scannedFiles.base, async c => {
     const result = await context.scannedFilesRepo.list({
@@ -282,6 +347,12 @@ export function createScannedFilesRouter(context: AppContext) {
       return c.json({ error: "No updates provided" }, 400)
     }
 
+    context.logger.info("Batch identify request received", {
+      totalUpdates: body.updates.length,
+      dryRun: body.dryRun === true,
+      hasIdentityUpdate: Boolean(body.identityUpdate),
+    })
+
     const isDryRun = body.dryRun === true
     const identityService = new SeriesIdentityService(context.db, context.tmdb)
 
@@ -314,6 +385,11 @@ export function createScannedFilesRouter(context: AppContext) {
         conflicts,
         identityUpdate: identityUpdatePreview,
       }
+      context.logger.info("Batch identify dry-run completed", {
+        totalFiles: result.totalFiles,
+        willUpdate: result.willUpdate,
+        conflicts: result.conflicts.length,
+      })
       return c.json(result)
     }
 
@@ -340,6 +416,7 @@ export function createScannedFilesRouter(context: AppContext) {
           const existing = await context.scannedFilesRepo.findById(item.id)
           if (!existing) {
             failed.push({ id: item.id, error: "Not found" })
+            context.logger.warn("Batch identify skipped missing file", { id: item.id })
             continue
           }
 
@@ -367,7 +444,12 @@ export function createScannedFilesRouter(context: AppContext) {
             }
           }
         } catch (err) {
-          failed.push({ id: item.id, error: err instanceof Error ? err.message : "Unknown error" })
+          const errorMessage = err instanceof Error ? err.message : "Unknown error"
+          failed.push({ id: item.id, error: errorMessage })
+          context.logger.warn("Batch identify update failed", {
+            id: item.id,
+            error: errorMessage,
+          })
         }
       }
     }
@@ -382,10 +464,14 @@ export function createScannedFilesRouter(context: AppContext) {
 
       for (const id of chunk) {
         try {
-          await recreateSingleSymlink(id, context)
+          await recreateSingleSymlink(id, context, metadataResolver)
           symlinksRecreated += 1
-        } catch {
+        } catch (err) {
           symlinksFailed += 1
+          context.logger.warn("Batch identify symlink recreation failed", {
+            id,
+            error: err instanceof Error ? err.message : "Unknown error",
+          })
         }
       }
     }
@@ -397,6 +483,13 @@ export function createScannedFilesRouter(context: AppContext) {
       symlinksFailed,
       identityUpdated,
     }
+    context.logger.info("Batch identify apply completed", {
+      updated: result.updated,
+      failed: result.failed.length,
+      symlinksRecreated: result.symlinksRecreated,
+      symlinksFailed: result.symlinksFailed,
+      identityUpdated: result.identityUpdated,
+    })
     return c.json(result)
   })
 
@@ -406,7 +499,7 @@ export function createScannedFilesRouter(context: AppContext) {
 
     for (const entry of all) {
       try {
-        await recreateSingleSymlink(entry.id, context)
+        await recreateSingleSymlink(entry.id, context, metadataResolver)
         successCount += 1
       } catch {
       }
@@ -421,7 +514,7 @@ export function createScannedFilesRouter(context: AppContext) {
       return c.json({ error: "Invalid id" }, 400)
     }
 
-    const updated = await recreateSingleSymlink(id, context)
+    const updated = await recreateSingleSymlink(id, context, metadataResolver)
     return c.json(updated)
   })
 

@@ -40,7 +40,16 @@ export interface ConfigurationPayload {
 export interface MediaTitleItem {
   tmdbId: number
   title: string | null
+  year: number | null
   posterPath: string | null
+}
+
+export interface MediaCastMember {
+  id: number
+  name: string
+  character: string | null
+  profilePath: string | null
+  order: number | null
 }
 
 export interface MediaInfo {
@@ -54,6 +63,17 @@ export interface MediaInfo {
   overview: string | null
   status: string | null
   genres: string[]
+  tagline?: string | null
+  releaseDate?: string | null
+  firstAirDate?: string | null
+  lastAirDate?: string | null
+  runtimeMinutes?: number | null
+  voteAverage?: number | null
+  voteCount?: number | null
+  originalLanguage?: string | null
+  originCountry?: string[]
+  networks?: string[]
+  cast?: MediaCastMember[]
   episodeCount?: number
   episodeCountScanned?: number
   seasonCount?: number
@@ -96,9 +116,28 @@ export interface ScannedFile {
   seasonNumber: number | null
   episodeNumber: number | null
   episodeNumber2: number | null
+  episodeRemap?: EpisodeRemapInfo | null
   status: MediaStatus
   createdAt: string
   updatedAt: string | null
+}
+
+export interface EpisodeRemapRange {
+  sourceStart: number
+  sourceEnd: number
+}
+
+export interface EpisodeRemapInfo {
+  reason: "season-episode-compaction"
+  sourceSeasonNumber: number
+  sourceEpisodeNumber: number
+  sourceEpisodeNumber2: number | null
+  remappedSeasonNumber: number
+  remappedEpisodeNumber: number
+  remappedEpisodeNumber2: number | null
+  tmdbEpisodeCount: number
+  sourceEpisodeMax: number
+  collapsedRanges: EpisodeRemapRange[]
 }
 
 export interface PagedResult<T> {

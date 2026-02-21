@@ -1,6 +1,7 @@
 import { basename, dirname, extname } from "node:path"
 import { extractYear, normalizeTitle } from "@/modules/detection/normalization"
 import { SeriesIdentityService } from "@/modules/detection/series-identity-service"
+import { parseSourceEpisodeMatch } from "@/modules/media-lookup/tv-season-remapper"
 
 export interface TvEpisodeDetection {
   seasonNumber: number
@@ -11,11 +12,6 @@ export interface TvEpisodeDetection {
   tmdbId: number
   imdbId: string | null
 }
-
-const seasonEpisodePatterns = [
-  /(?<title>.*?)[ ._-]*s(?<season>\d{1,2})[ ._-]*(?:e|ep)(?<episode>\d{1,2})(?:[- ]?(?:e|ep)?(?<episode2>\d{1,2}))?/i,
-  /(?<title>.*?)[ ._-]*(?<season>\d{1,2})x(?<episode>\d{1,2})(?:[- ]?(?<episode2>\d{1,2}))?/i,
-]
 
 function extractFolderCandidates(filePath: string): string[] {
   const parent = basename(dirname(filePath))
@@ -36,38 +32,16 @@ export async function detectTvEpisode(
   filePath: string,
   identityService: SeriesIdentityService,
 ): Promise<TvEpisodeDetection | null> {
-  const fileName = basename(filePath, extname(filePath))
-
-  let detected: {
-    titleHint: string
-    seasonNumber: number
-    episodeNumber: number
-    episodeNumber2: number | null
-  } | null = null
-
-  for (const pattern of seasonEpisodePatterns) {
-    const match = fileName.match(pattern)
-    if (!match?.groups) {
-      continue
-    }
-
-    const seasonNumber = Number(match.groups.season)
-    const episodeNumber = Number(match.groups.episode)
-    if (!Number.isInteger(seasonNumber) || !Number.isInteger(episodeNumber)) {
-      continue
-    }
-
-    detected = {
-      titleHint: normalizeCandidate(match.groups.title ?? ""),
-      seasonNumber,
-      episodeNumber,
-      episodeNumber2: match.groups.episode2 ? Number(match.groups.episode2) : null,
-    }
-    break
+  const parsed = parseSourceEpisodeMatch(filePath)
+  if (!parsed) {
+    return null
   }
 
-  if (!detected) {
-    return null
+  const detected = {
+    titleHint: normalizeCandidate(parsed.titleHint),
+    seasonNumber: parsed.seasonNumber,
+    episodeNumber: parsed.episodeNumber,
+    episodeNumber2: parsed.episodeNumber2,
   }
 
   const folderCandidates = extractFolderCandidates(filePath).map(normalizeCandidate)

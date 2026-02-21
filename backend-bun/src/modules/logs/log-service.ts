@@ -60,7 +60,10 @@ export async function getLogs(logDirectory: string, params: {
 
       if (
         params.searchTerm
-        && !(parsed.RenderedMessage ?? "").toLowerCase().includes(params.searchTerm.toLowerCase())
+        && !(
+          (parsed.RenderedMessage ?? "").toLowerCase().includes(params.searchTerm.toLowerCase())
+          || line.toLowerCase().includes(params.searchTerm.toLowerCase())
+        )
       ) {
         continue
       }
