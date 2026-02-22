@@ -21,8 +21,8 @@ The app supports both build-time and runtime configuration.
 - Runtime (Docker/server):
   - `BACKEND_HTTP_ORIGIN` (default `http://127.0.0.1:5000`)
   - `BACKEND_WS_ORIGIN` (default `ws://127.0.0.1:5000`)
-  - `NEXT_PUBLIC_API_BASE_URL` or `API_BASE_URL`
-  - `NEXT_PUBLIC_WS_URL` or `WS_URL`
+  - `API_BASE_URL` (optional public override)
+  - `WS_URL` (optional public override)
 
 ## Production build
 
@@ -49,6 +49,9 @@ The Bun server in this project serves static assets and can proxy:
 
 - `/api/*` to `BACKEND_HTTP_ORIGIN`
 - `/ws/*` to `BACKEND_WS_ORIGIN`
+
+Public `api`/`ws` URLs are auto-detected using forwarded headers from your reverse proxy.
+If that detection fails in your environment, set `API_BASE_URL` and `WS_URL` explicitly.
 
 Or run with Compose:
 

@@ -286,7 +286,7 @@ async function recreateSingleSymlink(id: number, context: AppContext, metadataRe
 
 export function createScannedFilesRouter(context: AppContext) {
   const router = new Hono()
-  const metadataResolver = new MediaMetadataResolver(context.db, context.tmdb)
+  const metadataResolver = new MediaMetadataResolver(context.db, () => context.tmdb)
 
   router.get(ENTRYPOINTS.api.scannedFiles.base, async c => {
     const result = await context.scannedFilesRepo.list({

@@ -78,8 +78,8 @@ Backend-bun environment variables:
 - `BACKEND_BUN_DB_PATH`
 
 Frontend-bun environment variables:
-- `NEXT_PUBLIC_API_BASE_URL` (example: `http://localhost:5000/api`)
-- `NEXT_PUBLIC_WS_URL` (example: `ws://localhost:5000/ws/filetracking`)
+- `API_BASE_URL` (example: `http://localhost:5000/api`)
+- `WS_URL` (example: `ws://localhost:5000/ws/filetracking`)
 
 Realtime contract (backend-bun):
 - WebSocket endpoint: `/ws/filetracking`

@@ -15,6 +15,8 @@ The current setup runs `frontend-solid` and `backend-bun` inside one container.
 - Only the frontend port is exposed: `3867`
 - Backend listens on `5000` internally and is not published
 - Frontend proxies `/api/*` and `/ws/*` to the internal backend
+- Public `api` and `ws` URLs are auto-detected from forwarded proxy headers
+- If auto-detection fails, set `API_BASE_URL` and `WS_URL` in your Compose environment
 
 ### Quick start
 

@@ -108,7 +108,7 @@ export class FilePoller {
     constructor(private readonly context: AppContext) {
         this.metadataResolver = new MediaMetadataResolver(
             context.db,
-            context.tmdb,
+            () => context.tmdb,
         );
     }
 

@@ -33,13 +33,59 @@ function withTrailingSlash(value: string): string {
   return value.endsWith("/") ? value : `${value}/`
 }
 
-function buildRuntimeConfigScriptForRequest(requestUrl: URL): string {
-  const protocol = requestUrl.protocol === "https:" ? "wss" : "ws"
-  const defaultApiBaseUrl = `${requestUrl.origin}/api`
-  const defaultWsUrl = `${protocol}://${requestUrl.host}/ws/filetracking`
+function optionalEnvValue(name: string): string | null {
+  const value = process.env[name]
+  if (!value) {
+    return null
+  }
 
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.API_BASE_URL ?? defaultApiBaseUrl
-  const wsUrl = process.env.NEXT_PUBLIC_WS_URL ?? process.env.WS_URL ?? defaultWsUrl
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+function firstHeaderValue(value: string | null): string | null {
+  if (!value) {
+    return null
+  }
+
+  const first = value.split(",", 1)[0]?.trim()
+  return first && first.length > 0 ? first : null
+}
+
+function inferPublicScheme(request: Request, requestUrl: URL): "http" | "https" {
+  const forwardedProto = firstHeaderValue(request.headers.get("x-forwarded-proto"))
+  if (forwardedProto === "https") {
+    return "https"
+  }
+  if (forwardedProto === "http") {
+    return "http"
+  }
+
+  const forwarded = request.headers.get("forwarded")
+  if (forwarded) {
+    const match = forwarded.match(/proto=(https|http)/i)
+    if (match?.[1]) {
+      return match[1].toLowerCase() === "https" ? "https" : "http"
+    }
+  }
+
+  return requestUrl.protocol === "https:" ? "https" : "http"
+}
+
+function inferPublicHost(request: Request, requestUrl: URL): string {
+  return firstHeaderValue(request.headers.get("x-forwarded-host")) ?? requestUrl.host
+}
+
+function buildRuntimeConfigScriptForRequest(request: Request, requestUrl: URL): string {
+  const publicScheme = inferPublicScheme(request, requestUrl)
+  const publicHost = inferPublicHost(request, requestUrl)
+  const wsProtocol = publicScheme === "https" ? "wss" : "ws"
+
+  const defaultApiBaseUrl = `${publicScheme}://${publicHost}/api`
+  const defaultWsUrl = `${wsProtocol}://${publicHost}/ws/filetracking`
+
+  const apiBaseUrl = optionalEnvValue("API_BASE_URL") ?? defaultApiBaseUrl
+  const wsUrl = optionalEnvValue("WS_URL") ?? defaultWsUrl
 
   const payload = {
     apiBaseUrl,
@@ -89,7 +135,7 @@ const server = Bun.serve<ProxySocketData>({
     }
 
     if (url.pathname === "/runtime-config.js") {
-      return new Response(buildRuntimeConfigScriptForRequest(url), {
+      return new Response(buildRuntimeConfigScriptForRequest(request, url), {
         headers: {
           "content-type": "text/javascript; charset=utf-8",
           "cache-control": "no-store",

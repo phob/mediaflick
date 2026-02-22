@@ -40,8 +40,8 @@ Notes:
   - `VITE_API_BASE_URL` (default `http://localhost:5000/api`)
   - `VITE_WS_URL` (default `ws://localhost:5000/ws/filetracking`)
 - Runtime config (server/Docker):
-  - `NEXT_PUBLIC_API_BASE_URL` or `API_BASE_URL`
-  - `NEXT_PUBLIC_WS_URL` or `WS_URL`
+  - `API_BASE_URL`
+  - `WS_URL`
 
 Important files:
 

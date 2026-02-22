@@ -69,26 +69,32 @@ export class MediaMetadataResolver {
 
   constructor(
     private readonly db: AppDb,
-    private readonly tmdb: TmdbClient,
+    private readonly getTmdbClient: () => TmdbClient,
   ) {}
 
+  private tmdbClient(): TmdbClient {
+    return this.getTmdbClient()
+  }
+
   async resolveMovie(tmdbId: number): Promise<ResolvedMovieMetadata> {
+    const tmdb = this.tmdbClient()
     const [movie, externalIds] = await Promise.all([
-      this.tmdb.getMovie(tmdbId),
-      this.tmdb.getMovieExternalIds(tmdbId),
+      tmdb.getMovie(tmdbId),
+      tmdb.getMovieExternalIds(tmdbId),
     ])
 
     return {
       tmdbId: movie.id,
       imdbId: externalIds.imdb_id,
       title: movie.title,
-      year: this.tmdb.movieYear(movie),
+      year: tmdb.movieYear(movie),
       genres: movie.genres?.map(genre => genre.name) ?? [],
       posterPath: movie.poster_path ?? null,
     }
   }
 
   async resolveTv(input: ResolveTvMetadataInput): Promise<ResolvedTvMetadata> {
+    const tmdb = this.tmdbClient()
     const sourceTuple: SourceEpisodeTuple = {
       seasonNumber: input.seasonNumber,
       episodeNumber: input.episodeNumber,
@@ -98,8 +104,8 @@ export class MediaMetadataResolver {
     const normalizedTuple = remappedSource.remapped
 
     const [show, externalIds, primaryPlacement] = await Promise.all([
-      this.tmdb.getTv(input.tmdbId),
-      this.tmdb.getTvExternalIds(input.tmdbId),
+      tmdb.getTv(input.tmdbId),
+      tmdb.getTvExternalIds(input.tmdbId),
       this.resolveEpisodePlacement(input.tmdbId, normalizedTuple.seasonNumber, normalizedTuple.episodeNumber),
     ])
 
@@ -125,7 +131,7 @@ export class MediaMetadataResolver {
       tmdbId: show.id,
       imdbId: externalIds.imdb_id ?? input.imdbIdFallback ?? null,
       title: show.name,
-      year: this.tmdb.tvYear(show),
+      year: tmdb.tvYear(show),
       genres: show.genres?.map(genre => genre.name) ?? [],
       posterPath: show.poster_path ?? null,
       seasonNumber: primaryPlacement.seasonNumber,
@@ -141,6 +147,7 @@ export class MediaMetadataResolver {
     sourceTuple: SourceEpisodeTuple,
     sourceFile?: string,
   ): Promise<{ remapped: SourceEpisodeTuple; info: EpisodeRemapInfo | null }> {
+    const tmdb = this.tmdbClient()
     const parsedFromSource = sourceFile ? parseSourceEpisodeMatch(sourceFile) : null
     const inputMatchesSource =
       parsedFromSource !== null
@@ -158,7 +165,7 @@ export class MediaMetadataResolver {
     const normalizedSourceTitleHint = normalizeTitle(parsedFromSource.titleHint)
 
     const [season, rows, sourceDirectoryTuples] = await Promise.all([
-      this.tmdb.getTvSeason(tmdbId, sourceTuple.seasonNumber),
+      tmdb.getTvSeason(tmdbId, sourceTuple.seasonNumber),
       this.db
         .select({ sourceFile: scannedFiles.sourceFile })
         .from(scannedFiles)
@@ -303,7 +310,7 @@ export class MediaMetadataResolver {
       return cached
     }
 
-    const episodeGroup = await this.tmdb.getTvEpisodeGroup(episodeGroupId)
+    const episodeGroup = await this.tmdbClient().getTvEpisodeGroup(episodeGroupId)
     const byEpisodeId = new Map<number, GroupEpisodePlacement>()
     const byDetectedOrder = new Map<string, GroupEpisodePlacement>()
     const groups = [...(episodeGroup.groups ?? [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
@@ -351,7 +358,7 @@ export class MediaMetadataResolver {
     const selectedEpisodeGroupId = await this.getSelectedEpisodeGroupId(tmdbId)
 
     if (!selectedEpisodeGroupId) {
-      const defaultEpisode = await this.tmdb.getTvEpisode(tmdbId, seasonNumber, episodeNumber)
+      const defaultEpisode = await this.tmdbClient().getTvEpisode(tmdbId, seasonNumber, episodeNumber)
       return {
         seasonNumber,
         episodeNumber,
@@ -370,7 +377,7 @@ export class MediaMetadataResolver {
     }
 
     try {
-      const defaultEpisode = await this.tmdb.getTvEpisode(tmdbId, seasonNumber, episodeNumber)
+      const defaultEpisode = await this.tmdbClient().getTvEpisode(tmdbId, seasonNumber, episodeNumber)
       const groupedByEpisodeId = episodeGroupMap.byEpisodeId.get(defaultEpisode.id)
       if (groupedByEpisodeId) {
         return {
