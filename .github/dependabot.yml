@@ -5,14 +5,13 @@
 
 version: 2
 updates:
-  - package-ecosystem: "bun" # See documentation for possible values
-    directory: "/frontend" # Location of package manifests
-    schedule:
-      interval: "daily"
-    target-branch: "main"
-  - package-ecosystem: "nuget" # See documentation for possible values
-    directory: "/backend" # Location of package manifests
-    schedule:
-      interval: "daily"
-    target-branch: "main"
-
+    - package-ecosystem: "bun" # See documentation for possible values
+      directory: "/frontend-solid" # Location of package manifests
+      schedule:
+          interval: "daily"
+      target-branch: "main"
+    - package-ecosystem: "bun" # See documentation for possible values
+      directory: "/backend-bun" # Location of package manifests
+      schedule:
+          interval: "daily"
+      target-branch: "main"
