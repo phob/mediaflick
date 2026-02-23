@@ -99,25 +99,25 @@ services:
 
   mediaflick:
     container_name: mediaflick
-    build: ../
-    user: 1000:1000
-    
+    build:
+      context: ../
+      dockerfile: Dockerfile
+    init: true
     ports:
-      - "3000:3000"
+      - "3867:3867"
     volumes:
       - /mnt/zurg:/mnt/zurg:rshared
       - /mnt/organized:/mnt/organized
-      - /opt/mediaflick:/app/config
-      - /opt/mediaflick/logs:/app/logs
-      - /opt/mediaflick/cache:/app/.next/cache
+      - /mnt/organized2:/mnt/organized2
+      - /opt/mediaflick/config:/app/backend-bun/config
+      - /opt/mediaflick/logs:/app/backend-bun/logs
     environment:
+      - FRONTEND_PORT=3867
+      - BACKEND_PORT=5000
       - TZ=Europe/Berlin
-      - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://0.0.0.0:5000
-      - NODE_ENV=production
-      - CORS_ORIGINS=http://localhost:3000
-      - SIGNALR_URL=http://127.0.0.1:5000
-    restart: on-failure
+      - API_BASE_URL=${API_BASE_URL:-}
+      - WS_URL=${WS_URL:-}
+    restart: unless-stopped
     depends_on:
       - rclone
     healthcheck:
