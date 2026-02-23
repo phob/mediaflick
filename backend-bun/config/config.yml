@@ -1,0 +1,20 @@
+plex:
+  host: localhost
+  port: 32400
+  plexToken: ""
+  pollingInterval: 60
+  processNewFolderDelay: 30
+  folderMappings:
+    - sourceFolder: /mnt/zurg/movies
+      destinationFolder: /mnt/organized2/movies
+      mediaType: Movies
+    - sourceFolder: /mnt/zurg/shows
+      destinationFolder: /mnt/organized2/tvseries
+      mediaType: TvShows
+tmDb:
+  apiKey: fc03d062b72e55cdc9ce9e7c0960544f
+mediaDetection:
+  cacheDuration: 3600
+  autoExtrasThresholdBytes: 104857600
+zurg:
+  versionLocation: /mnt/zurg/version.txt
