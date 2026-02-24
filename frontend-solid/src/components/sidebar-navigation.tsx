@@ -1,4 +1,14 @@
 import { A, useLocation } from "@solidjs/router";
+import {
+    Archive,
+    CircleHelp,
+    Clapperboard,
+    LayoutDashboard,
+    Logs,
+    Settings,
+    ShieldAlert,
+    Tv,
+} from "lucide-solid";
 import { For, Show, createMemo } from "solid-js";
 import { StatusDot } from "@/components/common-ui";
 
@@ -13,14 +23,14 @@ type AppNavIcon =
     | "logs";
 
 function NavIcon(props: { icon: AppNavIcon }) {
-    if (props.icon === "dashboard") return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><rect x="3" y="3" width="8" height="8" rx="1.5" /><rect x="13" y="3" width="8" height="5" rx="1.5" /><rect x="13" y="10" width="8" height="11" rx="1.5" /><rect x="3" y="13" width="8" height="8" rx="1.5" /></svg>;
-    if (props.icon === "wanted") return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path d="M12 3 4 7v6c0 4.2 3.1 7.8 8 8.9 4.9-1.1 8-4.7 8-8.9V7l-8-4Z" /><path d="m12 8.5 2.3 4.4h-4.6L12 8.5Z" /></svg>;
-    if (props.icon === "shows") return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M8.5 3v2M15.5 3v2M8.5 19v2M15.5 19v2M3 9h18" /></svg>;
-    if (props.icon === "movies") return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path d="M3 7.5 12 4l9 3.5v9L12 20l-9-3.5v-9Z" /><path d="M8.2 10.2h7.6v3.6H8.2z" /></svg>;
-    if (props.icon === "archive") return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><rect x="3" y="4" width="18" height="5" rx="1.5" /><path d="M5 9h14v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V9Z" /><path d="M9 13h6" /></svg>;
-    if (props.icon === "unidentified") return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><circle cx="12" cy="12" r="9" /><path d="M9.4 9.2a2.7 2.7 0 0 1 5.1 1.2c0 1.7-2.1 2.3-2.1 3.8" /><circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none" /></svg>;
-    if (props.icon === "settings") return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a1.5 1.5 0 0 1-2.1 2.1l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V19a1.5 1.5 0 1 1-3 0v-.1a1 1 0 0 0-.6-.9 1 1 0 0 0-1.1.2l-.1.1a1.5 1.5 0 0 1-2.1-2.1l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H5a1.5 1.5 0 1 1 0-3h.1a1 1 0 0 0 .9-.6 1 1 0 0 0-.2-1.1l-.1-.1a1.5 1.5 0 0 1 2.1-2.1l.1.1a1 1 0 0 0 1.1.2 1 1 0 0 0 .6-.9V5a1.5 1.5 0 1 1 3 0v.1a1 1 0 0 0 .6.9 1 1 0 0 0 1.1-.2l.1-.1a1.5 1.5 0 0 1 2.1 2.1l-.1.1a1 1 0 0 0-.2 1.1 1 1 0 0 0 .9.6h.1a1.5 1.5 0 1 1 0 3h-.1a1 1 0 0 0-.9.6Z" /></svg>;
-    return <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4"><path d="M4 6h16M4 12h10M4 18h16" /><circle cx="17" cy="12" r="3" /></svg>;
+    if (props.icon === "dashboard") return <LayoutDashboard class="w-4 h-4" strokeWidth={1.9} />;
+    if (props.icon === "wanted") return <ShieldAlert class="w-4 h-4" strokeWidth={1.9} />;
+    if (props.icon === "shows") return <Tv class="w-4 h-4" strokeWidth={1.9} />;
+    if (props.icon === "movies") return <Clapperboard class="w-4 h-4" strokeWidth={1.9} />;
+    if (props.icon === "archive") return <Archive class="w-4 h-4" strokeWidth={1.9} />;
+    if (props.icon === "unidentified") return <CircleHelp class="w-4 h-4" strokeWidth={1.9} />;
+    if (props.icon === "settings") return <Settings class="w-4 h-4" strokeWidth={1.9} />;
+    return <Logs class="w-4 h-4" strokeWidth={1.9} />;
 }
 
 function SideNavLink(props: {
@@ -53,7 +63,7 @@ function SideNavLink(props: {
                 "has-badge": hasBadge(),
             }}
             data-label={props.label}
-            title={props.label}
+            title={props.hint ? `${props.label} — ${props.hint}` : props.label}
         >
             <span class="side-link-main">
                 <span class="side-link-icon">
@@ -66,9 +76,6 @@ function SideNavLink(props: {
                     </Show>
                 </span>
             </span>
-            <Show when={props.hint}>
-                {(hint) => <small class="side-link-hint">{hint()}</small>}
-            </Show>
         </A>
     );
 }
@@ -168,30 +175,32 @@ export function SidebarNavigation(props: {
 
     return (
         <>
-            <A href="/" onClick={() => props.onNavigate?.()} class="brand-lockup side-brand" title="MediaFlick">
-                <span class="brand-kicker">Library Console</span>
-                <span class="brand-title">Media<span>Flick</span></span>
-                <svg class="side-brand-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor" fill-opacity="0.9" />
-                    <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                    <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-            </A>
+            <div class="side-brand-row">
+                <A href="/" onClick={() => props.onNavigate?.()} class="brand-lockup side-brand" title="MediaFlick">
+                    <span class="brand-kicker">Library Console</span>
+                    <span class="brand-title">Media<span>Flick</span></span>
+                    <svg class="side-brand-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor" fill-opacity="0.9" />
+                        <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </A>
 
-            <button
-                type="button"
-                class="sidebar-toggle"
-                onClick={props.onToggle}
-                title={props.expanded ? "Collapse sidebar" : "Expand sidebar"}
-                aria-label={props.expanded ? "Collapse sidebar" : "Expand sidebar"}
-            >
-                <Show
-                    when={props.expanded}
-                    fallback={<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M13 5l6 7-6 7M5 5l6 7-6 7" /></svg>}
+                <button
+                    type="button"
+                    class="sidebar-toggle"
+                    onClick={props.onToggle}
+                    title={props.expanded ? "Collapse sidebar" : "Expand sidebar"}
+                    aria-label={props.expanded ? "Collapse sidebar" : "Expand sidebar"}
                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M11 5l-6 7 6 7M19 5l-6 7 6 7" /></svg>
-                </Show>
-            </button>
+                    <Show
+                        when={props.expanded}
+                        fallback={<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M13 5l6 7-6 7M5 5l6 7-6 7" /></svg>}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M11 5l-6 7 6 7M19 5l-6 7 6 7" /></svg>
+                    </Show>
+                </button>
+            </div>
 
             <For each={appNavSections}>
                 {(section) => (

@@ -88,10 +88,10 @@ export function DetailPageBackdrop(props: { backdropPath: string | null | undefi
     return (
         <Show when={url()}>
             {(src) => (
-                <div class="pointer-events-none fixed inset-0 overflow-hidden z-[1]">
+                <div class="pointer-events-none fixed inset-0 overflow-hidden z-1">
                     <div class="absolute inset-0 bg-cover bg-center scale-110 opacity-32" style={{ "background-image": `url(${src()})` }} />
                     <div class="absolute inset-0 bg-linear-to-b from-surface-0/22 via-surface-1/72 to-surface-1" />
-                    <div class="absolute inset-0 bg-[radial-gradient(circle_at_84%_10%,rgb(249_115_22_/_0.2),transparent_54%)]" />
+                    <div class="absolute inset-0 bg-[radial-gradient(circle_at_84%_10%,rgb(249_115_22/0.2),transparent_54%)]" />
                 </div>
             )}
         </Show>

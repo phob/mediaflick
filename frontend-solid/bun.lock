@@ -1,6 +1,5 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "frontend-solid",
@@ -8,6 +7,7 @@
         "@solidjs/router": "^0.15.4",
         "@tailwindcss/vite": "^4.2.0",
         "@tanstack/solid-query": "^5.90.8",
+        "lucide-solid": "^0.575.0",
         "solid-js": "^1.9.10",
         "tailwindcss": "^4.2.0",
       },
@@ -294,6 +294,8 @@
     "lightningcss-win32-x64-msvc": ["lightningcss-win32-x64-msvc@1.30.2", "", { "os": "win32", "cpu": "x64" }, "sha512-5g1yc73p+iAkid5phb4oVFMB45417DkRevRbt/El/gKXJk4jid+vPFF/AXbxn05Aky8PapwzZrdJShv5C0avjw=="],
 
     "lru-cache": ["lru-cache@5.1.1", "", { "dependencies": { "yallist": "^3.0.2" } }, "sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w=="],
+
+    "lucide-solid": ["lucide-solid@0.575.0", "", { "peerDependencies": { "solid-js": "^1.4.7" } }, "sha512-EGdV4Kql+N/SpEJnLlgeUpTQPtarUJ8DpRWc8LpiymVCqcb2QffKMwrrG1ECY2omP+gVTZOu/5mJ3WmIj93kDg=="],
 
     "magic-string": ["magic-string@0.30.21", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.5" } }, "sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ=="],
 

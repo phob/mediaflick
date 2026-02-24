@@ -229,14 +229,14 @@ export function scannedFileHref(file: ScannedFile): string | null {
     return null;
 }
 
-export function posterUrl(path: string | null | undefined, size = "w342"): string | null {
+export function posterUrl(path: string | null | undefined, size = "w500"): string | null {
     if (!path) return null;
     return `${TMDB_IMG}/${size}${path}`;
 }
 
 export function backdropUrl(path: string | null | undefined): string | null {
     if (!path) return null;
-    return `${TMDB_IMG}/w1280${path}`;
+    return `${TMDB_IMG}/original${path}`;
 }
 
 export async function listAllScannedFiles(params: {

@@ -14,19 +14,27 @@ import { createRealtimeSocket } from "@/lib/realtime";
 import { countScannedFiles, listWantedShows } from "@/lib/media-helpers";
 
 export const AppShell: ParentComponent = (props) => {
+    const sidebarExpandedKey = "mediaflick.sidebar.expanded";
+    const sidebarPreferenceVersionKey = "mediaflick.sidebar.pref-version";
     const location = useLocation();
     const queryClient = useQueryClient();
     const [lastHeartbeat, setLastHeartbeat] = createSignal<number>(0);
     const [lastZurgSignal, setLastZurgSignal] = createSignal<number>(0);
     const [mobileNavOpen, setMobileNavOpen] = createSignal(false);
     const [mobileTriggerVisible, setMobileTriggerVisible] = createSignal(true);
-    const [sidebarExpanded, setSidebarExpanded] = createSignal(false);
+    const [sidebarExpanded, setSidebarExpanded] = createSignal(true);
 
     onMount(() => {
         const savedSidebarState = window.localStorage.getItem(
-            "mediaflick.sidebar.expanded",
+            sidebarExpandedKey,
+        );
+        const sidebarPreferenceVersion = window.localStorage.getItem(
+            sidebarPreferenceVersionKey,
         );
         if (savedSidebarState === "1") setSidebarExpanded(true);
+        else if (savedSidebarState === "0" && sidebarPreferenceVersion === "2") {
+            setSidebarExpanded(false);
+        }
 
         let lastY = window.scrollY;
         const handleScroll = () => {
@@ -84,10 +92,8 @@ export const AppShell: ParentComponent = (props) => {
 
     createEffect(() => {
         if (typeof window === "undefined") return;
-        window.localStorage.setItem(
-            "mediaflick.sidebar.expanded",
-            sidebarExpanded() ? "1" : "0",
-        );
+        window.localStorage.setItem(sidebarExpandedKey, sidebarExpanded() ? "1" : "0");
+        window.localStorage.setItem(sidebarPreferenceVersionKey, "2");
     });
 
     const backendOnline = createMemo(
