@@ -1,0 +1,4 @@
+interface:
+  display_name: "Uncodixify UI"
+  short_description: "Build practical UI without AI-dashboard styling"
+  default_prompt: "Use $uncodixify to redesign this UI with clean, functional, non-generic patterns."
