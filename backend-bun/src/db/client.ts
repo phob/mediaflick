@@ -29,6 +29,7 @@ async function ensureSchema(db: ReturnType<typeof drizzle<typeof schema>>): Prom
       "FileHash" TEXT NULL,
       "MediaType" TEXT NULL,
       "TmdbId" INTEGER NULL,
+      "TvdbId" INTEGER NULL,
       "ImdbId" TEXT NULL,
       "Title" TEXT NULL,
       "Year" INTEGER NULL,
@@ -47,6 +48,9 @@ async function ensureSchema(db: ReturnType<typeof drizzle<typeof schema>>): Prom
   await db.run(sql`CREATE INDEX IF NOT EXISTS "IX_ScannedFiles_SourceFile" ON "ScannedFiles" ("SourceFile")`)
   await db.run(sql`CREATE INDEX IF NOT EXISTS "IX_ScannedFiles_DestFile" ON "ScannedFiles" ("DestFile")`)
   await db.run(sql`CREATE INDEX IF NOT EXISTS "IX_ScannedFiles_TmdbId" ON "ScannedFiles" ("TmdbId")`)
+  await db.run(sql`CREATE INDEX IF NOT EXISTS "IX_ScannedFiles_TvdbId" ON "ScannedFiles" ("TvdbId")`)
+  // Repair partially-built TVDB indexes on existing SQLite files after the TvdbId migration.
+  await db.run(sql`REINDEX "IX_ScannedFiles_TvdbId"`)
   await db.run(
     sql`CREATE UNIQUE INDEX IF NOT EXISTS "IX_ScannedFiles_Source_Dest_Episode" ON "ScannedFiles" ("SourceFile", "DestFile", "EpisodeNumber")`,
   )
@@ -54,6 +58,11 @@ async function ensureSchema(db: ReturnType<typeof drizzle<typeof schema>>): Prom
   // Add PosterPath column to existing databases
   try {
     await db.run(sql`ALTER TABLE "ScannedFiles" ADD COLUMN "PosterPath" TEXT NULL`)
+  } catch {
+    // Column already exists, ignore
+  }
+  try {
+    await db.run(sql`ALTER TABLE "ScannedFiles" ADD COLUMN "TvdbId" INTEGER NULL`)
   } catch {
     // Column already exists, ignore
   }
@@ -101,5 +110,22 @@ async function ensureSchema(db: ReturnType<typeof drizzle<typeof schema>>): Prom
   `)
   await db.run(
     sql`CREATE INDEX IF NOT EXISTS "ix_tv_episode_group_selections_group_id" ON "tv_episode_group_selections" ("episode_group_id")`,
+  )
+
+  await db.run(sql`
+    CREATE TABLE IF NOT EXISTS "tv_episode_source_selections" (
+      "tmdb_id" INTEGER PRIMARY KEY,
+      "source_type" TEXT NOT NULL,
+      "tvdb_id" INTEGER NULL,
+      "tvdb_series_name" TEXT NULL,
+      "tvdb_season_type" TEXT NULL,
+      "updated_at" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS "ix_tv_episode_source_selections_source_type" ON "tv_episode_source_selections" ("source_type")`,
+  )
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS "ix_tv_episode_source_selections_tvdb_id" ON "tv_episode_source_selections" ("tvdb_id")`,
   )
 }

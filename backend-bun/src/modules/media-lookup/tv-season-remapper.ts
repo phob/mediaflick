@@ -115,9 +115,25 @@ function dedupeAndSortTuples(tuples: SourceEpisodeTuple[]): IndexedSourceEpisode
 export function buildSeasonRemapPlan(input: {
   seasonNumber: number
   tmdbEpisodeCount: number
+  tmdbEpisodeNumbers?: number[]
   tuples: SourceEpisodeTuple[]
 }): SeasonRemapPlan | null {
   if (input.tmdbEpisodeCount <= 0) {
+    return null
+  }
+
+  const tmdbEpisodeNumbers = [...new Set(
+    (input.tmdbEpisodeNumbers ?? [])
+      .filter(episodeNumber => Number.isInteger(episodeNumber) && episodeNumber > 0),
+  )].sort((left, right) => left - right)
+
+  if (
+    tmdbEpisodeNumbers.length > 0
+    && (
+      tmdbEpisodeNumbers.length !== input.tmdbEpisodeCount
+      || tmdbEpisodeNumbers.some((episodeNumber, index) => episodeNumber !== index + 1)
+    )
+  ) {
     return null
   }
 

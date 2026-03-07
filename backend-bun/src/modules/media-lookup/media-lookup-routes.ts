@@ -11,13 +11,30 @@ import {
   parseSourceEpisodeTuple,
   type SourceEpisodeTuple,
 } from "@/modules/media-lookup/tv-season-remapper"
+import { TvEpisodeSourceService } from "@/modules/media-lookup/tv-episode-source-service"
 import type { TmdbCastMember } from "@/modules/media-lookup/tmdb-client"
 import { scannedFiles, seriesAliases, seriesIdentityMap, tvEpisodeGroupSelections } from "@/db/schema"
 import { parseJson } from "@/shared/http"
-import type { EpisodeInfo, MediaCastMember, MediaInfo, MediaSearchResult, ScannedFile, SeasonInfo } from "@/shared/types"
+import type {
+  EpisodeInfo,
+  MediaCastMember,
+  MediaInfo,
+  MediaSearchResult,
+  ScannedFile,
+  SeasonInfo,
+  TvEpisodeSourceSelectionResponse,
+  TvdbSeasonType,
+} from "@/shared/types"
 
 interface EpisodeGroupSelectionRequest {
   episodeGroupId: string | null
+}
+
+interface EpisodeSourceSelectionRequest {
+  source: "tmdb" | "tvdb"
+  tvdbId?: number | null
+  tvdbSeriesName?: string | null
+  tvdbSeasonType?: TvdbSeasonType | null
 }
 
 interface TvFilesResponse {
@@ -116,8 +133,20 @@ async function getEpisodeGroupSelection(context: AppContext, tmdbId: number): Pr
   }
 }
 
+function toEpisodeSourceResponse(
+  selection: Awaited<ReturnType<TvEpisodeSourceService["getSelection"]>>,
+  episodeSourceService: TvEpisodeSourceService,
+): TvEpisodeSourceSelectionResponse {
+  return {
+    ...selection,
+    sourceLabel: selection.source === "tvdb" ? "TVDB" : "TMDb",
+    tvdbSeasonTypeLabel: episodeSourceService.seasonTypeLabel(selection.tvdbSeasonType),
+  }
+}
+
 export function createMediaLookupRouter(context: AppContext) {
   const router = new Hono()
+  const episodeSourceService = new TvEpisodeSourceService(context.db, () => context.tmdb, () => context.tvdb)
 
   router.get(ENTRYPOINTS.api.mediaLookup.movieSearch, async c => {
     const title = validateTitle(c.req.query("title"))
@@ -226,7 +255,7 @@ export function createMediaLookupRouter(context: AppContext) {
       return c.json({ error: "Invalid TMDb id" }, 400)
     }
 
-    const [show, external, counts, cast] = await Promise.all([
+    const [show, external, counts, cast, sourceSelection] = await Promise.all([
       context.tmdb.getTv(tmdbId),
       context.tmdb.getTvExternalIds(tmdbId),
       context.db
@@ -234,12 +263,25 @@ export function createMediaLookupRouter(context: AppContext) {
         .from(scannedFiles)
         .where(and(eq(scannedFiles.tmdbId, tmdbId), eq(scannedFiles.mediaType, "TvShows"), eq(scannedFiles.status, "Success"))),
       context.tmdb.getTvCredits(tmdbId),
+      episodeSourceService.getSelection(tmdbId),
     ])
+
+    let episodeCount = show.number_of_episodes
+    let seasonCount = show.number_of_seasons
+    if (sourceSelection.source === "tvdb" && sourceSelection.tvdbId) {
+      const episodes = await context.tvdb.getSeriesEpisodes(
+        sourceSelection.tvdbId,
+        sourceSelection.tvdbSeasonType ?? "default",
+      )
+      episodeCount = episodes.length
+      seasonCount = new Set(episodes.map(episode => episode.seasonNumber).filter(season => season > 0)).size
+    }
 
     const payload: MediaInfo = {
       title: show.name,
       year: context.tmdb.tvYear(show),
       tmdbId: show.id,
+      tvdbId: sourceSelection.tvdbId,
       imdbId: external.imdb_id,
       mediaType: "TvShows",
       posterPath: show.poster_path ?? null,
@@ -256,13 +298,67 @@ export function createMediaLookupRouter(context: AppContext) {
       originCountry: show.origin_country ?? [],
       networks: show.networks?.map(network => network.name) ?? [],
       cast: toCastMembers(cast),
-      episodeCount: show.number_of_episodes,
+      episodeCount,
       episodeCountScanned: counts[0]?.count ?? 0,
-      seasonCount: show.number_of_seasons,
+      seasonCount,
       seasonCountScanned: 0,
     }
 
     return c.json(payload)
+  })
+
+  router.get(ENTRYPOINTS.api.mediaLookup.tvEpisodeSourceByTmdbId, async c => {
+    const tmdbId = toInt(c.req.param("tmdbId"))
+    if (!tmdbId) {
+      return c.json({ error: "Invalid TMDb id" }, 400)
+    }
+
+    const selection = await episodeSourceService.getSelection(tmdbId)
+    return c.json(toEpisodeSourceResponse(selection, episodeSourceService))
+  })
+
+  router.put(ENTRYPOINTS.api.mediaLookup.tvEpisodeSourceByTmdbId, async c => {
+    const tmdbId = toInt(c.req.param("tmdbId"))
+    if (!tmdbId) {
+      return c.json({ error: "Invalid TMDb id" }, 400)
+    }
+
+    const body = await parseJson<EpisodeSourceSelectionRequest>(c.req.raw)
+    if (body.source !== "tmdb" && body.source !== "tvdb") {
+      return c.json({ error: "source must be 'tmdb' or 'tvdb'" }, 400)
+    }
+
+    try {
+      const selection = await episodeSourceService.setSelection(tmdbId, {
+        source: body.source,
+        tvdbId: body.tvdbId ?? null,
+        tvdbSeriesName: body.tvdbSeriesName ?? null,
+        tvdbSeasonType: body.tvdbSeasonType ?? "default",
+      })
+      const rebuildResult = await context.poller.rebuildTvShow(tmdbId)
+      return c.json({
+        ...toEpisodeSourceResponse(selection, episodeSourceService),
+        removedCount: rebuildResult.removedCount,
+        reprocessedCount: rebuildResult.reprocessedCount,
+      })
+    } catch (error) {
+      return c.json({ error: error instanceof Error ? error.message : "Failed to update episode source" }, 400)
+    }
+  })
+
+  router.get(ENTRYPOINTS.api.mediaLookup.tvdbSearchByTmdbId, async c => {
+    const tmdbId = toInt(c.req.param("tmdbId"))
+    if (!tmdbId) {
+      return c.json({ error: "Invalid TMDb id" }, 400)
+    }
+
+    const title = validateTitle(c.req.query("title"))
+    if (!title) {
+      return c.json({ error: "Title is required" }, 400)
+    }
+
+    const results = await episodeSourceService.searchTvdbSeries(title)
+    return c.json(results)
   })
 
   router.get(ENTRYPOINTS.api.mediaLookup.tvEpisodeGroupsByTmdbId, async c => {
@@ -349,8 +445,9 @@ export function createMediaLookupRouter(context: AppContext) {
       return c.json({ error: "Invalid TMDb id" }, 400)
     }
 
-    const [selection, rawShowRows, allTvFiles, identityRows, aliasRows] = await Promise.all([
+    const [selection, tvdbSelection, rawShowRows, allTvFiles, identityRows, aliasRows] = await Promise.all([
       getEpisodeGroupSelection(context, tmdbId),
+      episodeSourceService.getTvdbSeries(tmdbId),
       context.scannedFilesRepo.listByTmdbId(tmdbId, "TvShows"),
       context.scannedFilesRepo.listByMediaType("TvShows"),
       context.db
@@ -422,10 +519,16 @@ export function createMediaLookupRouter(context: AppContext) {
     await Promise.all(
       [...tuplesBySeason.entries()].map(async ([seasonNumber, tuples]) => {
         try {
-          const season = await context.tmdb.getTvSeason(tmdbId, seasonNumber)
+          const episodeNumbers = tvdbSelection
+            ? (await context.tvdb.getSeriesEpisodes(tvdbSelection.tvdbId, tvdbSelection.seasonType, { season: seasonNumber }))
+              .map(episode => episode.number)
+            : (await context.tmdb.getTvSeason(tmdbId, seasonNumber))
+              .episodes
+              .map(episode => episode.episode_number)
           const plan = buildSeasonRemapPlan({
             seasonNumber,
-            tmdbEpisodeCount: season.episodes.length,
+            tmdbEpisodeCount: episodeNumbers.length,
+            tmdbEpisodeNumbers: episodeNumbers,
             tuples,
           })
           remapPlanBySeason.set(seasonNumber, plan)
@@ -476,8 +579,8 @@ export function createMediaLookupRouter(context: AppContext) {
       return c.json({ error: "Invalid TMDb or season number" }, 400)
     }
 
-    const [season, scannedEpisodes] = await Promise.all([
-      context.tmdb.getTvSeason(tmdbId, seasonNumber),
+    const [tvdbSelection, scannedEpisodes] = await Promise.all([
+      episodeSourceService.getTvdbSeries(tmdbId),
       context.db
         .select({ episodeNumber: scannedFiles.episodeNumber, episodeNumber2: scannedFiles.episodeNumber2 })
         .from(scannedFiles)
@@ -503,22 +606,47 @@ export function createMediaLookupRouter(context: AppContext) {
       }
     }
 
-    const payload: SeasonInfo = {
-      seasonNumber: season.season_number,
-      name: season.name,
-      overview: season.overview,
-      posterPath: season.poster_path,
-      airDate: season.air_date,
-      episodes: season.episodes.map(ep => ({
-        episodeNumber: ep.episode_number,
-        name: ep.name,
-        overview: ep.overview,
-        stillPath: ep.still_path,
-        airDate: ep.air_date,
-        isScanned: scannedSet.has(ep.episode_number),
-      })),
-      episodeCount: season.episodes.length,
-      episodeCountScanned: scannedSet.size,
+    let payload: SeasonInfo
+    if (tvdbSelection) {
+      const episodes = await context.tvdb.getSeriesEpisodes(tvdbSelection.tvdbId, tvdbSelection.seasonType, { season: seasonNumber })
+      const sortedEpisodes = [...episodes].sort((left, right) => left.number - right.number)
+      payload = {
+        seasonNumber,
+        name: `Season ${seasonNumber}`,
+        overview: null,
+        posterPath: null,
+        airDate: sortedEpisodes[0]?.aired ?? null,
+        episodes: sortedEpisodes.map(ep => ({
+          episodeNumber: ep.number,
+          name: ep.name ?? null,
+          overview: ep.overview ?? null,
+          stillPath: context.tvdb.episodeImage(ep),
+          airDate: ep.aired ?? null,
+          tvdbId: ep.id,
+          isScanned: scannedSet.has(ep.number),
+        })),
+        episodeCount: sortedEpisodes.length,
+        episodeCountScanned: scannedSet.size,
+      }
+    } else {
+      const season = await context.tmdb.getTvSeason(tmdbId, seasonNumber)
+      payload = {
+        seasonNumber: season.season_number,
+        name: season.name,
+        overview: season.overview,
+        posterPath: season.poster_path,
+        airDate: season.air_date,
+        episodes: season.episodes.map(ep => ({
+          episodeNumber: ep.episode_number,
+          name: ep.name,
+          overview: ep.overview,
+          stillPath: ep.still_path,
+          airDate: ep.air_date,
+          isScanned: scannedSet.has(ep.episode_number),
+        })),
+        episodeCount: season.episodes.length,
+        episodeCountScanned: scannedSet.size,
+      }
     }
 
     return c.json(payload)
@@ -532,14 +660,33 @@ export function createMediaLookupRouter(context: AppContext) {
       return c.json({ error: "Invalid episode request" }, 400)
     }
 
-    const episode = await context.tmdb.getTvEpisode(tmdbId, seasonNumber, episodeNumber)
-    const payload: EpisodeInfo = {
-      episodeNumber: episode.episode_number,
-      name: episode.name,
-      overview: episode.overview,
-      stillPath: episode.still_path,
-      airDate: episode.air_date,
-      tmdbId: episode.id,
+    const tvdbSelection = await episodeSourceService.getTvdbSeries(tmdbId)
+    let payload: EpisodeInfo
+    if (tvdbSelection) {
+      const episode = (await context.tvdb.getSeriesEpisodes(tvdbSelection.tvdbId, tvdbSelection.seasonType, { season: seasonNumber }))
+        .find(item => item.seasonNumber === seasonNumber && item.number === episodeNumber)
+      if (!episode) {
+        return c.json({ error: "Episode not found" }, 404)
+      }
+
+      payload = {
+        episodeNumber: episode.number,
+        name: episode.name ?? null,
+        overview: episode.overview ?? null,
+        stillPath: context.tvdb.episodeImage(episode),
+        airDate: episode.aired ?? null,
+        tvdbId: episode.id,
+      }
+    } else {
+      const episode = await context.tmdb.getTvEpisode(tmdbId, seasonNumber, episodeNumber)
+      payload = {
+        episodeNumber: episode.episode_number,
+        name: episode.name,
+        overview: episode.overview,
+        stillPath: episode.still_path,
+        airDate: episode.air_date,
+        tmdbId: episode.id,
+      }
     }
 
     return c.json(payload)
@@ -553,11 +700,13 @@ export function createMediaLookupRouter(context: AppContext) {
 
   router.delete(ENTRYPOINTS.api.mediaLookup.cacheBase, c => {
     context.tmdb.invalidateAll()
+    context.tvdb.invalidateAll()
     return c.json({ ok: true })
   })
 
   router.delete(ENTRYPOINTS.api.mediaLookup.cacheWildcard, c => {
     context.tmdb.invalidateAll()
+    context.tvdb.invalidateAll()
     return c.json({ ok: true })
   })
 

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "bun --watch src/app/server.ts",
     "start": "bun src/app/server.ts",
+    "test": "bun test",
     "typecheck": "bunx tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun src/db/migrate.ts"

@@ -5,6 +5,8 @@ import type { AppDb } from "@/db/client"
 import { scannedFiles, tvEpisodeGroupSelections } from "@/db/schema"
 import { normalizeTitle } from "@/modules/detection/normalization"
 import type { TmdbClient, TmdbTvEpisodeGroupEpisode } from "@/modules/media-lookup/tmdb-client"
+import type { TvdbClient } from "@/modules/media-lookup/tvdb-client"
+import { TvEpisodeSourceService } from "@/modules/media-lookup/tv-episode-source-service"
 import {
   applySeasonRemap,
   buildSeasonRemapPlan,
@@ -30,6 +32,7 @@ interface ResolvedEpisodePlacement {
   seasonNumber: number
   episodeNumber: number
   episodeTitle: string | null
+  tvdbEpisodeId: number | null
 }
 
 export interface ResolvedMovieMetadata {
@@ -52,6 +55,7 @@ export interface ResolveTvMetadataInput {
 
 export interface ResolvedTvMetadata {
   tmdbId: number
+  tvdbId: number | null
   imdbId: string | null
   title: string
   year: number | null
@@ -66,14 +70,26 @@ export interface ResolvedTvMetadata {
 
 export class MediaMetadataResolver {
   private readonly episodeGroupCache = new Map<string, EpisodeGroupPlacementCache>()
+  private readonly episodeSourceService: TvEpisodeSourceService
 
   constructor(
     private readonly db: AppDb,
     private readonly getTmdbClient: () => TmdbClient,
-  ) {}
+    private readonly getTvdbClient: () => TvdbClient,
+  ) {
+    this.episodeSourceService = new TvEpisodeSourceService(
+      db,
+      () => this.tmdbClient(),
+      () => this.tvdbClient(),
+    )
+  }
 
   private tmdbClient(): TmdbClient {
     return this.getTmdbClient()
+  }
+
+  private tvdbClient(): TvdbClient {
+    return this.getTvdbClient()
   }
 
   async resolveMovie(tmdbId: number): Promise<ResolvedMovieMetadata> {
@@ -129,6 +145,7 @@ export class MediaMetadataResolver {
 
     return {
       tmdbId: show.id,
+      tvdbId: primaryPlacement.tvdbEpisodeId,
       imdbId: externalIds.imdb_id ?? input.imdbIdFallback ?? null,
       title: show.name,
       year: tmdb.tvYear(show),
@@ -147,7 +164,6 @@ export class MediaMetadataResolver {
     sourceTuple: SourceEpisodeTuple,
     sourceFile?: string,
   ): Promise<{ remapped: SourceEpisodeTuple; info: EpisodeRemapInfo | null }> {
-    const tmdb = this.tmdbClient()
     const parsedFromSource = sourceFile ? parseSourceEpisodeMatch(sourceFile) : null
     const inputMatchesSource =
       parsedFromSource !== null
@@ -164,8 +180,8 @@ export class MediaMetadataResolver {
 
     const normalizedSourceTitleHint = normalizeTitle(parsedFromSource.titleHint)
 
-    const [season, rows, sourceDirectoryTuples] = await Promise.all([
-      tmdb.getTvSeason(tmdbId, sourceTuple.seasonNumber),
+    const [sourceSelection, rows, sourceDirectoryTuples] = await Promise.all([
+      this.episodeSourceService.getTvdbSeries(tmdbId),
       this.db
         .select({ sourceFile: scannedFiles.sourceFile })
         .from(scannedFiles)
@@ -192,9 +208,18 @@ export class MediaMetadataResolver {
     }
     tuples.push(sourceTuple)
 
+    const seasonEpisodeNumbers = sourceSelection
+      ? (await this.tvdbClient()
+        .getSeriesEpisodes(sourceSelection.tvdbId, sourceSelection.seasonType, { season: sourceTuple.seasonNumber }))
+        .map(episode => episode.number)
+      : (await this.tmdbClient().getTvSeason(tmdbId, sourceTuple.seasonNumber))
+        .episodes
+        .map(episode => episode.episode_number)
+
     const plan = buildSeasonRemapPlan({
       seasonNumber: sourceTuple.seasonNumber,
-      tmdbEpisodeCount: season.episodes.length,
+      tmdbEpisodeCount: seasonEpisodeNumbers.length,
+      tmdbEpisodeNumbers: seasonEpisodeNumbers,
       tuples,
     })
 
@@ -355,6 +380,29 @@ export class MediaMetadataResolver {
     seasonNumber: number,
     episodeNumber: number,
   ): Promise<ResolvedEpisodePlacement> {
+    const selectedTvdbSource = await this.episodeSourceService.getTvdbSeries(tmdbId)
+    if (selectedTvdbSource) {
+      const episode = (await this.tvdbClient()
+        .getSeriesEpisodes(selectedTvdbSource.tvdbId, selectedTvdbSource.seasonType, { season: seasonNumber }))
+        .find(item => item.seasonNumber === seasonNumber && item.number === episodeNumber)
+
+      if (!episode) {
+        return {
+          seasonNumber,
+          episodeNumber,
+          episodeTitle: null,
+          tvdbEpisodeId: null,
+        }
+      }
+
+      return {
+        seasonNumber,
+        episodeNumber,
+        episodeTitle: episode.name ?? null,
+        tvdbEpisodeId: episode.id,
+      }
+    }
+
     const selectedEpisodeGroupId = await this.getSelectedEpisodeGroupId(tmdbId)
 
     if (!selectedEpisodeGroupId) {
@@ -363,6 +411,7 @@ export class MediaMetadataResolver {
         seasonNumber,
         episodeNumber,
         episodeTitle: defaultEpisode.name,
+        tvdbEpisodeId: null,
       }
     }
 
@@ -373,6 +422,7 @@ export class MediaMetadataResolver {
         seasonNumber: groupedByDetectedOrder.seasonNumber,
         episodeNumber: groupedByDetectedOrder.episodeNumber,
         episodeTitle: groupedByDetectedOrder.name,
+        tvdbEpisodeId: null,
       }
     }
 
@@ -384,6 +434,7 @@ export class MediaMetadataResolver {
           seasonNumber: groupedByEpisodeId.seasonNumber,
           episodeNumber: groupedByEpisodeId.episodeNumber,
           episodeTitle: groupedByEpisodeId.name ?? defaultEpisode.name,
+          tvdbEpisodeId: null,
         }
       }
 
@@ -391,6 +442,7 @@ export class MediaMetadataResolver {
         seasonNumber,
         episodeNumber,
         episodeTitle: defaultEpisode.name,
+        tvdbEpisodeId: null,
       }
     } catch (error) {
       if (error instanceof Error && error.message.includes("TMDb request failed: 404")) {
@@ -398,6 +450,7 @@ export class MediaMetadataResolver {
           seasonNumber,
           episodeNumber,
           episodeTitle: null,
+          tvdbEpisodeId: null,
         }
       }
       throw error

@@ -11,6 +11,7 @@ export const scannedFiles = sqliteTable(
     fileHash: text("FileHash"),
     mediaType: text("MediaType"),
     tmdbId: integer("TmdbId"),
+    tvdbId: integer("TvdbId"),
     imdbId: text("ImdbId"),
     title: text("Title"),
     year: integer("Year"),
@@ -29,6 +30,7 @@ export const scannedFiles = sqliteTable(
     index("IX_ScannedFiles_SourceFile").on(table.sourceFile),
     index("IX_ScannedFiles_DestFile").on(table.destFile),
     index("IX_ScannedFiles_TmdbId").on(table.tmdbId),
+    index("IX_ScannedFiles_TvdbId").on(table.tvdbId),
     uniqueIndex("IX_ScannedFiles_Source_Dest_Episode").on(
       table.sourceFile,
       table.destFile,
@@ -91,6 +93,24 @@ export const tvEpisodeGroupSelections = sqliteTable(
   },
   table => [
     index("ix_tv_episode_group_selections_group_id").on(table.episodeGroupId),
+  ],
+)
+
+export const tvEpisodeSourceSelections = sqliteTable(
+  "tv_episode_source_selections",
+  {
+    tmdbId: integer("tmdb_id").primaryKey(),
+    sourceType: text("source_type").notNull(),
+    tvdbId: integer("tvdb_id"),
+    tvdbSeriesName: text("tvdb_series_name"),
+    tvdbSeasonType: text("tvdb_season_type"),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  table => [
+    index("ix_tv_episode_source_selections_source_type").on(table.sourceType),
+    index("ix_tv_episode_source_selections_tvdb_id").on(table.tvdbId),
   ],
 )
 

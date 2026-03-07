@@ -109,6 +109,7 @@ export class FilePoller {
         this.metadataResolver = new MediaMetadataResolver(
             context.db,
             () => context.tmdb,
+            () => context.tvdb,
         );
     }
 
@@ -430,6 +431,7 @@ export class FilePoller {
                     destFile: null,
                     mediaType,
                     tmdbId: null,
+                    tvdbId: null,
                     imdbId: null,
                     title: null,
                     year: null,
@@ -513,6 +515,7 @@ export class FilePoller {
                         destFile: destinationPath,
                         mediaType,
                         tmdbId: movie.tmdbId,
+                        tvdbId: null,
                         imdbId: movie.imdbId,
                         title: movie.title,
                         year: movie.year,
@@ -590,6 +593,7 @@ export class FilePoller {
                         destFile: destinationPath,
                         mediaType,
                         tmdbId: show.tmdbId,
+                        tvdbId: show.tvdbId,
                         imdbId: show.imdbId,
                         title: show.title,
                         year: show.year,
@@ -610,6 +614,7 @@ export class FilePoller {
                         status: "Success",
                         destFile: destinationPath,
                         tmdbId: show.tmdbId,
+                        tvdbId: show.tvdbId,
                         title: show.title,
                         seasonNumber: show.seasonNumber,
                         episodeNumber: show.episodeNumber,
@@ -648,6 +653,7 @@ export class FilePoller {
         status: "Success" | "Failed" | "Duplicate";
         destFile: string | null;
         tmdbId?: number | null;
+        tvdbId?: number | null;
         title?: string | null;
         seasonNumber?: number | null;
         episodeNumber?: number | null;
@@ -661,6 +667,7 @@ export class FilePoller {
             status: params.status,
             destFile: params.destFile,
             tmdbId: params.tmdbId ?? null,
+            tvdbId: params.tvdbId ?? null,
             title: params.title ?? null,
             seasonNumber: params.seasonNumber ?? null,
             episodeNumber: params.episodeNumber ?? null,
@@ -687,6 +694,7 @@ export class FilePoller {
             destFile: null,
             mediaType,
             tmdbId: null,
+            tvdbId: null,
             imdbId: null,
             title: null,
             year: null,
@@ -720,6 +728,7 @@ export class FilePoller {
             destFile: null,
             mediaType,
             tmdbId: null,
+            tvdbId: null,
             imdbId: null,
             title: null,
             year: null,

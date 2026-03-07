@@ -21,6 +21,10 @@ export interface TMDbConfig {
   apiKey: string
 }
 
+export interface TVDbConfig {
+  apiKey: string
+}
+
 export interface MediaDetectionConfig {
   cacheDuration: number
   autoExtrasThresholdBytes: number
@@ -33,6 +37,7 @@ export interface ZurgConfig {
 export interface ConfigurationPayload {
   plex: PlexConfig
   tmDb: TMDbConfig
+  tvDb: TVDbConfig
   mediaDetection: MediaDetectionConfig
   zurg: ZurgConfig
 }
@@ -56,6 +61,7 @@ export interface MediaInfo {
   title: string
   year: number | null
   tmdbId: number
+  tvdbId?: number | null
   imdbId: string | null
   mediaType: MediaType
   posterPath: string | null
@@ -87,6 +93,7 @@ export interface EpisodeInfo {
   stillPath: string | null
   airDate: string | null
   tmdbId?: number
+  tvdbId?: number
   isScanned?: boolean
 }
 
@@ -109,6 +116,7 @@ export interface ScannedFile {
   fileHash: string | null
   mediaType: MediaType | null
   tmdbId: number | null
+  tvdbId: number | null
   imdbId: string | null
   title: string | null
   year: number | null
@@ -117,6 +125,7 @@ export interface ScannedFile {
   episodeNumber: number | null
   episodeNumber2: number | null
   episodeRemap?: EpisodeRemapInfo | null
+  posterPath: string | null
   status: MediaStatus
   createdAt: string
   updatedAt: string | null
@@ -179,6 +188,33 @@ export interface MovieFilesResponse {
   extraFiles: ScannedFile[]
 }
 
+export type TvEpisodeSourceType = "tmdb" | "tvdb"
+export type TvdbSeasonType = "default" | "official" | "dvd" | "absolute" | "alternate" | "regional"
+
+export interface TvEpisodeSourceSelection {
+  tmdbId: number
+  source: TvEpisodeSourceType
+  sourceLabel: string
+  tvdbId: number | null
+  tvdbSeriesName: string | null
+  tvdbSeasonType: TvdbSeasonType | null
+  tvdbSeasonTypeLabel: string | null
+  updatedAt: string | null
+}
+
+export interface TvdbSearchResult {
+  tvdbId: number
+  title: string
+  year: number | null
+  posterPath: string | null
+  overview: string | null
+}
+
+export interface EpisodeSourceChangeResponse extends TvEpisodeSourceSelection {
+  removedCount: number
+  reprocessedCount: number
+}
+
 export interface EpisodeGroupChangeResponse {
   tmdbId: number
   selectedEpisodeGroupId: string | null
@@ -201,6 +237,60 @@ export interface LogEntry {
 
 export interface LogsResponse {
   logs: LogEntry[]
+}
+
+export interface StatusCount {
+  status: MediaStatus
+  count: number
+}
+
+export interface MediaTypeCount {
+  mediaType: MediaType
+  count: number
+}
+
+export interface MediaTypeStorage {
+  mediaType: MediaType
+  count: number
+  totalFileSize: number
+}
+
+export interface DashboardRecentItem {
+  id: number
+  mediaType: "Movies" | "TvShows"
+  tmdbId: number
+  title: string | null
+  year: number | null
+  posterPath: string | null
+  imagePath: string | null
+  imageKind: "poster" | "still"
+  episodeTitle: string | null
+  seasonNumber: number | null
+  episodeNumber: number | null
+  episodeNumber2: number | null
+  sourceFile: string
+  destFile: string | null
+  fileSize: number | null
+  createdAt: string
+  updatedAt: string | null
+}
+
+export interface ScannedFilesDashboard {
+  totalFiles: number
+  totalSuccessfulFiles: number
+  totalFileSize: number
+  totalSuccessfulFileSize: number
+  distinctMovies: number
+  distinctTvShows: number
+  addedLast7Days: number
+  addedLast30Days: number
+  attentionCount: number
+  lastIngestedAt: string | null
+  lastLibraryItemAt: string | null
+  byStatus: StatusCount[]
+  byMediaType: MediaTypeCount[]
+  storageByMediaType: MediaTypeStorage[]
+  recentItems: DashboardRecentItem[]
 }
 
 /* ── TMDb search ── */

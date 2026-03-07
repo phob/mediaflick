@@ -23,6 +23,10 @@ export interface TMDbConfig {
   apiKey: string
 }
 
+export interface TVDbConfig {
+  apiKey: string
+}
+
 export interface MediaDetectionConfig {
   cacheDuration: number
   autoExtrasThresholdBytes: number
@@ -35,6 +39,7 @@ export interface ZurgConfig {
 export interface ConfigurationPayload {
   plex: PlexConfig
   tmDb: TMDbConfig
+  tvDb: TVDbConfig
   mediaDetection: MediaDetectionConfig
   zurg: ZurgConfig
 }
@@ -47,6 +52,7 @@ export interface ScannedFile {
   fileHash: string | null
   mediaType: MediaType | null
   tmdbId: number | null
+  tvdbId: number | null
   imdbId: string | null
   title: string | null
   year: number | null
@@ -91,6 +97,7 @@ export interface PagedResult<T> {
 
 export interface UpdateScannedFileRequest {
   tmdbId?: number
+  tvdbId?: number
   seasonNumber?: number
   episodeNumber?: number
   episodeNumber2?: number
@@ -116,6 +123,7 @@ export interface MediaInfo {
   title: string
   year: number | null
   tmdbId: number
+  tvdbId?: number | null
   imdbId: string | null
   mediaType: MediaType
   posterPath: string | null
@@ -147,6 +155,7 @@ export interface EpisodeInfo {
   stillPath: string | null
   airDate: string | null
   tmdbId?: number
+  tvdbId?: number
   isScanned?: boolean
 }
 
@@ -171,6 +180,12 @@ export interface MediaTypeCount {
   count: number
 }
 
+export interface MediaTypeStorage {
+  mediaType: MediaType
+  count: number
+  totalFileSize: number
+}
+
 export interface ScannedFileStats {
   totalFiles: number
   totalSuccessfulFiles: number
@@ -180,11 +195,84 @@ export interface ScannedFileStats {
   byMediaType: MediaTypeCount[]
 }
 
+export interface DashboardRecentItem {
+  id: number
+  mediaType: Extract<MediaType, "Movies" | "TvShows">
+  tmdbId: number
+  title: string | null
+  year: number | null
+  posterPath: string | null
+  imagePath: string | null
+  imageKind: "poster" | "still"
+  episodeTitle: string | null
+  seasonNumber: number | null
+  episodeNumber: number | null
+  episodeNumber2: number | null
+  sourceFile: string
+  destFile: string | null
+  fileSize: number | null
+  createdAt: string
+  updatedAt: string | null
+}
+
+export interface ScannedFilesDashboard {
+  totalFiles: number
+  totalSuccessfulFiles: number
+  totalFileSize: number
+  totalSuccessfulFileSize: number
+  distinctMovies: number
+  distinctTvShows: number
+  addedLast7Days: number
+  addedLast30Days: number
+  attentionCount: number
+  lastIngestedAt: string | null
+  lastLibraryItemAt: string | null
+  byStatus: StatusCount[]
+  byMediaType: MediaTypeCount[]
+  storageByMediaType: MediaTypeStorage[]
+  recentItems: DashboardRecentItem[]
+}
+
 export interface ResolvedSeriesIdentity {
   tmdbId: number
   imdbId: string | null
   canonicalTitle: string
   year: number | null
+}
+
+export const tvEpisodeSourceTypes = ["tmdb", "tvdb"] as const
+export type TvEpisodeSourceType = (typeof tvEpisodeSourceTypes)[number]
+
+export const tvdbSeasonTypes = [
+  "default",
+  "official",
+  "dvd",
+  "absolute",
+  "alternate",
+  "regional",
+] as const
+export type TvdbSeasonType = (typeof tvdbSeasonTypes)[number]
+
+export interface TvEpisodeSourceSelection {
+  tmdbId: number
+  source: TvEpisodeSourceType
+  tvdbId: number | null
+  tvdbSeriesName: string | null
+  tvdbSeasonType: TvdbSeasonType | null
+  updatedAt: string | null
+}
+
+export interface TvEpisodeSourceSelectionResponse extends TvEpisodeSourceSelection {
+  sourceLabel: string
+  tvdbSeasonTypeLabel: string | null
+}
+
+export interface TvdbSearchResult {
+  tvdbId: number
+  title: string
+  year: number | null
+  posterPath: string | null
+  overview: string | null
 }
 
 /* ── Bulk update types ── */

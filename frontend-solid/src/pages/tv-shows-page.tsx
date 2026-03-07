@@ -1,10 +1,9 @@
-import { A } from "@solidjs/router";
 import { useQuery } from "@tanstack/solid-query";
 import { For, Show, createMemo, createSignal } from "solid-js";
+import { Signal, Tv2 } from "lucide-solid";
 import { CardSkeleton, Pill } from "@/components/common-ui";
-import { MediaSearchHeader } from "@/components/media-shared";
+import { CollectionHero, MediaShelfCard } from "@/components/media-shared";
 import { mediaApi } from "@/lib/api";
-import { posterUrl } from "@/lib/media-helpers";
 
 type PillVariant = "default" | "success" | "info" | "warning" | "error";
 
@@ -62,24 +61,43 @@ function TvShowPosterCard(props: {
     const coverage = createMemo(() => episodeCoverageDisplay(showQuery.data?.episodeCount, showQuery.data?.episodeCountScanned));
 
     return (
-        <A href={props.href} class="poster-card group block">
-            <div class="aspect-2/3 relative">
-                <Show when={posterUrl(posterPath())} fallback={<div class="poster-fallback"><span>{displayTitle()}</span></div>}>
-                    {(src) => <img src={src()} alt={displayTitle()} loading="lazy" class="absolute inset-0 w-full h-full object-cover transition-transform duration-300" />}
-                </Show>
-                <Show when={statusLabel()}>{(status) => <div class="absolute top-2 left-2 z-4"><Pill variant={showStatusVariant(status())} solid>{status()}</Pill></div>}</Show>
-                <div class="poster-caption pb-0">
-                    <p class="text-sm font-semibold text-white leading-tight line-clamp-2">{displayTitle()}</p>
-                    <Show when={genresLine()}>{(genres) => <p class="text-xs text-white/70 mt-0.5 line-clamp-1">{genres()}</p>}</Show>
-                    <Show when={coverage().available}>
-                        <div class="mt-2 -mx-3 px-3 pt-2 pb-2 bg-black/70 border-t border-white/12">
-                            <div class="h-1.5 rounded-full bg-white/18 overflow-hidden"><div class={`h-full rounded-full transition-all duration-300 ${coverage().barClass}`} style={{ width: `${coverage().percent}%` }} /></div>
-                            <p class={`mt-1 text-[0.72rem] font-semibold text-center ${coverage().textClass}`}>{coverage().label}</p>
+        <MediaShelfCard
+            href={props.href}
+            title={displayTitle()}
+            posterPath={posterPath()}
+            eyebrow="TV Show"
+            subtitle={genresLine() ?? "Open the series to inspect seasons, files, and alternative episode orderings."}
+            footer={`TMDb ${props.tmdbId}`}
+            tone="tv"
+            topRight={
+                <Show
+                    when={statusLabel()}
+                    fallback={
+                        <div class="inline-flex items-center gap-2 rounded-full border border-white/12 bg-black/30 px-3 py-1.5 text-[0.68rem] font-mono uppercase tracking-[0.14em] text-white/70">
+                            <Signal size={13} />
+                            <span>Cataloged</span>
                         </div>
-                    </Show>
+                    }
+                >
+                    {(status) => <Pill variant={showStatusVariant(status())} solid>{status()}</Pill>}
+                </Show>
+            }
+        >
+            <Show
+                when={coverage().available}
+                fallback={<div class="flex items-center justify-between gap-3 text-xs text-white/70"><span>Metadata available</span><span class="rounded-full border border-white/12 bg-white/8 px-2 py-1">Open show</span></div>}
+            >
+                <div>
+                    <div class="h-1.5 overflow-hidden rounded-full bg-white/15">
+                        <div class={`h-full rounded-full transition-all duration-300 ${coverage().barClass}`} style={{ width: `${coverage().percent}%` }} />
+                    </div>
+                    <div class="mt-2 flex items-center justify-between gap-3">
+                        <p class={`text-[0.72rem] font-semibold ${coverage().textClass}`}>{coverage().label}</p>
+                        <span class="text-[0.68rem] font-mono uppercase tracking-[0.14em] text-white/58">Season view</span>
+                    </div>
                 </div>
-            </div>
-        </A>
+            </Show>
+        </MediaShelfCard>
     );
 }
 
@@ -89,15 +107,68 @@ export default function TvShowsPage() {
         queryKey: ["titles", "tv", searchTerm().trim().toLowerCase()],
         queryFn: () => mediaApi.listTitles("TvShows", searchTerm()),
     }));
+    const filteredTitles = createMemo(() => titlesQuery.data ?? []);
+    const titlesWithPosters = createMemo(() => filteredTitles().filter((item) => !!item.posterPath).length);
+    const filterLabel = createMemo(() => {
+        const value = searchTerm().trim();
+        return value.length > 0 ? `Filter: ${value}` : "Browse all shows";
+    });
 
     return (
         <section>
-            <MediaSearchHeader title="TV Shows" subtitle="Open any show and switch episode grouping when TMDb offers alternatives." searchValue={searchTerm()} onSearch={setSearchTerm} />
-            <Show when={titlesQuery.isLoading}><div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-5"><For each={Array(12)}>{() => <CardSkeleton />}</For></div></Show>
+            <CollectionHero
+                eyebrow="Signal Desk"
+                title="TV Shows"
+                subtitle="Track the series wall with a stronger sense of season coverage, current status, and the route into alternate episode groupings."
+                searchValue={searchTerm()}
+                onSearch={setSearchTerm}
+                statusLabel={filterLabel()}
+                stats={[
+                    {
+                        label: "Visible shows",
+                        value: String(filteredTitles().length),
+                        detail: searchTerm().trim() ? "Series matching the current filter." : "Tracked TV identities in the library.",
+                        accent: "cyan",
+                    },
+                    {
+                        label: "Artwork ready",
+                        value: String(titlesWithPosters()),
+                        detail: "Shows already carrying poster art in this view.",
+                        accent: "orange",
+                    },
+                    {
+                        label: "Season tools",
+                        value: "Episode groups",
+                        detail: "Open a show to swap TMDb orderings and review remapped files.",
+                        accent: "lime",
+                    },
+                    {
+                        label: "Workflow",
+                        value: "Coverage first",
+                        detail: "This view is tuned for missing episodes, scanned seasons, and file validation.",
+                        accent: "rose",
+                    },
+                ]}
+            />
+            <Show when={titlesQuery.isLoading}><div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5"><For each={Array(10)}>{() => <CardSkeleton />}</For></div></Show>
             <Show when={titlesQuery.isError}><p class="text-error text-sm">Unable to load TV shows right now.</p></Show>
             <Show when={!titlesQuery.isLoading && !titlesQuery.isError && (titlesQuery.data?.length ?? 0) === 0}><p class="text-text-tertiary text-sm py-12 text-center">No TV shows found for this filter.</p></Show>
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-5">
-                <For each={titlesQuery.data ?? []}>{(item) => <TvShowPosterCard href={`/shows/${item.tmdbId}`} tmdbId={item.tmdbId} fallbackTitle={item.title ?? "Unknown title"} fallbackYear={item.year} fallbackPosterPath={item.posterPath} />}</For>
+
+            <div class="mb-4 flex items-center justify-between gap-3">
+                <div>
+                    <p class="text-[0.68rem] font-mono uppercase tracking-[0.18em] text-text-tertiary">Series wall</p>
+                    <h2 class="mt-1 text-2xl font-semibold text-text-primary">Current shows</h2>
+                </div>
+                <div class="inline-flex items-center gap-2 rounded-full border border-border-default bg-surface-1/80 px-3 py-2 text-xs font-mono uppercase tracking-[0.14em] text-text-secondary">
+                    <Tv2 size={13} />
+                    <span>{filteredTitles().length} results</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+                <For each={filteredTitles()}>
+                    {(item) => <TvShowPosterCard href={`/shows/${item.tmdbId}`} tmdbId={item.tmdbId} fallbackTitle={item.title ?? "Unknown title"} fallbackYear={item.year} fallbackPosterPath={item.posterPath} />}
+                </For>
             </div>
         </section>
     );

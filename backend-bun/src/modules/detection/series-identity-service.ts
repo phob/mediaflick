@@ -1,6 +1,6 @@
 import { and, count, desc, eq, inArray, isNull } from "drizzle-orm"
 import type { AppDb } from "@/db/client"
-import { seriesAliases, seriesIdentityMap } from "@/db/schema"
+import { seriesAliases, seriesIdentityMap, tvEpisodeGroupSelections, tvEpisodeSourceSelections } from "@/db/schema"
 import { normalizeTitle, similarity } from "@/modules/detection/normalization"
 import type { TmdbClient, TmdbTvResult } from "@/modules/media-lookup/tmdb-client"
 import type { ResolvedSeriesIdentity } from "@/shared/types"
@@ -354,6 +354,19 @@ export class SeriesIdentityService {
         lastVerifiedAt: now,
       })
       .where(inArray(seriesIdentityMap.id, identityIds))
+
+    // Move sticky TV episode ordering selections to the new TMDb identity.
+    await this.db.delete(tvEpisodeGroupSelections).where(eq(tvEpisodeGroupSelections.tmdbId, input.newTmdbId))
+    await this.db
+      .update(tvEpisodeGroupSelections)
+      .set({ tmdbId: input.newTmdbId, updatedAt: now })
+      .where(eq(tvEpisodeGroupSelections.tmdbId, input.oldTmdbId))
+
+    await this.db.delete(tvEpisodeSourceSelections).where(eq(tvEpisodeSourceSelections.tmdbId, input.newTmdbId))
+    await this.db
+      .update(tvEpisodeSourceSelections)
+      .set({ tmdbId: input.newTmdbId, updatedAt: now })
+      .where(eq(tvEpisodeSourceSelections.tmdbId, input.oldTmdbId))
 
     // Ensure a canonical identity exists for the new title+year
     const newIdentity = await this.upsertIdentity({

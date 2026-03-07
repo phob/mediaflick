@@ -5,6 +5,7 @@ import type {
   BulkUpdateRequest,
   ConfigurationPayload,
   EpisodeGroupChangeResponse,
+  EpisodeSourceChangeResponse,
   LogLevel,
   LogsResponse,
   MediaInfo,
@@ -14,10 +15,14 @@ import type {
   MediaTitleItem,
   MovieFilesResponse,
   PagedResult,
+  ScannedFilesDashboard,
   ScannedFile,
   SeasonInfo,
   TvEpisodeGroupsResponse,
+  TvEpisodeSourceSelection,
   TvFilesResponse,
+  TvdbSearchResult,
+  TvdbSeasonType,
   UpdateScannedFileRequest,
 } from "@/lib/types"
 
@@ -99,6 +104,10 @@ export const mediaApi = {
     return request(`/scannedfiles?${query.toString()}`)
   },
 
+  getDashboard(): Promise<ScannedFilesDashboard> {
+    return request("/scannedfiles/dashboard")
+  },
+
   getMovie(tmdbId: number): Promise<MediaInfo> {
     return request(`/medialookup/movies/${tmdbId}`)
   },
@@ -109,6 +118,10 @@ export const mediaApi = {
 
   getShow(tmdbId: number): Promise<MediaInfo> {
     return request(`/medialookup/tvshows/${tmdbId}`)
+  },
+
+  getShowEpisodeSource(tmdbId: number): Promise<TvEpisodeSourceSelection> {
+    return request(`/medialookup/tvshows/${tmdbId}/episode-source`)
   },
 
   getShowEpisodeGroups(tmdbId: number): Promise<TvEpisodeGroupsResponse> {
@@ -128,6 +141,21 @@ export const mediaApi = {
       method: "PUT",
       body: JSON.stringify({ episodeGroupId }),
     })
+  },
+
+  setShowEpisodeSource(
+    tmdbId: number,
+    body: { source: "tmdb" | "tvdb"; tvdbId?: number | null; tvdbSeriesName?: string | null; tvdbSeasonType?: TvdbSeasonType | null },
+  ): Promise<EpisodeSourceChangeResponse> {
+    return request(`/medialookup/tvshows/${tmdbId}/episode-source`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    })
+  },
+
+  searchTvdbShows(tmdbId: number, title: string): Promise<TvdbSearchResult[]> {
+    const query = new URLSearchParams({ title: title.trim() })
+    return request(`/medialookup/tvshows/${tmdbId}/tvdb/search?${query.toString()}`)
   },
 
   getConfig(): Promise<ConfigurationPayload> {

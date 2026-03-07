@@ -9,6 +9,7 @@ import type {
 } from "@/lib/types";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p";
+const LEADING_SORT_ARTICLE_PATTERN = /^(?:the|an|a)\s+/i;
 
 export const mediaTypeOptions: MediaType[] = [
     "Movies",
@@ -33,6 +34,7 @@ export function cloneConfig(config: ConfigurationPayload): ConfigurationPayload 
             folderMappings: config.plex.folderMappings.map((m) => ({ ...m })),
         },
         tmDb: { ...config.tmDb },
+        tvDb: { ...config.tvDb },
         mediaDetection: { ...config.mediaDetection },
         zurg: { ...config.zurg },
     };
@@ -119,6 +121,17 @@ export function formatRuntime(runtimeMinutes: number | null | undefined): string
 export function formatRating(value: number | null | undefined): string {
     if (value === null || value === undefined || Number.isNaN(value)) return "N/A";
     return `${value.toFixed(1)} / 10`;
+}
+
+export function sortableMediaTitle(title: string | null | undefined): string {
+    if (!title) return "";
+    return title.trim().replace(LEADING_SORT_ARTICLE_PATTERN, "").trim().toLocaleLowerCase();
+}
+
+export function compareMediaTitles(left: string | null | undefined, right: string | null | undefined): number {
+    const sortKeyCompare = sortableMediaTitle(left).localeCompare(sortableMediaTitle(right));
+    if (sortKeyCompare !== 0) return sortKeyCompare;
+    return (left ?? "").localeCompare(right ?? "");
 }
 
 export function parseIntOr(value: string, fallback: number): number {
@@ -231,11 +244,13 @@ export function scannedFileHref(file: ScannedFile): string | null {
 
 export function posterUrl(path: string | null | undefined, size = "w500"): string | null {
     if (!path) return null;
+    if (path.startsWith("http://") || path.startsWith("https://")) return path;
     return `${TMDB_IMG}/${size}${path}`;
 }
 
 export function backdropUrl(path: string | null | undefined): string | null {
     if (!path) return null;
+    if (path.startsWith("http://") || path.startsWith("https://")) return path;
     return `${TMDB_IMG}/original${path}`;
 }
 
@@ -319,5 +334,5 @@ export async function listWantedShows(searchTerm = ""): Promise<WantedShowItem[]
 
     return details
         .filter((item): item is WantedShowItem => item !== null)
-        .sort((left, right) => right.missingEpisodes - left.missingEpisodes || left.title.localeCompare(right.title));
+        .sort((left, right) => right.missingEpisodes - left.missingEpisodes || compareMediaTitles(left.title, right.title));
 }

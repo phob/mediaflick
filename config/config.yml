@@ -6,15 +6,15 @@ plex:
   processNewFolderDelay: 30
   folderMappings:
     - sourceFolder: /mnt/zurg/movies
-      destinationFolder: /mnt/organized2/movies
+      destinationFolder: /mnt/organized/movies
       mediaType: Movies
-    - sourceFolder: /mnt/zurg/shows
-      destinationFolder: /mnt/organized2/tvseries
+    - sourceFolder: /mnt/zurg/tvseries
+      destinationFolder: /mnt/organized/tvseries
       mediaType: TvShows
 tmDb:
-  apiKey: fc03d062b72e55cdc9ce9e7c0960544f
+  apiKey: your-tmdb-api-key
 tvDb:
-  apiKey: 4a4e01fa-2af9-4750-b7e0-d0f093c77013
+  apiKey: your-tvdb-api-key
 mediaDetection:
   cacheDuration: 3600
   autoExtrasThresholdBytes: 104857600

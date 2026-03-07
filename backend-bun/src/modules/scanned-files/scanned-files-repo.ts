@@ -1,7 +1,17 @@
 import { and, asc, count, desc, eq, inArray, isNotNull, isNull, like, or, sql } from "drizzle-orm"
 import type { AppDb } from "@/db/client"
 import { scannedFiles } from "@/db/schema"
-import { formatGenres, parseGenres, type MediaStatus, type MediaType, type PagedResult, type ScannedFile, type ScannedFileStats, type UpdateScannedFileRequest } from "@/shared/types"
+import {
+  formatGenres,
+  parseGenres,
+  type MediaStatus,
+  type MediaType,
+  type MediaTypeStorage,
+  type PagedResult,
+  type ScannedFile,
+  type ScannedFileStats,
+  type UpdateScannedFileRequest,
+} from "@/shared/types"
 
 interface ListParams {
   status?: MediaStatus
@@ -14,6 +24,54 @@ interface ListParams {
   ids?: number[]
 }
 
+interface DashboardRecentCandidate {
+  id: number
+  mediaType: Extract<MediaType, "Movies" | "TvShows">
+  tmdbId: number
+  title: string | null
+  year: number | null
+  posterPath: string | null
+  seasonNumber: number | null
+  episodeNumber: number | null
+  episodeNumber2: number | null
+  sourceFile: string
+  destFile: string | null
+  fileSize: number | null
+  createdAt: string
+  updatedAt: string | null
+}
+
+interface DashboardSummary {
+  totalFiles: number
+  totalSuccessfulFiles: number
+  totalFileSize: number
+  totalSuccessfulFileSize: number
+  distinctMovies: number
+  distinctTvShows: number
+  addedLast7Days: number
+  addedLast30Days: number
+  attentionCount: number
+  lastIngestedAt: string | null
+  lastLibraryItemAt: string | null
+  byStatus: ScannedFileStats["byStatus"]
+  byMediaType: ScannedFileStats["byMediaType"]
+  storageByMediaType: MediaTypeStorage[]
+  recentItems: DashboardRecentCandidate[]
+}
+
+const sortableTitleSql = sql<string>`
+  lower(
+    trim(
+      case
+        when lower(trim(${scannedFiles.title})) like 'the %' then substr(trim(${scannedFiles.title}), 5)
+        when lower(trim(${scannedFiles.title})) like 'an %' then substr(trim(${scannedFiles.title}), 4)
+        when lower(trim(${scannedFiles.title})) like 'a %' then substr(trim(${scannedFiles.title}), 3)
+        else coalesce(trim(${scannedFiles.title}), '')
+      end
+    )
+  )
+`
+
 function mapRow(row: typeof scannedFiles.$inferSelect): ScannedFile {
   return {
     id: row.id,
@@ -23,6 +81,7 @@ function mapRow(row: typeof scannedFiles.$inferSelect): ScannedFile {
     fileHash: row.fileHash,
     mediaType: (row.mediaType as MediaType | null) ?? null,
     tmdbId: row.tmdbId,
+    tvdbId: row.tvdbId,
     imdbId: row.imdbId,
     title: row.title,
     year: row.year,
@@ -187,6 +246,7 @@ export class ScannedFilesRepo {
         fileHash: input.fileHash,
         mediaType: input.mediaType,
         tmdbId: null,
+        tvdbId: null,
         imdbId: null,
         title: null,
         year: null,
@@ -210,6 +270,7 @@ export class ScannedFilesRepo {
     destFile: string | null
     mediaType: MediaType
     tmdbId: number | null
+    tvdbId: number | null
     imdbId: string | null
     title: string | null
     year: number | null
@@ -226,6 +287,7 @@ export class ScannedFilesRepo {
         destFile: input.destFile,
         mediaType: input.mediaType,
         tmdbId: input.tmdbId,
+        tvdbId: input.tvdbId,
         imdbId: input.imdbId,
         title: input.title,
         year: input.year,
@@ -250,6 +312,7 @@ export class ScannedFilesRepo {
     }
 
     if (request.tmdbId !== undefined) updates.tmdbId = request.tmdbId > 0 ? request.tmdbId : null
+    if (request.tvdbId !== undefined) updates.tvdbId = request.tvdbId > 0 ? request.tvdbId : null
     if (request.mediaType !== undefined) updates.mediaType = request.mediaType
     if (request.seasonNumber !== undefined) updates.seasonNumber = request.seasonNumber > 0 ? request.seasonNumber : null
     if (request.episodeNumber !== undefined) updates.episodeNumber = request.episodeNumber > 0 ? request.episodeNumber : null
@@ -265,6 +328,7 @@ export class ScannedFilesRepo {
       .set({
         mediaType: "Extras",
         tmdbId: null,
+        tvdbId: null,
         imdbId: null,
         title: null,
         year: null,
@@ -319,7 +383,8 @@ export class ScannedFilesRepo {
       .from(scannedFiles)
       .where(and(...conditions))
       .orderBy(
-        asc(scannedFiles.title),
+        asc(sortableTitleSql),
+        asc(sql`lower(coalesce(${scannedFiles.title}, ''))`),
         desc(sql<number>`case when ${scannedFiles.posterPath} is not null then 1 else 0 end`),
         desc(scannedFiles.updatedAt),
       )
@@ -384,6 +449,113 @@ export class ScannedFilesRepo {
       totalSuccessfulFileSize: totals[0]?.totalSuccessfulFileSize ?? 0,
       byStatus: byStatusRows.map(row => ({ status: row.status as MediaStatus, count: row.count })),
       byMediaType: byMediaTypeRows.map(row => ({ mediaType: row.mediaType as MediaType, count: row.count })),
+    }
+  }
+
+  async dashboardSummary(limit = 6): Promise<DashboardSummary> {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+
+    const totals = await this.db.select({
+      totalFiles: sql<number>`count(*)`,
+      totalSuccessfulFiles: sql<number>`sum(case when ${scannedFiles.status} = 'Success' then 1 else 0 end)`,
+      totalFileSize: sql<number>`coalesce(sum(${scannedFiles.fileSize}), 0)`,
+      totalSuccessfulFileSize: sql<number>`coalesce(sum(case when ${scannedFiles.status} = 'Success' then ${scannedFiles.fileSize} else 0 end), 0)`,
+      distinctMovies: sql<number>`count(distinct case when ${scannedFiles.status} = 'Success' and ${scannedFiles.mediaType} = 'Movies' and ${scannedFiles.tmdbId} is not null then ${scannedFiles.tmdbId} end)`,
+      distinctTvShows: sql<number>`count(distinct case when ${scannedFiles.status} = 'Success' and ${scannedFiles.mediaType} = 'TvShows' and ${scannedFiles.tmdbId} is not null then ${scannedFiles.tmdbId} end)`,
+      addedLast7Days: sql<number>`sum(case when ${scannedFiles.createdAt} >= ${sevenDaysAgo} then 1 else 0 end)`,
+      addedLast30Days: sql<number>`sum(case when ${scannedFiles.createdAt} >= ${thirtyDaysAgo} then 1 else 0 end)`,
+      attentionCount: sql<number>`sum(case when ${scannedFiles.status} != 'Success' or ${scannedFiles.mediaType} = 'Unknown' then 1 else 0 end)`,
+      lastIngestedAt: sql<string | null>`max(${scannedFiles.createdAt})`,
+      lastLibraryItemAt: sql<string | null>`max(case when ${scannedFiles.status} = 'Success' and ${scannedFiles.mediaType} in ('Movies', 'TvShows') and ${scannedFiles.tmdbId} is not null then ${scannedFiles.createdAt} else null end)`,
+    }).from(scannedFiles)
+
+    const byStatusRows = await this.db
+      .select({ status: scannedFiles.status, count: sql<number>`count(*)` })
+      .from(scannedFiles)
+      .groupBy(scannedFiles.status)
+
+    const byMediaTypeRows = await this.db
+      .select({ mediaType: scannedFiles.mediaType, count: sql<number>`count(*)` })
+      .from(scannedFiles)
+      .where(isNotNull(scannedFiles.mediaType))
+      .groupBy(scannedFiles.mediaType)
+
+    const storageRows = await this.db
+      .select({
+        mediaType: scannedFiles.mediaType,
+        count: sql<number>`count(*)`,
+        totalFileSize: sql<number>`coalesce(sum(${scannedFiles.fileSize}), 0)`,
+      })
+      .from(scannedFiles)
+      .where(isNotNull(scannedFiles.mediaType))
+      .groupBy(scannedFiles.mediaType)
+
+    const recentRows = await this.db
+      .select({
+        id: scannedFiles.id,
+        mediaType: scannedFiles.mediaType,
+        tmdbId: scannedFiles.tmdbId,
+        title: scannedFiles.title,
+        year: scannedFiles.year,
+        posterPath: scannedFiles.posterPath,
+        seasonNumber: scannedFiles.seasonNumber,
+        episodeNumber: scannedFiles.episodeNumber,
+        episodeNumber2: scannedFiles.episodeNumber2,
+        sourceFile: scannedFiles.sourceFile,
+        destFile: scannedFiles.destFile,
+        fileSize: scannedFiles.fileSize,
+        createdAt: scannedFiles.createdAt,
+        updatedAt: scannedFiles.updatedAt,
+      })
+      .from(scannedFiles)
+      .where(and(
+        eq(scannedFiles.status, "Success"),
+        isNotNull(scannedFiles.tmdbId),
+        or(eq(scannedFiles.mediaType, "Movies"), eq(scannedFiles.mediaType, "TvShows")),
+      ))
+      .orderBy(desc(scannedFiles.createdAt), desc(scannedFiles.id))
+      .limit(limit)
+
+    return {
+      totalFiles: totals[0]?.totalFiles ?? 0,
+      totalSuccessfulFiles: totals[0]?.totalSuccessfulFiles ?? 0,
+      totalFileSize: totals[0]?.totalFileSize ?? 0,
+      totalSuccessfulFileSize: totals[0]?.totalSuccessfulFileSize ?? 0,
+      distinctMovies: totals[0]?.distinctMovies ?? 0,
+      distinctTvShows: totals[0]?.distinctTvShows ?? 0,
+      addedLast7Days: totals[0]?.addedLast7Days ?? 0,
+      addedLast30Days: totals[0]?.addedLast30Days ?? 0,
+      attentionCount: totals[0]?.attentionCount ?? 0,
+      lastIngestedAt: totals[0]?.lastIngestedAt ?? null,
+      lastLibraryItemAt: totals[0]?.lastLibraryItemAt ?? null,
+      byStatus: byStatusRows.map(row => ({ status: row.status as MediaStatus, count: row.count })),
+      byMediaType: byMediaTypeRows.map(row => ({ mediaType: row.mediaType as MediaType, count: row.count })),
+      storageByMediaType: storageRows.map(row => ({
+        mediaType: row.mediaType as MediaType,
+        count: row.count,
+        totalFileSize: row.totalFileSize,
+      })),
+      recentItems: recentRows
+        .filter((row): row is typeof row & { mediaType: DashboardRecentCandidate["mediaType"]; tmdbId: number } => (
+          row.mediaType === "Movies" || row.mediaType === "TvShows"
+        ) && row.tmdbId !== null)
+        .map(row => ({
+          id: row.id,
+          mediaType: row.mediaType,
+          tmdbId: row.tmdbId,
+          title: row.title,
+          year: row.year,
+          posterPath: row.posterPath,
+          seasonNumber: row.seasonNumber,
+          episodeNumber: row.episodeNumber,
+          episodeNumber2: row.episodeNumber2,
+          sourceFile: row.sourceFile,
+          destFile: row.destFile,
+          fileSize: row.fileSize,
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt,
+        })),
     }
   }
 

@@ -1,6 +1,7 @@
-import { useQueryClient } from "@tanstack/solid-query";
-import { For, Show, createEffect, createSignal } from "solid-js";
+import { useQuery, useQueryClient } from "@tanstack/solid-query";
+import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
 import { TmdbSearchInput } from "@/components/tmdb-search-input";
+import { TvdbSearchInput } from "@/components/tvdb-search-input";
 import { mediaApi } from "@/lib/api";
 import { parseEpisodeInfo } from "@/lib/filename-parser";
 import { fileName } from "@/lib/media-helpers";
@@ -12,7 +13,19 @@ import type {
     MediaStatus,
     MediaType,
     ScannedFile,
+    TvEpisodeSourceType,
+    TvdbSearchResult,
+    TvdbSeasonType,
 } from "@/lib/types";
+
+const tvdbSeasonTypeOptions: Array<{ value: TvdbSeasonType; label: string }> = [
+    { value: "default", label: "Default" },
+    { value: "official", label: "Official" },
+    { value: "dvd", label: "DVD" },
+    { value: "absolute", label: "Absolute" },
+    { value: "alternate", label: "Alternate" },
+    { value: "regional", label: "Regional" },
+];
 
 interface EditableFile {
     id: number;
@@ -25,6 +38,21 @@ interface EditableFile {
     mediaType: MediaType | null;
     confidence: "high" | "medium" | "low";
     ignoreAutoIncrement: boolean;
+}
+
+function deriveInitialSelectedMedia(files: ScannedFile[], preselectedTmdbId?: number): MediaSearchResult | null {
+    const explicitTmdbId = preselectedTmdbId ?? null;
+    const existingTmdbIds = [...new Set(files.map((file) => file.tmdbId).filter((tmdbId): tmdbId is number => tmdbId !== null))];
+    const tmdbId = explicitTmdbId ?? (existingTmdbIds.length === 1 ? existingTmdbIds[0] : null);
+    if (!tmdbId) return null;
+
+    const match = files.find((file) => file.tmdbId === tmdbId) ?? files.find((file) => file.title);
+    return {
+        tmdbId,
+        title: match?.title ?? "Current selection",
+        year: match?.year ?? null,
+        posterPath: null,
+    };
 }
 
 export function IdentifyModal(props: {
@@ -43,6 +71,17 @@ export function IdentifyModal(props: {
     const [saveResult, setSaveResult] = createSignal<string | null>(null);
     const [showDryRun, setShowDryRun] = createSignal(false);
     const [dryRunInfo, setDryRunInfo] = createSignal<string | null>(null);
+    const [episodeSource, setEpisodeSource] = createSignal<TvEpisodeSourceType>("tmdb");
+    const [selectedTvdbSeries, setSelectedTvdbSeries] = createSignal<TvdbSearchResult | null>(null);
+    const [tvdbSeasonType, setTvdbSeasonType] = createSignal<TvdbSeasonType>("default");
+    const [hydratedEpisodeSourceTmdbId, setHydratedEpisodeSourceTmdbId] = createSignal<number | null>(null);
+
+    const resetTvEpisodeSourceState = () => {
+        setEpisodeSource("tmdb");
+        setSelectedTvdbSeries(null);
+        setTvdbSeasonType("default");
+        setHydratedEpisodeSourceTmdbId(null);
+    };
 
     createEffect(() => {
         if (!props.open || props.files.length === 0) return;
@@ -50,6 +89,7 @@ export function IdentifyModal(props: {
         setSaveResult(null);
         setShowDryRun(false);
         setDryRunInfo(null);
+        resetTvEpisodeSourceState();
 
         const parsed = props.files
             .slice()
@@ -60,7 +100,7 @@ export function IdentifyModal(props: {
                     id: file.id,
                     sourceFile: file.sourceFile,
                     status: file.status,
-                    tmdbId: file.tmdbId,
+                    tmdbId: file.tmdbId ?? (props.initialMode === "TvShows" ? (props.preselectedTmdbId ?? null) : null),
                     seasonNumber: file.seasonNumber ?? info.season ?? null,
                     episodeNumber: file.episodeNumber ?? info.episode ?? null,
                     episodeNumber2: file.episodeNumber2 ?? info.episode2 ?? null,
@@ -70,13 +110,58 @@ export function IdentifyModal(props: {
                 };
             });
         setEditableFiles(parsed);
+        setSelectedMedia(props.initialMode === "TvShows" ? deriveInitialSelectedMedia(props.files, props.preselectedTmdbId) : null);
+    });
 
-        if (props.preselectedTmdbId) setSelectedMedia(null);
+    const selectedTvShowTmdbId = createMemo(() => mode() === "TvShows" ? (selectedMedia()?.tmdbId ?? null) : null);
+    const episodeSourceQuery = useQuery(() => ({
+        queryKey: ["tv-episode-source", selectedTvShowTmdbId()],
+        queryFn: () => mediaApi.getShowEpisodeSource(selectedTvShowTmdbId()!),
+        enabled: props.open && mode() === "TvShows" && selectedTvShowTmdbId() !== null,
+    }));
+    const selectedTvdbSeriesLabel = createMemo(() => {
+        const match = selectedTvdbSeries();
+        if (!match) return null;
+        return `${match.title} #${match.tvdbId}`;
+    });
+
+    createEffect(() => {
+        if (!props.open || mode() !== "TvShows") return;
+        const tmdbId = selectedTvShowTmdbId();
+        if (!tmdbId) {
+            resetTvEpisodeSourceState();
+            return;
+        }
+        if (hydratedEpisodeSourceTmdbId() === tmdbId || !episodeSourceQuery.isFetched) return;
+
+        const selection = episodeSourceQuery.data;
+        if (!selection || selection.tmdbId !== tmdbId || selection.source === "tmdb" || !selection.tvdbId) {
+            setEpisodeSource("tmdb");
+            setSelectedTvdbSeries(null);
+            setTvdbSeasonType("default");
+            setHydratedEpisodeSourceTmdbId(tmdbId);
+            return;
+        }
+
+        setEpisodeSource("tvdb");
+        setSelectedTvdbSeries({
+            tvdbId: selection.tvdbId,
+            title: selection.tvdbSeriesName ?? `TVDB #${selection.tvdbId}`,
+            year: null,
+            posterPath: null,
+            overview: null,
+        });
+        setTvdbSeasonType(selection.tvdbSeasonType ?? "default");
+        setHydratedEpisodeSourceTmdbId(tmdbId);
     });
 
     const handleTvMediaSelect = (result: MediaSearchResult) => {
+        const currentTmdbId = selectedTvShowTmdbId();
         setSelectedMedia(result);
         setEditableFiles((prev) => prev.map((f) => ({ ...f, tmdbId: result.tmdbId })));
+        if (currentTmdbId !== result.tmdbId) {
+            resetTvEpisodeSourceState();
+        }
     };
 
     const handleMovieMediaSelect = (index: number, result: MediaSearchResult) => {
@@ -143,7 +228,7 @@ export function IdentifyModal(props: {
 
         const req: BulkUpdateRequest = { dryRun, updates };
         const media = selectedMedia();
-        if (mode() === "TvShows" && props.reassignOldTmdbId && media) {
+        if (mode() === "TvShows" && props.reassignOldTmdbId && media && media.tmdbId !== props.reassignOldTmdbId) {
             req.identityUpdate = {
                 oldTmdbId: props.reassignOldTmdbId,
                 newTmdbId: media.tmdbId,
@@ -155,7 +240,20 @@ export function IdentifyModal(props: {
         return req;
     };
 
+    const validateBeforeSubmit = (): string | null => {
+        if (mode() !== "TvShows") return null;
+        if (!selectedMedia()) return "Select a TMDb show first.";
+        if (episodeSource() === "tvdb" && !selectedTvdbSeries()) return "Select a TVDB series before saving.";
+        return null;
+    };
+
     const handleDryRun = async () => {
+        const validationError = validateBeforeSubmit();
+        if (validationError) {
+            setDryRunInfo(validationError);
+            setShowDryRun(true);
+            return;
+        }
         const req = buildRequest(true);
         try {
             const result = await mediaApi.batchUpdate(req);
@@ -163,6 +261,12 @@ export function IdentifyModal(props: {
                 let info = `Will update ${result.willUpdate} of ${result.totalFiles} files.`;
                 if (result.conflicts.length > 0) info += ` ${result.conflicts.length} conflict(s): ${result.conflicts.map((c) => c.reason).join(", ")}`;
                 if (result.identityUpdate) info += ` Identity: ${result.identityUpdate.identitiesWillUpdate} mapping(s), ${result.identityUpdate.aliasesWillRedirect} alias(es) will redirect.`;
+                if (mode() === "TvShows" && selectedTvShowTmdbId() && episodeSourceQuery.data?.tmdbId === selectedTvShowTmdbId()) {
+                    const sourceChanged = episodeSource() !== episodeSourceQuery.data.source
+                        || (episodeSource() === "tvdb" && (selectedTvdbSeries()?.tvdbId ?? null) !== (episodeSourceQuery.data.tvdbId ?? null))
+                        || (episodeSource() === "tvdb" && tvdbSeasonType() !== (episodeSourceQuery.data.tvdbSeasonType ?? "default"));
+                    if (sourceChanged) info += " Preview uses the currently saved episode source. Save to apply the new ordering selection first.";
+                }
                 setDryRunInfo(info);
                 setShowDryRun(true);
             }
@@ -173,9 +277,37 @@ export function IdentifyModal(props: {
     };
 
     const handleSave = async () => {
+        const validationError = validateBeforeSubmit();
+        if (validationError) {
+            setSaveResult(validationError);
+            return;
+        }
         setSaving(true);
         setSaveResult(null);
         try {
+            let episodeSourceUpdated = false;
+            if (mode() === "TvShows" && selectedTvShowTmdbId()) {
+                const tmdbId = selectedTvShowTmdbId()!;
+                const existing = episodeSourceQuery.data?.tmdbId === tmdbId ? episodeSourceQuery.data : null;
+                const desiredTvdbSeries = selectedTvdbSeries();
+                const sourceChanged = existing?.source !== episodeSource()
+                    || (episodeSource() === "tvdb" && (existing?.tvdbId ?? null) !== (desiredTvdbSeries?.tvdbId ?? null))
+                    || (episodeSource() === "tvdb" && (existing?.tvdbSeriesName ?? null) !== (desiredTvdbSeries?.title ?? null))
+                    || (episodeSource() === "tvdb" && (existing?.tvdbSeasonType ?? "default") !== tvdbSeasonType());
+
+                if (sourceChanged) {
+                    await mediaApi.setShowEpisodeSource(tmdbId, episodeSource() === "tvdb" && desiredTvdbSeries
+                        ? {
+                            source: "tvdb",
+                            tvdbId: desiredTvdbSeries.tvdbId,
+                            tvdbSeriesName: desiredTvdbSeries.title,
+                            tvdbSeasonType: tvdbSeasonType(),
+                        }
+                        : { source: "tmdb" });
+                    episodeSourceUpdated = true;
+                }
+            }
+
             const req = buildRequest(false);
             const result = (await mediaApi.batchUpdate(req)) as BulkUpdateApplyResponse;
             const parts: string[] = [`Updated ${result.updated} file(s).`];
@@ -183,9 +315,10 @@ export function IdentifyModal(props: {
             if (result.symlinksFailed > 0) parts.push(`${result.symlinksFailed} symlink(s) failed.`);
             if (result.failed.length > 0) parts.push(`${result.failed.length} file(s) failed.`);
             if (result.identityUpdated) parts.push("Series identity updated.");
+            if (episodeSourceUpdated) parts.push("Episode source updated.");
             setSaveResult(parts.join(" "));
 
-            for (const key of ["titles", "show", "movie", "tv-files", "movie-files", "unidentified-files"]) {
+            for (const key of ["titles", "show", "movie", "tv-files", "movie-files", "unidentified-files", "tv-seasons", "tv-episode-source"]) {
                 void queryClient.invalidateQueries({ queryKey: [key] });
             }
 
@@ -230,20 +363,95 @@ export function IdentifyModal(props: {
                     </header>
 
                     <Show when={mode() === "TvShows"}>
-                        <div class="p-4 border-b border-border-subtle flex items-center gap-4">
-                            <TmdbSearchInput mediaType="TvShows" onSelect={handleTvMediaSelect} placeholder="Search for a TV show..." class="flex-1" />
-                            <Show when={selectedMedia()}>
-                                {(media) => (
-                                    <div class="flex items-center gap-2 shrink-0">
-                                        <Show when={media().posterPath}>{(poster) => <img src={`https://image.tmdb.org/t/p/w92${poster()}`} alt="" class="w-8 h-12 rounded object-cover" />}</Show>
-                                        <div class="text-sm">
-                                            <p class="font-medium text-text-primary">{media().title}</p>
-                                            <p class="text-xs text-text-tertiary">#{media().tmdbId} · {media().year ?? "?"}</p>
+                        <div class="p-4 border-b border-border-subtle space-y-4">
+                            <div class="flex flex-col gap-4 xl:flex-row xl:items-center">
+                                <TmdbSearchInput mediaType="TvShows" onSelect={handleTvMediaSelect} placeholder="Search for a TV show..." class="flex-1" />
+                                <Show when={selectedMedia()}>
+                                    {(media) => (
+                                        <div class="flex items-center gap-2 shrink-0">
+                                            <Show when={media().posterPath}>{(poster) => <img src={`https://image.tmdb.org/t/p/w92${poster()}`} alt="" class="w-8 h-12 rounded object-cover" />}</Show>
+                                            <div class="text-sm">
+                                                <p class="font-medium text-text-primary">{media().title}</p>
+                                                <p class="text-xs text-text-tertiary">TMDb #{media().tmdbId} · {media().year ?? "?"}</p>
+                                            </div>
                                         </div>
+                                    )}
+                                </Show>
+                            </div>
+                            <div class="rounded-xl border border-border-subtle bg-surface-2/70 p-4 space-y-4">
+                                <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-text-primary">Episode source</p>
+                                        <p class="mt-1 text-xs text-text-secondary">TMDb stays canonical for the show match. TVDB only changes episode ordering for this identify action and the saved show preference.</p>
                                     </div>
-                                )}
-                            </Show>
+                                    <div class="inline-flex rounded-xl border border-border-default bg-surface-1 p-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => setEpisodeSource("tmdb")}
+                                            class={`rounded-lg px-3 py-2 text-sm transition ${episodeSource() === "tmdb" ? "bg-info/10 text-info" : "text-text-secondary hover:text-text-primary"}`}
+                                        >
+                                            TMDb
+                                        </button>
+                                        <button
+                                            type="button"
+                                            disabled={!selectedTvShowTmdbId()}
+                                            onClick={() => setEpisodeSource("tvdb")}
+                                            class={`rounded-lg px-3 py-2 text-sm transition ${episodeSource() === "tvdb" ? "bg-warning-muted/20 text-warning" : "text-text-secondary hover:text-text-primary"} disabled:opacity-50 disabled:cursor-not-allowed`}
+                                        >
+                                            TVDB
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <Show when={episodeSource() === "tvdb"}>
+                                    <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_12rem]">
+                                        <Show
+                                            when={selectedTvShowTmdbId()}
+                                            fallback={
+                                                <div class="rounded-xl border border-dashed border-border-default bg-surface-1/80 px-4 py-3 text-sm text-text-secondary lg:col-span-2">
+                                                    Select the TMDb show first, then choose the matching TVDB series and season type.
+                                                </div>
+                                            }
+                                        >
+                                            {(tmdbId) => (
+                                                <>
+                                                    <div>
+                                                        <p class="mb-1 text-xs font-medium text-text-secondary">TVDB series search</p>
+                                                        <TvdbSearchInput
+                                                            tmdbId={tmdbId()}
+                                                            initialQuery={selectedTvdbSeries()?.title ?? selectedMedia()?.title ?? ""}
+                                                            onSelect={(result) => setSelectedTvdbSeries(result)}
+                                                            placeholder="Search TVDB for the episode ordering..."
+                                                        />
+                                                    </div>
+                                                    <label>
+                                                        <span class="mb-1 block text-xs font-medium text-text-secondary">TVDB season type</span>
+                                                        <select
+                                                            class="block w-full rounded-xl border border-border-default bg-surface-3 px-4 py-3 text-sm text-text-primary"
+                                                            value={tvdbSeasonType()}
+                                                            onChange={(e) => setTvdbSeasonType(e.currentTarget.value as TvdbSeasonType)}
+                                                        >
+                                                            <For each={tvdbSeasonTypeOptions}>{(option) => <option value={option.value}>{option.label}</option>}</For>
+                                                        </select>
+                                                    </label>
+                                                </>
+                                            )}
+                                        </Show>
+                                    </div>
+                                    <div class="flex flex-wrap items-center gap-2 text-sm text-text-secondary">
+                                        <Show when={selectedTvdbSeriesLabel()} fallback={<p>No TVDB series selected yet.</p>}>
+                                            {(label) => <p>Selected TVDB series: {label()}</p>}
+                                        </Show>
+                                        <Show when={episodeSourceQuery.data?.tmdbId === selectedTvShowTmdbId() && episodeSourceQuery.data?.source === "tvdb" && episodeSourceQuery.data?.tvdbSeriesName}>
+                                            {(name) => <span class="text-text-tertiary">Saved source: {name()}</span>}
+                                        </Show>
+                                    </div>
+                                </Show>
+                            </div>
                         </div>
+                        <Show when={selectedMedia() && editableFiles().some((file) => file.tmdbId === null)}>
+                            <p class="px-4 pb-4 -mt-2 text-xs text-text-tertiary">Using the current TMDb match for rows without a TMDb ID. Search only if you want to replace it.</p>
+                        </Show>
                     </Show>
 
                     <div class="flex-1 overflow-auto min-h-0">

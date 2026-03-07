@@ -16,6 +16,7 @@ import type {
   BulkUpdateApplyResponse,
   BulkUpdateConflict,
   BulkUpdateDryRunResponse,
+  DashboardRecentItem,
   BulkUpdateRequest,
   MediaStatus,
   MediaType,
@@ -43,6 +44,7 @@ function parseIds(value: string | null): number[] {
 interface ResolvedSymlinkMeta {
   mediaType: MediaType
   tmdbId: number | null
+  tvdbId: number | null
   imdbId: string | null
   title: string
   year: number | null
@@ -76,6 +78,7 @@ async function resolveSymlinkMeta(
       return {
         mediaType: scannedFile.mediaType,
         tmdbId: scannedFile.tmdbId,
+        tvdbId: scannedFile.tvdbId,
         imdbId: scannedFile.imdbId,
         title: scannedFile.title,
         year: scannedFile.year,
@@ -92,6 +95,7 @@ async function resolveSymlinkMeta(
     return {
       mediaType: scannedFile.mediaType,
       tmdbId: movie.tmdbId,
+      tvdbId: null,
       imdbId: movie.imdbId,
       title: movie.title,
       year: movie.year,
@@ -116,6 +120,7 @@ async function resolveSymlinkMeta(
     return {
       mediaType: scannedFile.mediaType,
       tmdbId: scannedFile.tmdbId,
+      tvdbId: scannedFile.tvdbId,
       imdbId: scannedFile.imdbId,
       title: scannedFile.title,
       year: scannedFile.year,
@@ -140,6 +145,7 @@ async function resolveSymlinkMeta(
   return {
     mediaType: scannedFile.mediaType,
     tmdbId: show.tmdbId,
+    tvdbId: show.tvdbId,
     imdbId: show.imdbId,
     title: show.title,
     year: show.year,
@@ -192,6 +198,7 @@ async function recreateSingleSymlink(id: number, context: AppContext, metadataRe
       destFile: destinationPath,
       mediaType: meta.mediaType,
       tmdbId: meta.tmdbId,
+      tvdbId: meta.tvdbId,
       imdbId: meta.imdbId,
       title: meta.title,
       year: meta.year,
@@ -226,6 +233,7 @@ async function recreateSingleSymlink(id: number, context: AppContext, metadataRe
           destFile: destinationPath,
           mediaType: meta.mediaType,
           tmdbId: meta.tmdbId,
+          tvdbId: meta.tvdbId,
           imdbId: meta.imdbId,
           title: meta.title,
           year: meta.year,
@@ -264,6 +272,7 @@ async function recreateSingleSymlink(id: number, context: AppContext, metadataRe
         destFile: null,
         mediaType: meta.mediaType,
         tmdbId: meta.tmdbId,
+        tvdbId: meta.tvdbId,
         imdbId: meta.imdbId,
         title: meta.title,
         year: meta.year,
@@ -284,9 +293,50 @@ async function recreateSingleSymlink(id: number, context: AppContext, metadataRe
   return updated
 }
 
+async function buildDashboardRecentItem(
+  item: Awaited<ReturnType<AppContext["scannedFilesRepo"]["dashboardSummary"]>>["recentItems"][number],
+  context: AppContext,
+): Promise<DashboardRecentItem> {
+  let imagePath = item.posterPath
+  let imageKind: DashboardRecentItem["imageKind"] = "poster"
+  let episodeTitle: string | null = null
+
+  if (item.mediaType === "TvShows" && item.seasonNumber && item.episodeNumber) {
+    try {
+      const episode = await context.tmdb.getTvEpisode(item.tmdbId, item.seasonNumber, item.episodeNumber)
+      if (episode.still_path) {
+        imagePath = episode.still_path
+        imageKind = "still"
+      }
+      episodeTitle = episode.name ?? null
+    } catch {
+    }
+  }
+
+  return {
+    id: item.id,
+    mediaType: item.mediaType,
+    tmdbId: item.tmdbId,
+    title: item.title,
+    year: item.year,
+    posterPath: item.posterPath,
+    imagePath,
+    imageKind,
+    episodeTitle,
+    seasonNumber: item.seasonNumber,
+    episodeNumber: item.episodeNumber,
+    episodeNumber2: item.episodeNumber2,
+    sourceFile: item.sourceFile,
+    destFile: item.destFile,
+    fileSize: item.fileSize,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  }
+}
+
 export function createScannedFilesRouter(context: AppContext) {
   const router = new Hono()
-  const metadataResolver = new MediaMetadataResolver(context.db, () => context.tmdb)
+  const metadataResolver = new MediaMetadataResolver(context.db, () => context.tmdb, () => context.tvdb)
 
   router.get(ENTRYPOINTS.api.scannedFiles.base, async c => {
     const result = await context.scannedFilesRepo.list({
@@ -306,6 +356,15 @@ export function createScannedFilesRouter(context: AppContext) {
   router.get(ENTRYPOINTS.api.scannedFiles.stats, async c => {
     const stats = await context.scannedFilesRepo.stats()
     return c.json(stats)
+  })
+
+  router.get(ENTRYPOINTS.api.scannedFiles.dashboard, async c => {
+    const dashboard = await context.scannedFilesRepo.dashboardSummary(6)
+    const recentItems = await Promise.all(dashboard.recentItems.map(item => buildDashboardRecentItem(item, context)))
+    return c.json({
+      ...dashboard,
+      recentItems,
+    })
   })
 
   router.get(ENTRYPOINTS.api.scannedFiles.tmdbIdsAndTitles, async c => {

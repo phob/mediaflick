@@ -6,6 +6,8 @@ import { createDb } from "@/db/client"
 import { FilePoller } from "@/modules/file-ingest/file-poller"
 import { startRuntimeJobs } from "@/modules/file-ingest/runtime-jobs"
 import { TmdbClient } from "@/modules/media-lookup/tmdb-client"
+import { TvdbClient } from "@/modules/media-lookup/tvdb-client"
+import { getInitialHealthEvents } from "@/modules/realtime/health-snapshot"
 import { createWsHub } from "@/modules/realtime/ws-hub"
 import { ScannedFilesRepo } from "@/modules/scanned-files/scanned-files-repo"
 import { createLogger } from "@/shared/logger"
@@ -18,9 +20,10 @@ await configStore.init()
 const initialConfig = await configStore.get()
 
 const db = await createDb(env.databasePath)
-const wsHub = createWsHub(logger)
+const wsHub = createWsHub(logger, () => getInitialHealthEvents(configStore))
 const scannedFilesRepo = new ScannedFilesRepo(db)
 const tmdbFactory = (apiKey: string) => new TmdbClient(apiKey)
+const tvdbFactory = (apiKey: string) => new TvdbClient(apiKey)
 
 const context: AppContext = {
   env,
@@ -31,6 +34,8 @@ const context: AppContext = {
   scannedFilesRepo,
   tmdb: tmdbFactory(initialConfig.tmDb.apiKey),
   tmdbFactory,
+  tvdb: tvdbFactory(initialConfig.tvDb.apiKey),
+  tvdbFactory,
   poller: null as unknown as FilePoller,
 }
 
