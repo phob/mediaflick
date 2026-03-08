@@ -13,8 +13,6 @@ plex:
       mediaType: TvShows
 tmDb:
   apiKey: fc03d062b72e55cdc9ce9e7c0960544f
-tvDb:
-  apiKey: 4a4e01fa-2af9-4750-b7e0-d0f093c77013
 mediaDetection:
   cacheDuration: 3600
   autoExtrasThresholdBytes: 104857600

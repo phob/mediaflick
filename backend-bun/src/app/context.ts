@@ -18,6 +18,6 @@ export interface AppContext {
   tmdb: TmdbClient
   tmdbFactory: (apiKey: string) => TmdbClient
   tvdb: TvdbClient
-  tvdbFactory: (apiKey: string) => TvdbClient
+  tvdbFactory: () => TvdbClient
   poller: FilePoller
 }
