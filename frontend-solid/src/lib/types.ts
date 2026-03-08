@@ -21,10 +21,6 @@ export interface TMDbConfig {
   apiKey: string
 }
 
-export interface TVDbConfig {
-  apiKey: string
-}
-
 export interface MediaDetectionConfig {
   cacheDuration: number
   autoExtrasThresholdBytes: number
@@ -37,7 +33,6 @@ export interface ZurgConfig {
 export interface ConfigurationPayload {
   plex: PlexConfig
   tmDb: TMDbConfig
-  tvDb: TVDbConfig
   mediaDetection: MediaDetectionConfig
   zurg: ZurgConfig
 }

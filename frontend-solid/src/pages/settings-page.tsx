@@ -86,10 +86,12 @@ export default function SettingsPage() {
                         </div>
 
                         <div class="bg-surface-2 border border-border-subtle rounded-xl p-5 space-y-4">
-                            <h3 class="text-base font-bold">TMDb + TVDB + Detection + Zurg</h3>
+                            <div>
+                                <h3 class="text-base font-bold">TMDb + Detection + Zurg</h3>
+                                <p class="mt-1 text-sm text-text-secondary">The TVDB API key is managed internally by the backend and is no longer editable from the UI.</p>
+                            </div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                 <label><span class={labelCls}>TMDb API key</span><input type="password" class={inputCls} value={config().tmDb.apiKey} onInput={(e) => patchDraft((c) => ({ ...c, tmDb: { ...c.tmDb, apiKey: e.currentTarget.value } }))} /></label>
-                                <label><span class={labelCls}>TVDB API key</span><input type="password" class={inputCls} value={config().tvDb.apiKey} onInput={(e) => patchDraft((c) => ({ ...c, tvDb: { ...c.tvDb, apiKey: e.currentTarget.value } }))} /></label>
                                 <label><span class={labelCls}>Cache duration (s)</span><input type="number" min="1" class={inputCls} value={String(config().mediaDetection.cacheDuration)} onInput={(e) => patchDraft((c) => ({ ...c, mediaDetection: { ...c.mediaDetection, cacheDuration: parseIntOr(e.currentTarget.value, c.mediaDetection.cacheDuration) } }))} /></label>
                                 <label><span class={labelCls}>Extras threshold (bytes)</span><input type="number" min="0" class={inputCls} value={String(config().mediaDetection.autoExtrasThresholdBytes)} onInput={(e) => patchDraft((c) => ({ ...c, mediaDetection: { ...c.mediaDetection, autoExtrasThresholdBytes: parseIntOr(e.currentTarget.value, c.mediaDetection.autoExtrasThresholdBytes) } }))} /></label>
                                 <label><span class={labelCls}>Zurg version file</span><input class={inputCls} value={config().zurg.versionLocation} onInput={(e) => patchDraft((c) => ({ ...c, zurg: { ...c.zurg, versionLocation: e.currentTarget.value } }))} /></label>

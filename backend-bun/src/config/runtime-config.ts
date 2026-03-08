@@ -21,9 +21,6 @@ export const configSchema = z.object({
   tmDb: z.object({
     apiKey: z.string().min(1),
   }),
-  tvDb: z.object({
-    apiKey: z.string().min(1),
-  }),
   mediaDetection: z.object({
     cacheDuration: z.number().int().positive(),
     autoExtrasThresholdBytes: z.number().int().nonnegative().max(1_073_741_824),
@@ -55,9 +52,6 @@ export const defaultConfig: ConfigurationPayload = {
   },
   tmDb: {
     apiKey: "your-tmdb-api-key",
-  },
-  tvDb: {
-    apiKey: "your-tvdb-api-key",
   },
   mediaDetection: {
     cacheDuration: 3600,

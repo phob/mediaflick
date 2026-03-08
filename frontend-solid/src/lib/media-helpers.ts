@@ -34,7 +34,6 @@ export function cloneConfig(config: ConfigurationPayload): ConfigurationPayload 
             folderMappings: config.plex.folderMappings.map((m) => ({ ...m })),
         },
         tmDb: { ...config.tmDb },
-        tvDb: { ...config.tvDb },
         mediaDetection: { ...config.mediaDetection },
         zurg: { ...config.zurg },
     };

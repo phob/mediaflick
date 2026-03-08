@@ -12,6 +12,8 @@ import { createWsHub } from "@/modules/realtime/ws-hub"
 import { ScannedFilesRepo } from "@/modules/scanned-files/scanned-files-repo"
 import { createLogger } from "@/shared/logger"
 
+const TVDB_API_KEY = "4a4e01fa-2af9-4750-b7e0-d0f093c77013"
+
 const env = loadEnv()
 const logger = createLogger(env.logsDir)
 
@@ -23,7 +25,7 @@ const db = await createDb(env.databasePath)
 const wsHub = createWsHub(logger, () => getInitialHealthEvents(configStore))
 const scannedFilesRepo = new ScannedFilesRepo(db)
 const tmdbFactory = (apiKey: string) => new TmdbClient(apiKey)
-const tvdbFactory = (apiKey: string) => new TvdbClient(apiKey)
+const tvdbFactory = () => new TvdbClient(TVDB_API_KEY)
 
 const context: AppContext = {
   env,
@@ -34,7 +36,7 @@ const context: AppContext = {
   scannedFilesRepo,
   tmdb: tmdbFactory(initialConfig.tmDb.apiKey),
   tmdbFactory,
-  tvdb: tvdbFactory(initialConfig.tvDb.apiKey),
+  tvdb: tvdbFactory(),
   tvdbFactory,
   poller: null as unknown as FilePoller,
 }

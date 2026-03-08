@@ -21,7 +21,6 @@ export function createConfigRouter(context: AppContext) {
 
     const updated = await context.configStore.update(parsed.data)
     context.tmdb = context.tmdbFactory(updated.tmDb.apiKey)
-    context.tvdb = context.tvdbFactory(updated.tvDb.apiKey)
     context.poller.restart(updated)
 
     return c.json(updated)
