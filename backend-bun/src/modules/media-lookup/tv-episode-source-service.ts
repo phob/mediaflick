@@ -68,12 +68,14 @@ export class TvEpisodeSourceService {
       return this.getSelection(tmdbId)
     }
 
-    if (!input.tvdbId || input.tvdbId <= 0) {
+    const tvdb = this.getTvdbClient()
+    const resolvedTvdbId = input.tvdbId && input.tvdbId > 0
+      ? input.tvdbId
+      : await this.getDefaultTvdbId(tmdbId)
+    if (!resolvedTvdbId || resolvedTvdbId <= 0) {
       throw new Error("TVDB source selection requires a valid tvdbId")
     }
-
-    const tvdb = this.getTvdbClient()
-    const series = await tvdb.getSeriesExtended(input.tvdbId)
+    const series = await tvdb.getSeriesExtended(resolvedTvdbId)
     const now = new Date().toISOString()
 
     await this.db
@@ -98,6 +100,27 @@ export class TvEpisodeSourceService {
       })
 
     return this.getSelection(tmdbId)
+  }
+
+  async getSuggestedTvdbSeries(tmdbId: number): Promise<TvdbSearchResult | null> {
+    try {
+      const resolvedTvdbId = await this.getDefaultTvdbId(tmdbId, { required: false })
+      if (!resolvedTvdbId) {
+        return null
+      }
+
+      const tvdb = this.getTvdbClient()
+      const series = await tvdb.getSeriesExtended(resolvedTvdbId)
+      return {
+        tvdbId: series.id,
+        title: series.name,
+        year: tvdb.seriesYear(series),
+        posterPath: tvdb.seriesPoster(series),
+        overview: series.overview ?? null,
+      }
+    } catch {
+      return null
+    }
   }
 
   async searchTvdbSeries(query: string): Promise<TvdbSearchResult[]> {
@@ -150,5 +173,21 @@ export class TvEpisodeSourceService {
     const tmdb = this.getTmdbClient()
     const show = await tmdb.getTv(tmdbId)
     return show.name
+  }
+
+  private async getDefaultTvdbId(tmdbId: number, options?: { required?: boolean }): Promise<number | null> {
+    const tmdb = this.getTmdbClient()
+    const externalIds = await tmdb.getTvExternalIds(tmdbId)
+    const tvdbId = externalIds.tvdb_id
+
+    if (Number.isInteger(tvdbId) && (tvdbId ?? 0) > 0) {
+      return tvdbId ?? null
+    }
+
+    if (options?.required === false) {
+      return null
+    }
+
+    throw new Error("TMDb did not provide a TVDB series id for this show")
   }
 }

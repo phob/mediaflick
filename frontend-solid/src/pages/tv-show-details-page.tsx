@@ -1,6 +1,6 @@
 import { A, useParams } from "@solidjs/router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/solid-query";
-import { AlertTriangle, Clapperboard, Layers3, RefreshCw, Tv2 } from "lucide-solid";
+import { AlertTriangle, Clapperboard, ExternalLink, Layers3, RefreshCw, Tv2 } from "lucide-solid";
 import { For, Show, createEffect, createMemo, createSignal, type ParentProps } from "solid-js";
 import { IdentifyModal } from "@/components/identify-modal";
 import { TvdbSearchInput } from "@/components/tvdb-search-input";
@@ -66,6 +66,29 @@ function seasonCoveragePercent(group: SeasonCoverageGroup): number {
     return Math.min(100, (group.episodeCountScanned / group.episodeCount) * 100);
 }
 
+function debridMediaManagerSeasonUrl(input: {
+    imdbId: string | null | undefined;
+    title: string;
+    seasonNumber: number;
+}): string {
+    if (input.imdbId) {
+        return `https://debridmediamanager.com/show/${encodeURIComponent(input.imdbId)}/${input.seasonNumber}`;
+    }
+
+    const season = String(input.seasonNumber).padStart(2, "0");
+    const query = encodeURIComponent(`${input.title} S${season}`);
+    return `https://debridmediamanager.com/search?query=${query}`;
+}
+
+function debridMediaManagerEpisodeUrl(input: {
+    imdbId: string | null | undefined;
+    title: string;
+    seasonNumber: number;
+    episodeNumber: number;
+}): string {
+    return debridMediaManagerSeasonUrl(input);
+}
+
 function DetailMetricTile(props: { label: string; value: string; detail: string; accent?: "orange" | "cyan" | "lime" | "rose" }) {
     const accentClass = () => {
         if (props.accent === "cyan") return "border-info/26 bg-info/8";
@@ -113,7 +136,21 @@ function EpisodeFileRow(props: { file: ScannedFile; sourceDividerPath?: string |
     );
 }
 
-function MissingEpisodeRow(props: { seasonNumber: number; episodeNumber: number; episodeName: string | null; airDate: string | null }) {
+function MissingEpisodeRow(props: {
+    seasonNumber: number;
+    episodeNumber: number;
+    episodeName: string | null;
+    airDate: string | null;
+    showTitle: string;
+    showImdbId: string | null | undefined;
+}) {
+    const dmmUrl = () => debridMediaManagerEpisodeUrl({
+        imdbId: props.showImdbId,
+        title: props.showTitle,
+        seasonNumber: props.seasonNumber,
+        episodeNumber: props.episodeNumber,
+    });
+
     return (
         <div class="flex items-start justify-between gap-4 rounded-[1.1rem] border border-warning/20 bg-warning-muted/16 px-4 py-3">
             <div class="min-w-0 flex-1">
@@ -123,7 +160,19 @@ function MissingEpisodeRow(props: { seasonNumber: number; episodeNumber: number;
                 </p>
                 <p class="mt-0.5 text-xs text-text-tertiary">Aired: {formatAirDate(props.airDate)}</p>
             </div>
-            <Pill variant="warning">Missing</Pill>
+            <div class="flex shrink-0 items-center gap-2">
+                <a
+                    href={dmmUrl()}
+                    target="_blank"
+                    rel="noreferrer"
+                    class="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-warning/30 bg-warning-muted/14 px-3 py-2 text-xs font-medium text-warning transition hover:bg-warning-muted/22 hover:text-yellow-100"
+                    title={`Open ${formatEpisodeCode(props.seasonNumber, props.episodeNumber, null)} season page in Debrid Media Manager`}
+                >
+                    <ExternalLink size={14} />
+                    <span>Open Season In DMM</span>
+                </a>
+                <Pill variant="warning">Missing</Pill>
+            </div>
         </div>
     );
 }
@@ -136,6 +185,7 @@ export default function TvShowDetailsPage() {
     const [reassignSeasonNumber, setReassignSeasonNumber] = createSignal<number | null>(null);
     const [pendingTvdbMatch, setPendingTvdbMatch] = createSignal<TvdbSearchResult | null>(null);
     const [pendingTvdbSeasonType, setPendingTvdbSeasonType] = createSignal<TvdbSeasonType>("default");
+    const [hydratedEpisodeSourceTmdbId, setHydratedEpisodeSourceTmdbId] = createSignal<number | null>(null);
 
     const showQuery = useQuery(() => ({ queryKey: ["show", tmdbId()], queryFn: () => mediaApi.getShow(tmdbId()), enabled: Number.isInteger(tmdbId()) && tmdbId() > 0 }));
     const episodeSourceQuery = useQuery(() => ({ queryKey: ["tv-episode-source", tmdbId()], queryFn: () => mediaApi.getShowEpisodeSource(tmdbId()), enabled: Number.isInteger(tmdbId()) && tmdbId() > 0 }));
@@ -177,18 +227,24 @@ export default function TvShowDetailsPage() {
     }));
 
     createEffect(() => {
+        const currentTmdbId = tmdbId();
         const selection = episodeSourceQuery.data;
-        if (!selection) return;
+        if (!selection || !episodeSourceQuery.isFetched || currentTmdbId <= 0 || hydratedEpisodeSourceTmdbId() === currentTmdbId) return;
         setPendingTvdbSeasonType(selection.tvdbSeasonType ?? "default");
-        if (selection.source === "tvdb" && selection.tvdbId && selection.tvdbSeriesName) {
-            setPendingTvdbMatch((current) => current?.tvdbId === selection.tvdbId ? current : {
-                tvdbId: selection.tvdbId,
-                title: selection.tvdbSeriesName,
+        const tvdbId = selection.tvdbId;
+        const tvdbSeriesName = selection.tvdbSeriesName;
+        if (selection.source === "tvdb" && tvdbId && tvdbSeriesName) {
+            setPendingTvdbMatch({
+                tvdbId,
+                title: tvdbSeriesName,
                 year: null,
                 posterPath: null,
                 overview: null,
             });
+        } else {
+            setPendingTvdbMatch(selection.suggestedTvdbSeries ?? null);
         }
+        setHydratedEpisodeSourceTmdbId(currentTmdbId);
     });
 
     const categorizedBySeason = createMemo(() => {
@@ -273,6 +329,13 @@ export default function TvShowDetailsPage() {
     });
     const activeEpisodeSource = createMemo(() => episodeSourceQuery.data);
     const activeEpisodeSourceLabel = createMemo(() => activeEpisodeSource()?.sourceLabel ?? "TMDb");
+    const isEpisodeSourceBusy = createMemo(() => episodeSourceMutation.isPending || episodeGroupMutation.isPending);
+    const pendingTvdbMatchesActive = createMemo(() => {
+        const active = activeEpisodeSource();
+        const pending = pendingTvdbMatch();
+        if (!active || active.source !== "tvdb" || !pending) return false;
+        return active.tvdbId === pending.tvdbId && (active.tvdbSeasonType ?? "default") === pendingTvdbSeasonType();
+    });
 
     const selectedEpisodeGroup = createMemo(() => {
         if (activeEpisodeSource()?.source === "tvdb") return null;
@@ -298,7 +361,7 @@ export default function TvShowDetailsPage() {
         episodeSourceMutation.mutate({ source: "tmdb" });
     };
     const handleUseTvdbEpisodeSource = () => {
-        const match = pendingTvdbMatch();
+        const match = pendingTvdbMatch() ?? episodeSourceQuery.data?.suggestedTvdbSeries ?? null;
         if (!match) return;
         if (!window.confirm("Switch to TVDB episode discovery for this show and rebuild the mapped episodes and symlinks?")) return;
         episodeSourceMutation.mutate({
@@ -420,83 +483,173 @@ export default function TvShowDetailsPage() {
                                 </DetailPanel>
                             </div>
 
-                            <DetailPanel eyebrow="Ordering" title="Episode source" aside={episodeSourceMutation.isPending || episodeGroupMutation.isPending ? "Rebuilding" : activeEpisodeSourceLabel()}>
-                                <div class="space-y-5">
-                                    <div class="flex flex-wrap items-center gap-2">
-                                        <button
-                                            type="button"
-                                            disabled={episodeSourceMutation.isPending || activeEpisodeSource()?.source === "tmdb"}
-                                            onClick={handleUseTmdbEpisodeSource}
-                                            class={`inline-flex min-h-11 items-center justify-center rounded-xl border px-4 py-2 text-sm transition ${activeEpisodeSource()?.source === "tmdb" ? "border-info/40 bg-info/10 text-info" : "border-border-default bg-surface-2 text-text-secondary hover:border-border-hover hover:text-text-primary"} disabled:opacity-50 disabled:cursor-not-allowed`}
-                                        >
-                                            TMDb standard discovery
-                                        </button>
-                                        <button
-                                            type="button"
-                                            disabled={episodeSourceMutation.isPending || !pendingTvdbMatch()}
-                                            onClick={handleUseTvdbEpisodeSource}
-                                            class={`inline-flex min-h-11 items-center justify-center rounded-xl border px-4 py-2 text-sm transition ${activeEpisodeSource()?.source === "tvdb" ? "border-warning/40 bg-warning-muted/20 text-warning" : "border-border-default bg-surface-2 text-text-secondary hover:border-border-hover hover:text-text-primary"} disabled:opacity-50 disabled:cursor-not-allowed`}
-                                        >
-                                            Use TVDB alternative
-                                        </button>
-                                        <Show when={activeEpisodeSource()?.source === "tvdb" && activeEpisodeSource()?.tvdbSeriesName}>
-                                            {(name) => <Pill variant="warning">Active: {name()}</Pill>}
+                            <DetailPanel eyebrow="Ordering" title="Episode source" aside={isEpisodeSourceBusy() ? "Rebuilding" : activeEpisodeSourceLabel()}>
+                                <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
+                                    <div class="space-y-4">
+                                        <p class="text-sm leading-relaxed text-text-secondary">TMDb stays canonical for show identity. Use TVDB only when you need a different episode order for this specific show.</p>
+
+                                        <div class="grid gap-3 sm:grid-cols-2">
+                                            <button
+                                                type="button"
+                                                disabled={isEpisodeSourceBusy() || activeEpisodeSource()?.source === "tmdb"}
+                                                onClick={handleUseTmdbEpisodeSource}
+                                                class={`flex min-h-[8.5rem] flex-col items-start justify-between rounded-xl border px-4 py-4 text-left transition ${activeEpisodeSource()?.source === "tmdb" ? "border-info/35 bg-info/10 text-text-primary" : "border-border-default bg-surface-0/35 text-text-primary hover:border-border-hover"} disabled:cursor-not-allowed disabled:opacity-60`}
+                                            >
+                                                <div class="flex w-full items-start justify-between gap-3">
+                                                    <div>
+                                                        <p class="text-sm font-semibold">TMDb standard order</p>
+                                                        <p class="mt-1 text-sm leading-relaxed text-text-secondary">Default discovery and canonical metadata for this show.</p>
+                                                    </div>
+                                                    <span class={`rounded-md border px-2 py-1 text-[0.68rem] font-medium ${activeEpisodeSource()?.source === "tmdb" ? "border-info/30 bg-info/10 text-info" : "border-border-default bg-surface-2 text-text-tertiary"}`}>
+                                                        {activeEpisodeSource()?.source === "tmdb" ? "Current" : "Available"}
+                                                    </span>
+                                                </div>
+                                                <p class="text-xs text-text-tertiary">{selectedEpisodeGroup() ? `Episode group override: ${selectedEpisodeGroup()?.name}` : "Uses the default TMDb episode order unless you choose a TMDb group below."}</p>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                disabled={isEpisodeSourceBusy() || !(pendingTvdbMatch() ?? episodeSourceQuery.data?.suggestedTvdbSeries) || pendingTvdbMatchesActive()}
+                                                onClick={handleUseTvdbEpisodeSource}
+                                                class={`flex min-h-[8.5rem] flex-col items-start justify-between rounded-xl border px-4 py-4 text-left transition ${activeEpisodeSource()?.source === "tvdb" ? "border-warning/28 bg-warning-muted/12 text-text-primary" : "border-border-default bg-surface-0/35 text-text-primary hover:border-border-hover"} disabled:cursor-not-allowed disabled:opacity-60`}
+                                            >
+                                                <div class="flex w-full items-start justify-between gap-3">
+                                                    <div>
+                                                        <p class="text-sm font-semibold">TVDB alternate order</p>
+                                                        <p class="mt-1 text-sm leading-relaxed text-text-secondary">Apply a selected TVDB series and season type for episode mapping.</p>
+                                                    </div>
+                                                    <span class={`rounded-md border px-2 py-1 text-[0.68rem] font-medium ${activeEpisodeSource()?.source === "tvdb" ? "border-warning/25 bg-warning-muted/15 text-warning" : "border-border-default bg-surface-2 text-text-tertiary"}`}>
+                                                        {activeEpisodeSource()?.source === "tvdb" ? "Current" : pendingTvdbMatch() ? "Ready" : "Select first"}
+                                                    </span>
+                                                </div>
+                                                <p class="text-xs text-text-tertiary">
+                                                    {pendingTvdbMatch()
+                                                        ? `${pendingTvdbMatch()?.title} · ${tvdbSeasonTypeOptions.find((option) => option.value === pendingTvdbSeasonType())?.label ?? "Default"}`
+                                                        : "Search for a TVDB series below before switching this show to TVDB ordering."}
+                                                </p>
+                                            </button>
+                                        </div>
+
+                                        <div class="rounded-xl border border-border-subtle bg-surface-0/28 p-4">
+                                            <div class="flex flex-wrap items-start justify-between gap-3">
+                                                <div>
+                                                    <h3 class="text-sm font-semibold text-text-primary">TVDB lookup</h3>
+                                                    <p class="mt-1 text-sm text-text-secondary">Pick the TVDB series match first, then choose which season ordering MediaFlick should use.</p>
+                                                </div>
+                                                <Show when={pendingTvdbMatch()}>
+                                                    {(match) => (
+                                                        <div class="rounded-lg border border-border-default bg-surface-2 px-3 py-2 text-sm text-text-secondary">
+                                                            <p class="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-text-tertiary">Selected</p>
+                                                            <p class="mt-1 font-medium text-text-primary">{match().title}</p>
+                                                            <p class="text-xs text-text-tertiary">TVDB #{match().tvdbId}{match().year ? ` · ${match().year}` : ""}</p>
+                                                        </div>
+                                                    )}
+                                                </Show>
+                                            </div>
+
+                                            <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_13rem]">
+                                                <label class="block">
+                                                    <span class="block text-xs font-medium text-text-secondary">TVDB series</span>
+                                                    <TvdbSearchInput
+                                                        class="mt-1"
+                                                        tmdbId={tmdbId()}
+                                                        initialQuery={show().title}
+                                                        onSelect={(result) => setPendingTvdbMatch(result)}
+                                                        placeholder="Search TVDB for an alternate episode order..."
+                                                    />
+                                                </label>
+
+                                                <label class="block">
+                                                    <span class="block text-xs font-medium text-text-secondary">Season type</span>
+                                                    <select
+                                                        class="mt-1 block w-full rounded-lg border border-border-default bg-surface-3 px-3.5 py-2.5 text-sm text-text-primary transition focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+                                                        value={pendingTvdbSeasonType()}
+                                                        onChange={(e) => setPendingTvdbSeasonType(e.currentTarget.value as TvdbSeasonType)}
+                                                    >
+                                                        <For each={tvdbSeasonTypeOptions}>{(option) => <option value={option.value}>{option.label}</option>}</For>
+                                                    </select>
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        <Show when={activeEpisodeSource()?.source !== "tvdb" && (episodeGroupsQuery.data?.groups.length ?? 0) > 1}>
+                                            <div class="rounded-xl border border-border-subtle bg-surface-0/28 p-4">
+                                                <div class="flex flex-wrap items-start justify-between gap-3">
+                                                    <div>
+                                                        <h3 class="text-sm font-semibold text-text-primary">TMDb group override</h3>
+                                                        <p class="mt-1 text-sm text-text-secondary">If you stay on TMDb, you can still switch to one of TMDb’s alternate episode groups.</p>
+                                                    </div>
+                                                    <Show when={selectedEpisodeGroup()}>
+                                                        {(g) => <Pill variant="info">{g().episodeCount} episodes</Pill>}
+                                                    </Show>
+                                                </div>
+                                                <select
+                                                    class="mt-4 block w-full max-w-xl rounded-lg border border-border-default bg-surface-3 px-3.5 py-2.5 text-sm text-text-primary transition focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+                                                    value={episodeGroupsQuery.data?.selectedEpisodeGroupId ?? ""}
+                                                    disabled={episodeGroupMutation.isPending}
+                                                    onChange={(e) => handleEpisodeGroupChange(e.currentTarget.value)}
+                                                >
+                                                    <option value="">Default TMDb order</option>
+                                                    <For each={episodeGroupsQuery.data?.groups ?? []}>{(g) => <option value={g.id}>{g.name}</option>}</For>
+                                                </select>
+                                                <Show when={selectedEpisodeGroup()}>
+                                                    {(g) => <p class="mt-3 text-sm text-text-secondary">Current TMDb group: <span class="font-medium text-text-primary">{g().name}</span></p>}
+                                                </Show>
+                                            </div>
                                         </Show>
-                                        <Show when={activeEpisodeSource()?.source === "tvdb" && activeEpisodeSource()?.tvdbSeasonTypeLabel}>
-                                            {(label) => <Pill>{label()}</Pill>}
+
+                                        <Show when={isEpisodeSourceBusy()}>
+                                            <p class="text-xs text-text-secondary animate-pulse">Rebuilding episodes and symlinks...</p>
                                         </Show>
                                     </div>
 
-                                    <p class="text-sm text-text-secondary">TMDb stays canonical for show identity. TVDB is only used when you explicitly switch this show’s episode discovery source.</p>
-
-                                    <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_12rem_auto] lg:items-end">
-                                        <div>
-                                            <p class="mb-1 text-xs font-medium text-text-secondary">TVDB series search</p>
-                                            <TvdbSearchInput
-                                                tmdbId={tmdbId()}
-                                                initialQuery={show().title}
-                                                onSelect={(result) => setPendingTvdbMatch(result)}
-                                                placeholder="Search TVDB for an alternate episode order..."
-                                            />
-                                        </div>
-                                        <label>
-                                            <span class="mb-1 block text-xs font-medium text-text-secondary">TVDB season type</span>
-                                            <select
-                                                class="block w-full rounded-xl border border-border-default bg-surface-3 px-4 py-3 text-sm text-text-primary"
-                                                value={pendingTvdbSeasonType()}
-                                                onChange={(e) => setPendingTvdbSeasonType(e.currentTarget.value as TvdbSeasonType)}
+                                    <aside class="rounded-xl border border-border-subtle bg-surface-0/32 p-4">
+                                        <p class="text-[0.7rem] font-medium uppercase tracking-[0.14em] text-text-tertiary">Current source</p>
+                                        <h3 class="mt-2 text-lg font-semibold text-text-primary">{activeEpisodeSourceLabel()}</h3>
+                                        <dl class="mt-4 space-y-3 text-sm">
+                                            <div>
+                                                <dt class="text-text-tertiary">Mode</dt>
+                                                <dd class="mt-1 text-text-primary">{activeEpisodeSource()?.source === "tvdb" ? "TVDB episode order" : "TMDb standard order"}</dd>
+                                            </div>
+                                            <Show
+                                                when={activeEpisodeSource()?.source === "tvdb"}
+                                                fallback={
+                                                    <div>
+                                                        <dt class="text-text-tertiary">TMDb group</dt>
+                                                        <dd class="mt-1 text-text-primary">{selectedEpisodeGroup()?.name ?? "Default TMDb order"}</dd>
+                                                    </div>
+                                                }
                                             >
-                                                <For each={tvdbSeasonTypeOptions}>{(option) => <option value={option.value}>{option.label}</option>}</For>
-                                            </select>
-                                        </label>
-                                        <div class="text-sm text-text-secondary">
-                                            <Show when={pendingTvdbMatch()}>
-                                                {(match) => <p>Pending TVDB series: {match().title} #{match().tvdbId}</p>}
+                                                <div>
+                                                    <dt class="text-text-tertiary">TVDB series</dt>
+                                                    <dd class="mt-1 text-text-primary">{activeEpisodeSource()?.tvdbSeriesName ?? "Unknown TVDB series"}</dd>
+                                                </div>
+                                                <div>
+                                                    <dt class="text-text-tertiary">Season type</dt>
+                                                    <dd class="mt-1 text-text-primary">{activeEpisodeSource()?.tvdbSeasonTypeLabel ?? "Default"}</dd>
+                                                </div>
+                                            </Show>
+                                        </dl>
+
+                                        <div class="mt-5 border-t border-border-subtle pt-4">
+                                            <p class="text-[0.7rem] font-medium uppercase tracking-[0.14em] text-text-tertiary">Pending TVDB selection</p>
+                                            <Show
+                                                when={pendingTvdbMatch()}
+                                                fallback={<p class="mt-2 text-sm leading-relaxed text-text-secondary">Choose a TVDB series if this show needs a different episode order than TMDb provides.</p>}
+                                            >
+                                                {(match) => (
+                                                    <div class="mt-2 space-y-2">
+                                                        <p class="text-sm font-medium text-text-primary">{match().title}</p>
+                                                        <p class="text-sm text-text-secondary">TVDB #{match().tvdbId}{match().year ? ` · ${match().year}` : ""}</p>
+                                                        <p class="text-sm text-text-secondary">Season type: {tvdbSeasonTypeOptions.find((option) => option.value === pendingTvdbSeasonType())?.label ?? "Default"}</p>
+                                                        <Show when={pendingTvdbMatchesActive()}>
+                                                            <p class="text-sm text-warning">This selection is already active.</p>
+                                                        </Show>
+                                                    </div>
+                                                )}
                                             </Show>
                                         </div>
-                                    </div>
-
-                                    <Show when={activeEpisodeSource()?.source !== "tvdb" && (episodeGroupsQuery.data?.groups.length ?? 0) > 1}>
-                                        <div class="space-y-3 rounded-[1.2rem] border border-border-subtle bg-surface-0/30 p-4">
-                                            <p class="text-sm text-text-secondary">If you stay on TMDb, you can still switch between TMDb episode groups when alternate orders are available.</p>
-                                            <select
-                                                class="block w-full max-w-xl rounded-xl border border-border-default bg-surface-3 px-4 py-3 text-sm text-text-primary"
-                                                value={episodeGroupsQuery.data?.selectedEpisodeGroupId ?? ""}
-                                                disabled={episodeGroupMutation.isPending}
-                                                onChange={(e) => handleEpisodeGroupChange(e.currentTarget.value)}
-                                            >
-                                                <option value="">Default TMDb order</option>
-                                                <For each={episodeGroupsQuery.data?.groups ?? []}>{(g) => <option value={g.id}>{g.name}</option>}</For>
-                                            </select>
-                                            <Show when={selectedEpisodeGroup()}>
-                                                {(g) => <Pill variant="info">TMDb group: {g().name} ({g().episodeCount} episodes)</Pill>}
-                                            </Show>
-                                        </div>
-                                    </Show>
-
-                                    <Show when={episodeSourceMutation.isPending || episodeGroupMutation.isPending}>
-                                        <p class="text-xs text-text-secondary animate-pulse">Rebuilding episodes and symlinks...</p>
-                                    </Show>
+                                    </aside>
                                 </div>
                             </DetailPanel>
 
@@ -525,6 +678,11 @@ export default function TvShowDetailsPage() {
                                             const missingCount = group.cards.filter((card) => card.kind === "missing").length;
                                             const reassignableFiles = reassignableFilesBySeason().get(group.seasonNumber) ?? [];
                                             const coveragePercent = seasonCoveragePercent(group);
+                                            const dmmSeasonUrl = debridMediaManagerSeasonUrl({
+                                                imdbId: show().imdbId,
+                                                title: show().title,
+                                                seasonNumber: group.seasonNumber,
+                                            });
                                             return (
                                                 <details class="group overflow-hidden rounded-[1.4rem] border border-border-subtle bg-surface-0/25" open={group.seasonNumber === 1}>
                                                     <summary class="flex cursor-pointer list-none items-center gap-4 px-4 py-4 [&::-webkit-details-marker]:hidden">
@@ -557,6 +715,18 @@ export default function TvShowDetailsPage() {
                                                                 Reassign Season
                                                             </button>
                                                         </Show>
+                                                        <Show when={missingCount > 0}>
+                                                            <a
+                                                                href={dmmSeasonUrl}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border-default bg-surface-1/70 px-4 py-2 text-sm text-text-secondary transition hover:border-border-hover hover:text-text-primary"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                <ExternalLink size={15} />
+                                                                <span>Search Season In DMM</span>
+                                                            </a>
+                                                        </Show>
                                                         <span class="text-text-tertiary transition-transform group-open:rotate-180">
                                                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4"><path d="m6 9 6 6 6-6" /></svg>
                                                         </span>
@@ -565,7 +735,7 @@ export default function TvShowDetailsPage() {
                                                         <For each={annotateSeasonCardsWithSourceDividers(group.cards)}>
                                                             {(entry) => entry.card.kind === "file"
                                                                 ? <EpisodeFileRow file={entry.card.file} sourceDividerPath={entry.sourceDividerPath} />
-                                                                : <MissingEpisodeRow seasonNumber={group.seasonNumber} episodeNumber={entry.card.episodeNumber} episodeName={entry.card.episodeName} airDate={entry.card.airDate} />}
+                                                                : <MissingEpisodeRow seasonNumber={group.seasonNumber} episodeNumber={entry.card.episodeNumber} episodeName={entry.card.episodeName} airDate={entry.card.airDate} showTitle={show().title} showImdbId={show().imdbId} />}
                                                         </For>
                                                     </div>
                                                 </details>

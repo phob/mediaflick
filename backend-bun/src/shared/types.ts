@@ -260,6 +260,7 @@ export interface TvEpisodeSourceSelection {
 export interface TvEpisodeSourceSelectionResponse extends TvEpisodeSourceSelection {
   sourceLabel: string
   tvdbSeasonTypeLabel: string | null
+  suggestedTvdbSeries: TvdbSearchResult | null
 }
 
 export interface TvdbSearchResult {

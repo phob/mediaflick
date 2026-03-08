@@ -133,14 +133,15 @@ async function getEpisodeGroupSelection(context: AppContext, tmdbId: number): Pr
   }
 }
 
-function toEpisodeSourceResponse(
+async function toEpisodeSourceResponse(
   selection: Awaited<ReturnType<TvEpisodeSourceService["getSelection"]>>,
   episodeSourceService: TvEpisodeSourceService,
-): TvEpisodeSourceSelectionResponse {
+): Promise<TvEpisodeSourceSelectionResponse> {
   return {
     ...selection,
     sourceLabel: selection.source === "tvdb" ? "TVDB" : "TMDb",
     tvdbSeasonTypeLabel: episodeSourceService.seasonTypeLabel(selection.tvdbSeasonType),
+    suggestedTvdbSeries: await episodeSourceService.getSuggestedTvdbSeries(selection.tmdbId),
   }
 }
 
@@ -314,7 +315,7 @@ export function createMediaLookupRouter(context: AppContext) {
     }
 
     const selection = await episodeSourceService.getSelection(tmdbId)
-    return c.json(toEpisodeSourceResponse(selection, episodeSourceService))
+    return c.json(await toEpisodeSourceResponse(selection, episodeSourceService))
   })
 
   router.put(ENTRYPOINTS.api.mediaLookup.tvEpisodeSourceByTmdbId, async c => {
@@ -337,7 +338,7 @@ export function createMediaLookupRouter(context: AppContext) {
       })
       const rebuildResult = await context.poller.rebuildTvShow(tmdbId)
       return c.json({
-        ...toEpisodeSourceResponse(selection, episodeSourceService),
+        ...(await toEpisodeSourceResponse(selection, episodeSourceService)),
         removedCount: rebuildResult.removedCount,
         reprocessedCount: rebuildResult.reprocessedCount,
       })

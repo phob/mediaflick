@@ -194,6 +194,7 @@ export interface TvEpisodeSourceSelection {
   tvdbSeriesName: string | null
   tvdbSeasonType: TvdbSeasonType | null
   tvdbSeasonTypeLabel: string | null
+  suggestedTvdbSeries: TvdbSearchResult | null
   updatedAt: string | null
 }
 

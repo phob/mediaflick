@@ -135,9 +135,17 @@ export function IdentifyModal(props: {
         if (hydratedEpisodeSourceTmdbId() === tmdbId || !episodeSourceQuery.isFetched) return;
 
         const selection = episodeSourceQuery.data;
-        if (!selection || selection.tmdbId !== tmdbId || selection.source === "tmdb" || !selection.tvdbId) {
+        if (!selection || selection.tmdbId !== tmdbId) {
             setEpisodeSource("tmdb");
             setSelectedTvdbSeries(null);
+            setTvdbSeasonType("default");
+            setHydratedEpisodeSourceTmdbId(tmdbId);
+            return;
+        }
+
+        if (selection.source === "tmdb" || !selection.tvdbId) {
+            setEpisodeSource("tmdb");
+            setSelectedTvdbSeries(selection.suggestedTvdbSeries ?? null);
             setTvdbSeasonType("default");
             setHydratedEpisodeSourceTmdbId(tmdbId);
             return;
@@ -243,7 +251,7 @@ export function IdentifyModal(props: {
     const validateBeforeSubmit = (): string | null => {
         if (mode() !== "TvShows") return null;
         if (!selectedMedia()) return "Select a TMDb show first.";
-        if (episodeSource() === "tvdb" && !selectedTvdbSeries()) return "Select a TVDB series before saving.";
+        if (episodeSource() === "tvdb" && !selectedTvdbSeries() && !episodeSourceQuery.data?.suggestedTvdbSeries) return "Select a TVDB series before saving.";
         return null;
     };
 
@@ -289,7 +297,7 @@ export function IdentifyModal(props: {
             if (mode() === "TvShows" && selectedTvShowTmdbId()) {
                 const tmdbId = selectedTvShowTmdbId()!;
                 const existing = episodeSourceQuery.data?.tmdbId === tmdbId ? episodeSourceQuery.data : null;
-                const desiredTvdbSeries = selectedTvdbSeries();
+                const desiredTvdbSeries = selectedTvdbSeries() ?? existing?.suggestedTvdbSeries ?? null;
                 const sourceChanged = existing?.source !== episodeSource()
                     || (episodeSource() === "tvdb" && (existing?.tvdbId ?? null) !== (desiredTvdbSeries?.tvdbId ?? null))
                     || (episodeSource() === "tvdb" && (existing?.tvdbSeriesName ?? null) !== (desiredTvdbSeries?.title ?? null))
@@ -303,7 +311,9 @@ export function IdentifyModal(props: {
                             tvdbSeriesName: desiredTvdbSeries.title,
                             tvdbSeasonType: tvdbSeasonType(),
                         }
-                        : { source: "tmdb" });
+                        : episodeSource() === "tvdb"
+                            ? { source: "tvdb", tvdbSeasonType: tvdbSeasonType() }
+                            : { source: "tmdb" });
                     episodeSourceUpdated = true;
                 }
             }

@@ -70,6 +70,7 @@ export interface TmdbTvDetails extends TmdbTvResult {
 
 export interface TmdbExternalIds {
   imdb_id: string | null
+  tvdb_id?: number | null
 }
 
 export interface TmdbCastMember {
