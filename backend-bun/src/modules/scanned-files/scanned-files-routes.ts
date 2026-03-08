@@ -1,6 +1,11 @@
+import { basename, dirname } from "node:path"
+import { eq } from "drizzle-orm"
 import { Hono } from "hono"
 import { ENTRYPOINTS } from "@/app/entrypoints"
 import type { AppContext } from "@/app/context"
+import { seriesAliases, seriesIdentityMap, tvEpisodeGroupSelections, tvEpisodeSourceSelections } from "@/db/schema"
+import { extractYear, normalizeTitle } from "@/modules/detection/normalization"
+import { detectMovieFromFileName } from "@/modules/detection/movie-detection"
 import {
   buildDestinationPath,
   cleanupDeadSymlinks,
@@ -12,14 +17,20 @@ import { HttpError } from "@/shared/errors"
 import { parseJson } from "@/shared/http"
 import { SeriesIdentityService } from "@/modules/detection/series-identity-service"
 import { MediaMetadataResolver } from "@/modules/media-lookup/media-metadata-resolver"
+import { TvEpisodeSourceService } from "@/modules/media-lookup/tv-episode-source-service"
+import { parseSourceEpisodeMatch } from "@/modules/media-lookup/tv-season-remapper"
 import type {
   BulkUpdateApplyResponse,
   BulkUpdateConflict,
   BulkUpdateDryRunResponse,
-  DashboardRecentItem,
   BulkUpdateRequest,
+  DashboardRecentItem,
   MediaStatus,
   MediaType,
+  ScannedFile,
+  ScannedFileDiagnostics,
+  TriageInboxItem,
+  TriageInboxResponse,
   UpdateScannedFileRequest,
 } from "@/shared/types"
 
@@ -334,9 +345,619 @@ async function buildDashboardRecentItem(
   }
 }
 
+function timestampValue(value: string | null | undefined): number {
+  if (!value) {
+    return 0
+  }
+
+  const parsed = Date.parse(value)
+  return Number.isNaN(parsed) ? 0 : parsed
+}
+
+function inferredUnidentifiedKind(file: ScannedFile): "unidentified-tv" | "unidentified-movie" {
+  return parseSourceEpisodeMatch(file.sourceFile) ? "unidentified-tv" : "unidentified-movie"
+}
+
+function triagePriorityForMissing(missingEpisodes: number): TriageInboxItem["priority"] {
+  if (missingEpisodes >= 12) {
+    return "critical"
+  }
+  if (missingEpisodes >= 5) {
+    return "high"
+  }
+  if (missingEpisodes >= 2) {
+    return "medium"
+  }
+  return "low"
+}
+
+function formatSourceFolder(path: string): string {
+  const label = basename(path)
+  return label.length > 0 ? label : path
+}
+
+function buildTrackedEpisodeMap(files: ScannedFile[]): Map<number, Set<number>> {
+  const trackedBySeason = new Map<number, Set<number>>()
+
+  for (const file of files) {
+    if (file.status !== "Success" || !file.seasonNumber || !file.episodeNumber || file.seasonNumber <= 0 || file.episodeNumber <= 0) {
+      continue
+    }
+
+    const seasonSet = trackedBySeason.get(file.seasonNumber) ?? new Set<number>()
+    const endEpisode = file.episodeNumber2 !== null && file.episodeNumber2 > file.episodeNumber
+      ? file.episodeNumber2
+      : file.episodeNumber
+
+    for (let episodeNumber = file.episodeNumber; episodeNumber <= endEpisode; episodeNumber += 1) {
+      seasonSet.add(episodeNumber)
+    }
+
+    trackedBySeason.set(file.seasonNumber, seasonSet)
+  }
+
+  return trackedBySeason
+}
+
+function countTrackedEpisodes(trackedBySeason: Map<number, Set<number>>): number {
+  let total = 0
+  for (const episodes of trackedBySeason.values()) {
+    total += episodes.size
+  }
+  return total
+}
+
+function formatSeasonLabel(seasonNumber: number): string {
+  return `Season ${String(seasonNumber).padStart(2, "0")}`
+}
+
+function summarizeMissingSeasons(missingSeasons: number[]): string | null {
+  if (missingSeasons.length === 0) {
+    return null
+  }
+  if (missingSeasons.length === 1) {
+    return `Missing in ${formatSeasonLabel(missingSeasons[0])}`
+  }
+  const labels = missingSeasons.slice(0, 3).map(formatSeasonLabel)
+  return `Missing in ${labels.join(", ")}${missingSeasons.length > 3 ? ` +${missingSeasons.length - 3} more` : ""}`
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  if (items.length === 0) {
+    return []
+  }
+
+  const results = new Array<R>(items.length)
+  let cursor = 0
+  const workerCount = Math.max(1, Math.min(limit, items.length))
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (true) {
+        const index = cursor
+        cursor += 1
+        if (index >= items.length) {
+          return
+        }
+        results[index] = await mapper(items[index], index)
+      }
+    }),
+  )
+
+  return results
+}
+
+async function buildWantedTriageItems(
+  context: AppContext,
+  episodeSourceService: TvEpisodeSourceService,
+  searchTerm?: string,
+): Promise<TriageInboxItem[]> {
+  const titles = await context.scannedFilesRepo.listForTmdbTitles("TvShows", searchTerm)
+  const todayIso = new Date().toISOString().slice(0, 10)
+
+  const items: Array<TriageInboxItem | null> = await mapWithConcurrency(
+    titles.filter((title): title is typeof title & { tmdbId: number } => title.tmdbId !== null),
+    6,
+    async title => {
+      const tmdbId = title.tmdbId
+      try {
+        const [show, sourceSelection, trackedFiles, episodeGroupSelection] = await Promise.all([
+          context.tmdb.getTv(tmdbId),
+          episodeSourceService.getSelection(tmdbId),
+          context.scannedFilesRepo.listByTmdbId(tmdbId, "TvShows"),
+          context.db
+            .select({
+              episodeGroupId: tvEpisodeGroupSelections.episodeGroupId,
+              episodeGroupName: tvEpisodeGroupSelections.episodeGroupName,
+            })
+            .from(tvEpisodeGroupSelections)
+            .where(eq(tvEpisodeGroupSelections.tmdbId, tmdbId))
+            .limit(1),
+        ])
+
+        const trackedBySeason = buildTrackedEpisodeMap(trackedFiles)
+        const scannedEpisodes = countTrackedEpisodes(trackedBySeason)
+        let airedEpisodes = 0
+        const expectedBySeason = new Map<number, number>()
+
+        if (sourceSelection.source === "tvdb" && sourceSelection.tvdbId) {
+          const tvdbEpisodes = await context.tvdb.getSeriesEpisodes(
+            sourceSelection.tvdbId,
+            sourceSelection.tvdbSeasonType ?? "default",
+          )
+
+          for (const episode of tvdbEpisodes) {
+            if (episode.seasonNumber <= 0 || episode.number <= 0) {
+              continue
+            }
+            if (episode.aired && episode.aired > todayIso) {
+              continue
+            }
+            airedEpisodes += 1
+            expectedBySeason.set(episode.seasonNumber, (expectedBySeason.get(episode.seasonNumber) ?? 0) + 1)
+          }
+        } else {
+          const seasonNumbers = (show.seasons ?? [])
+            .map(season => season.season_number)
+            .filter((seasonNumber): seasonNumber is number => Number.isInteger(seasonNumber) && seasonNumber > 0)
+
+          const seasonPayloads = await mapWithConcurrency(seasonNumbers, 4, async seasonNumber => {
+            try {
+              return await context.tmdb.getTvSeason(tmdbId, seasonNumber)
+            } catch {
+              return null
+            }
+          })
+
+          for (const season of seasonPayloads) {
+            if (!season) {
+              continue
+            }
+
+            let airedCountForSeason = 0
+            for (const episode of season.episodes ?? []) {
+              if (!episode.episode_number || episode.episode_number <= 0) {
+                continue
+              }
+              if (episode.air_date && episode.air_date > todayIso) {
+                continue
+              }
+              airedCountForSeason += 1
+            }
+
+            if (airedCountForSeason <= 0) {
+              continue
+            }
+
+            airedEpisodes += airedCountForSeason
+            expectedBySeason.set(season.season_number, airedCountForSeason)
+          }
+        }
+
+        const missingEpisodes = Math.max(0, airedEpisodes - scannedEpisodes)
+        const lastAirDate = show.last_air_date ?? null
+        if (missingEpisodes <= 0 || airedEpisodes <= 0) {
+          return null
+        }
+
+        const missingSeasons = [...expectedBySeason.entries()]
+          .filter(([seasonNumber, expectedCount]) => (trackedBySeason.get(seasonNumber)?.size ?? 0) < expectedCount)
+          .map(([seasonNumber]) => seasonNumber)
+          .sort((left, right) => left - right)
+        const missingSeasonSummary = summarizeMissingSeasons(missingSeasons)
+        const firstMissingSeason = missingSeasons[0] ?? null
+
+        let diagnosticsSummary = "Aired episodes are missing from the tracked library files."
+        if (sourceSelection.source === "tvdb") {
+          diagnosticsSummary = "TVDB ordering is active, so gaps may be caused by an alternate season order."
+        } else if (episodeGroupSelection[0]?.episodeGroupId) {
+          diagnosticsSummary = "A TMDb episode group override is active, so gaps may be caused by a custom order."
+        } else if (scannedEpisodes === 0) {
+          diagnosticsSummary = "No successful TV files are currently tracked for this show."
+        }
+        if (missingSeasonSummary) {
+          diagnosticsSummary = `${diagnosticsSummary} ${missingSeasonSummary}.`
+        }
+
+        const lastActivityAt = trackedFiles.reduce<string | null>((latest, file) => {
+          const candidate = file.updatedAt ?? file.createdAt
+          if (!latest) {
+            return candidate
+          }
+          return timestampValue(candidate) > timestampValue(latest) ? candidate : latest
+        }, lastAirDate)
+
+        return {
+          id: `wanted-show:${tmdbId}`,
+          kind: "wanted-show",
+          entityType: "show",
+          entityId: String(tmdbId),
+          title: show.name,
+          subtitle: `${missingEpisodes} aired episode${missingEpisodes === 1 ? "" : "s"} missing from the library${missingSeasonSummary ? ` · ${missingSeasonSummary}` : ""}`,
+          priority: triagePriorityForMissing(missingEpisodes),
+          recommendedAction: firstMissingSeason ? `Inspect ${formatSeasonLabel(firstMissingSeason)} and search from the show view` : "Inspect missing seasons and search from the show view",
+          counts: {
+            files: trackedFiles.filter(file => file.status === "Success").length,
+            missingEpisodes,
+            scannedEpisodes,
+            airedEpisodes,
+            missingSeasons,
+          },
+          lastActivityAt,
+          deepLink: firstMissingSeason ? `/shows/${tmdbId}?season=${firstMissingSeason}#season-${firstMissingSeason}` : `/shows/${tmdbId}`,
+          tmdbId,
+          imdbId: null,
+          mediaType: "TvShows",
+          sourceFolder: null,
+          fileIds: trackedFiles.map(file => file.id),
+          sampleFiles: [],
+          diagnosticsSummary,
+        } satisfies TriageInboxItem
+      } catch {
+        return null
+      }
+    },
+  )
+
+  return items
+    .filter((item): item is TriageInboxItem => item !== null)
+    .sort((left, right) => {
+      const missingDiff = (right.counts.missingEpisodes ?? 0) - (left.counts.missingEpisodes ?? 0)
+      if (missingDiff !== 0) {
+        return missingDiff
+      }
+      return left.title.localeCompare(right.title)
+    })
+}
+
+function buildAttentionTriageItems(files: ScannedFile[]): TriageInboxItem[] {
+  const groups = new Map<string, {
+    kind: TriageInboxItem["kind"]
+    entityType: TriageInboxItem["entityType"]
+    entityId: string
+    title: string
+    subtitle: string
+    priority: TriageInboxItem["priority"]
+    recommendedAction: string
+    deepLink: string
+    tmdbId?: number | null
+    mediaType?: MediaType | null
+    sourceFolder?: string | null
+    diagnosticsSummary?: string | null
+    files: ScannedFile[]
+  }>()
+
+  for (const file of files) {
+    const sourceFolder = dirname(file.sourceFile)
+    const kind = file.status === "Duplicate"
+      ? "duplicate-file"
+      : file.status === "Failed"
+        ? "failed-file"
+        : inferredUnidentifiedKind(file)
+    const canRouteToEntity = file.tmdbId !== null && (file.mediaType === "TvShows" || file.mediaType === "Movies")
+    const entityType: TriageInboxItem["entityType"] = canRouteToEntity
+      ? (file.mediaType === "TvShows" ? "show" : "movie")
+      : "folder"
+    const entityId = canRouteToEntity ? String(file.tmdbId) : sourceFolder
+    const key = `${kind}:${entityType}:${entityId}`
+    const existing = groups.get(key)
+
+    if (existing) {
+      existing.files.push(file)
+      continue
+    }
+
+    const title = entityType === "folder"
+      ? formatSourceFolder(sourceFolder)
+      : (file.title ?? `TMDb ${file.tmdbId}`)
+
+    const subtitle = kind === "duplicate-file"
+      ? "Duplicate or conflicting rows need cleanup"
+      : kind === "failed-file"
+        ? "One or more files failed processing"
+        : kind === "unidentified-tv"
+          ? "TV files still need a show identity"
+          : "Movie files still need a movie identity"
+
+    const recommendedAction = kind === "duplicate-file"
+      ? "Retry symlink build or mark extras"
+      : kind === "failed-file"
+        ? "Inspect the files and reprocess the affected rows"
+        : kind === "unidentified-tv"
+          ? "Identify as TV show"
+          : "Identify as movie"
+
+    const priority: TriageInboxItem["priority"] = kind === "duplicate-file"
+      ? "high"
+      : kind === "failed-file"
+        ? "high"
+        : "medium"
+
+    const deepLink = canRouteToEntity
+      ? (file.mediaType === "TvShows" ? `/shows/${file.tmdbId}` : `/movies/${file.tmdbId}`)
+      : "/unidentified"
+
+    const diagnosticsSummary = kind === "duplicate-file"
+      ? "A destination conflict prevented this file from owning its library path."
+      : kind === "failed-file"
+        ? "The ingest pipeline did not finish successfully for at least one file in this group."
+        : "The file parser has not produced a confirmed media identity yet."
+
+    groups.set(key, {
+      kind,
+      entityType,
+      entityId,
+      title,
+      subtitle,
+      priority,
+      recommendedAction,
+      deepLink,
+      tmdbId: file.tmdbId,
+      mediaType: file.mediaType,
+      sourceFolder,
+      diagnosticsSummary,
+      files: [file],
+    })
+  }
+
+  return [...groups.entries()]
+    .map(([key, group]) => {
+      const lastActivityAt = group.files.reduce<string | null>((latest, file) => {
+        const candidate = file.updatedAt ?? file.createdAt
+        if (!latest) {
+          return candidate
+        }
+        return timestampValue(candidate) > timestampValue(latest) ? candidate : latest
+      }, null)
+
+      return {
+        id: key,
+        kind: group.kind,
+        entityType: group.entityType,
+        entityId: group.entityId,
+        title: group.title,
+        subtitle: `${group.subtitle} · ${group.files.length} file${group.files.length === 1 ? "" : "s"}`,
+        priority: group.priority,
+        recommendedAction: group.recommendedAction,
+        counts: {
+          files: group.files.length,
+        },
+        lastActivityAt,
+        deepLink: group.deepLink,
+        tmdbId: group.tmdbId ?? null,
+        mediaType: group.mediaType ?? null,
+        sourceFolder: group.sourceFolder ?? null,
+        fileIds: group.files.map(file => file.id),
+        sampleFiles: group.files.slice(0, 3),
+        diagnosticsSummary: group.diagnosticsSummary ?? null,
+      } satisfies TriageInboxItem
+    })
+    .sort((left, right) => timestampValue(right.lastActivityAt) - timestampValue(left.lastActivityAt))
+}
+
+async function buildEpisodeOrderTriageItems(
+  context: AppContext,
+  episodeSourceService: TvEpisodeSourceService,
+  searchTerm?: string,
+): Promise<TriageInboxItem[]> {
+  const [sourceRows, groupRows] = await Promise.all([
+    context.db
+      .select({
+        tmdbId: tvEpisodeSourceSelections.tmdbId,
+      })
+      .from(tvEpisodeSourceSelections),
+    context.db
+      .select({
+        tmdbId: tvEpisodeGroupSelections.tmdbId,
+        episodeGroupId: tvEpisodeGroupSelections.episodeGroupId,
+        episodeGroupName: tvEpisodeGroupSelections.episodeGroupName,
+      })
+      .from(tvEpisodeGroupSelections),
+  ])
+
+  const tmdbIds = [...new Set([
+    ...sourceRows.map(row => row.tmdbId),
+    ...groupRows.map(row => row.tmdbId),
+  ])]
+
+  const items: Array<TriageInboxItem | null> = await mapWithConcurrency(tmdbIds, 6, async tmdbId => {
+    const [sourceSelection, groupSelection, trackedFiles] = await Promise.all([
+      episodeSourceService.getSelection(tmdbId),
+      context.db
+        .select({
+          episodeGroupId: tvEpisodeGroupSelections.episodeGroupId,
+          episodeGroupName: tvEpisodeGroupSelections.episodeGroupName,
+        })
+        .from(tvEpisodeGroupSelections)
+        .where(eq(tvEpisodeGroupSelections.tmdbId, tmdbId))
+        .limit(1),
+      context.scannedFilesRepo.listByTmdbId(tmdbId, "TvShows"),
+    ])
+
+    const hasNonDefaultSource = sourceSelection.source === "tvdb"
+    const group = groupSelection[0] ?? null
+    if (!hasNonDefaultSource && !group?.episodeGroupId) {
+      return null
+    }
+
+    const title = trackedFiles[0]?.title ?? `TMDb ${tmdbId}`
+    if (searchTerm && !title.toLowerCase().includes(searchTerm.toLowerCase())) {
+      return null
+    }
+
+    const lastActivityAt = trackedFiles.reduce<string | null>((latest, file) => {
+      const candidate = file.updatedAt ?? file.createdAt
+      if (!latest) {
+        return candidate
+      }
+      return timestampValue(candidate) > timestampValue(latest) ? candidate : latest
+    }, null)
+
+    const sourceLabel = hasNonDefaultSource
+      ? `TVDB ${sourceSelection.tvdbSeriesName ?? `#${sourceSelection.tvdbId}`}`
+      : null
+    const groupLabel = group?.episodeGroupName ?? null
+    const summary = sourceLabel && groupLabel
+      ? `Using ${sourceLabel} and TMDb group ${groupLabel}.`
+      : sourceLabel
+        ? `Using ${sourceLabel} as the active episode order.`
+        : `Using TMDb group ${groupLabel}.`
+
+    return {
+      id: `episode-order:${tmdbId}`,
+      kind: "episode-order",
+      entityType: "show",
+      entityId: String(tmdbId),
+      title,
+      subtitle: summary,
+      priority: "medium",
+      recommendedAction: "Review episode ordering and missing seasons from the show view",
+      counts: {
+        files: trackedFiles.length,
+      },
+      lastActivityAt,
+      deepLink: `/shows/${tmdbId}`,
+      tmdbId,
+      mediaType: "TvShows",
+      sourceFolder: trackedFiles[0] ? dirname(trackedFiles[0].sourceFile) : null,
+      fileIds: trackedFiles.map(file => file.id),
+      sampleFiles: trackedFiles.slice(0, 3),
+      diagnosticsSummary: summary,
+    } satisfies TriageInboxItem
+  })
+
+  return items
+    .filter((item): item is TriageInboxItem => item !== null)
+    .sort((left, right) => left.title.localeCompare(right.title))
+}
+
+async function buildScannedFileDiagnostics(
+  file: ScannedFile,
+  context: AppContext,
+  metadataResolver: MediaMetadataResolver,
+  episodeSourceService: TvEpisodeSourceService,
+): Promise<ScannedFileDiagnostics> {
+  const tvParse = parseSourceEpisodeMatch(file.sourceFile)
+  const movieParse = detectMovieFromFileName(file.sourceFile)
+  const inferredMediaKind = tvParse ? "tv" : movieParse ? "movie" : "unknown"
+
+  const [identityRows, aliasRows, episodeGroupSelection] = file.tmdbId
+    ? await Promise.all([
+      context.db
+        .select({
+          normalizedTitle: seriesIdentityMap.normalizedTitle,
+          canonicalTitle: seriesIdentityMap.canonicalTitle,
+        })
+        .from(seriesIdentityMap)
+        .where(eq(seriesIdentityMap.tmdbId, file.tmdbId)),
+      context.db
+        .select({ aliasNormalized: seriesAliases.aliasNormalized })
+        .from(seriesAliases)
+        .innerJoin(seriesIdentityMap, eq(seriesAliases.identityId, seriesIdentityMap.id))
+        .where(eq(seriesIdentityMap.tmdbId, file.tmdbId)),
+      file.mediaType === "TvShows"
+        ? context.db
+          .select({
+            episodeGroupId: tvEpisodeGroupSelections.episodeGroupId,
+            episodeGroupName: tvEpisodeGroupSelections.episodeGroupName,
+          })
+          .from(tvEpisodeGroupSelections)
+          .where(eq(tvEpisodeGroupSelections.tmdbId, file.tmdbId))
+          .limit(1)
+        : Promise.resolve([]),
+    ])
+    : [[], [], []]
+
+  const sourceSelection = file.tmdbId && file.mediaType === "TvShows"
+    ? await episodeSourceService.getSelection(file.tmdbId)
+    : null
+
+  const resolvedTv = file.tmdbId && file.mediaType === "TvShows" && file.seasonNumber && file.episodeNumber
+    ? await metadataResolver.resolveTv({
+      tmdbId: file.tmdbId,
+      seasonNumber: file.seasonNumber,
+      episodeNumber: file.episodeNumber,
+      episodeNumber2: file.episodeNumber2,
+      imdbIdFallback: file.imdbId,
+      sourceFile: file.sourceFile,
+    }).catch(() => null)
+    : null
+
+  const explanations: string[] = []
+  if (file.status === "Duplicate") {
+    explanations.push("This row was marked duplicate because another file already owned the destination path.")
+  }
+  if (file.status === "Failed") {
+    explanations.push("This row failed during processing and did not complete library organization.")
+  }
+  if (file.mediaType === "Unknown" || file.tmdbId === null) {
+    explanations.push("The file does not have a confirmed media identity yet.")
+  }
+  if (resolvedTv?.episodeRemap) {
+    explanations.push("Episode compaction was detected, so the stored episode numbers were remapped to the active order.")
+  }
+  if (sourceSelection?.source === "tvdb") {
+    explanations.push("TVDB ordering is active for this show, so season numbering may differ from TMDb.")
+  }
+  if (episodeGroupSelection[0]?.episodeGroupId) {
+    explanations.push("A TMDb episode group override is active for this show.")
+  }
+
+  return {
+    file,
+    inferredMediaKind,
+    parseSnapshot: {
+      rawTitleHint: tvParse?.titleHint ?? movieParse?.title ?? null,
+      normalizedTitleHint: tvParse ? normalizeTitle(tvParse.titleHint) : movieParse?.normalizedTitle ?? null,
+      yearHint: movieParse?.year ?? extractYear(file.sourceFile),
+      seasonNumber: tvParse?.seasonNumber ?? null,
+      episodeNumber: tvParse?.episodeNumber ?? null,
+      episodeNumber2: tvParse?.episodeNumber2 ?? null,
+    },
+    identitySnapshot: {
+      mediaType: file.mediaType,
+      tmdbId: file.tmdbId,
+      tvdbId: file.tvdbId,
+      imdbId: file.imdbId,
+      storedTitle: file.title,
+      storedYear: file.year,
+      canonicalTitle: identityRows[0]?.canonicalTitle ?? null,
+      normalizedTitle: identityRows[0]?.normalizedTitle ?? null,
+      aliases: aliasRows.map(row => row.aliasNormalized),
+    },
+    orderingSnapshot: {
+      episodeSource: sourceSelection?.source ?? null,
+      tvdbSeriesName: sourceSelection?.tvdbSeriesName ?? null,
+      tvdbSeasonType: sourceSelection?.tvdbSeasonType ?? null,
+      episodeGroupId: episodeGroupSelection[0]?.episodeGroupId ?? null,
+      episodeGroupName: episodeGroupSelection[0]?.episodeGroupName ?? null,
+      storedSeasonNumber: file.seasonNumber,
+      storedEpisodeNumber: file.episodeNumber,
+      storedEpisodeNumber2: file.episodeNumber2,
+      resolvedSeasonNumber: resolvedTv?.seasonNumber ?? null,
+      resolvedEpisodeNumber: resolvedTv?.episodeNumber ?? null,
+      resolvedEpisodeNumber2: resolvedTv?.episodeNumber2 ?? null,
+      episodeRemap: resolvedTv?.episodeRemap ?? file.episodeRemap ?? null,
+    },
+    processingSnapshot: {
+      status: file.status,
+      destinationFile: file.destFile,
+      createdAt: file.createdAt,
+      updatedAt: file.updatedAt,
+      versionUpdated: file.versionUpdated,
+      updateToVersion: file.updateToVersion,
+    },
+    explanations,
+  }
+}
+
 export function createScannedFilesRouter(context: AppContext) {
   const router = new Hono()
   const metadataResolver = new MediaMetadataResolver(context.db, () => context.tmdb, () => context.tvdb)
+  const episodeSourceService = new TvEpisodeSourceService(context.db, () => context.tmdb, () => context.tvdb)
 
   router.get(ENTRYPOINTS.api.scannedFiles.base, async c => {
     const result = await context.scannedFilesRepo.list({
@@ -365,6 +986,47 @@ export function createScannedFilesRouter(context: AppContext) {
       ...dashboard,
       recentItems,
     })
+  })
+
+  router.get(ENTRYPOINTS.api.scannedFiles.inbox, async c => {
+    const searchTerm = c.req.query("searchTerm")?.trim() ?? ""
+    const attentionFiles = await context.scannedFilesRepo.listAttentionCandidates(searchTerm || undefined)
+    const [wantedItems, episodeOrderItems] = await Promise.all([
+      buildWantedTriageItems(context, episodeSourceService, searchTerm || undefined),
+      buildEpisodeOrderTriageItems(context, episodeSourceService, searchTerm || undefined),
+    ])
+
+    const attentionItems = buildAttentionTriageItems(attentionFiles)
+    const items = [...wantedItems, ...episodeOrderItems, ...attentionItems]
+      .sort((left, right) => {
+        const priorityOrder: Record<TriageInboxItem["priority"], number> = {
+          critical: 0,
+          high: 1,
+          medium: 2,
+          low: 3,
+        }
+        const byPriority = priorityOrder[left.priority] - priorityOrder[right.priority]
+        if (byPriority !== 0) {
+          return byPriority
+        }
+        return timestampValue(right.lastActivityAt) - timestampValue(left.lastActivityAt)
+      })
+
+    const summary: TriageInboxResponse["summary"] = {
+      totalItems: items.length,
+      wantedShows: wantedItems.length,
+      missingEpisodes: wantedItems.reduce((total, item) => total + (item.counts.missingEpisodes ?? 0), 0),
+      unidentifiedTv: attentionItems.filter(item => item.kind === "unidentified-tv").reduce((total, item) => total + item.counts.files, 0),
+      unidentifiedMovies: attentionItems.filter(item => item.kind === "unidentified-movie").reduce((total, item) => total + item.counts.files, 0),
+      failedFiles: attentionItems.filter(item => item.kind === "failed-file").reduce((total, item) => total + item.counts.files, 0),
+      duplicateFiles: attentionItems.filter(item => item.kind === "duplicate-file").reduce((total, item) => total + item.counts.files, 0),
+      episodeOrderShows: episodeOrderItems.length,
+    }
+
+    return c.json({
+      items,
+      summary,
+    } satisfies TriageInboxResponse)
   })
 
   router.get(ENTRYPOINTS.api.scannedFiles.tmdbIdsAndTitles, async c => {
@@ -588,6 +1250,21 @@ export function createScannedFilesRouter(context: AppContext) {
       return c.json({ error: "Not found" }, 404)
     }
     return c.json(item)
+  })
+
+  router.get(ENTRYPOINTS.api.scannedFiles.diagnosticsById, async c => {
+    const id = Number(c.req.param("id"))
+    if (!Number.isInteger(id)) {
+      return c.json({ error: "Invalid id" }, 400)
+    }
+
+    const item = await context.scannedFilesRepo.findById(id)
+    if (!item) {
+      return c.json({ error: "Not found" }, 404)
+    }
+
+    const diagnostics = await buildScannedFileDiagnostics(item, context, metadataResolver, episodeSourceService)
+    return c.json(diagnostics)
   })
 
   router.patch(ENTRYPOINTS.api.scannedFiles.byId, async c => {

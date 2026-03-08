@@ -244,6 +244,8 @@
     position: sticky;
     top: 0;
     align-self: stretch;
+    isolation: isolate;
+    z-index: 20;
     width: 4.75rem;
     min-height: 100vh;
     max-height: 100vh;
@@ -254,9 +256,7 @@
     border-top: 0;
     border-bottom: 0;
     border-radius: 0;
-    background:
-      linear-gradient(150deg, rgb(249 115 22 / 0.06), transparent 46%),
-      linear-gradient(175deg, rgb(18 25 37 / 0.98), rgb(12 17 26 / 0.98));
+    background: none;
     box-shadow:
       14px 0 28px rgb(0 0 0 / 0.24),
       inset 0 1px 0 rgb(255 255 255 / 0.06);
@@ -265,6 +265,14 @@
     flex-direction: column;
     gap: 0.4rem;
     transition: width 200ms ease;
+  }
+
+  .side-rail::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgb(12 17 26 / 0.99);
+    z-index: -1;
   }
 
   .side-rail.is-expanded {
@@ -278,6 +286,7 @@
     gap: 0.3rem;
     padding-top: 0.55rem;
     border-top: 1px solid var(--color-border-subtle);
+    background: rgb(12 17 26 / 0.99);
   }
 
   .side-status-chip {
@@ -538,14 +547,21 @@
   .mobile-nav-panel {
     width: min(84vw, 19rem);
     height: 100%;
-    background:
-      linear-gradient(140deg, rgb(249 115 22 / 0.1), transparent 48%),
-      linear-gradient(180deg, rgb(16 24 37), rgb(10 14 22));
+    isolation: isolate;
+    background: none;
     border-right: 1px solid var(--color-border-default);
     box-shadow: 18px 0 38px rgb(0 0 0 / 0.36);
     display: flex;
     flex-direction: column;
     position: relative;
+  }
+
+  .mobile-nav-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgb(10 14 22 / 0.99);
+    z-index: -1;
   }
 
   .mobile-nav-close {

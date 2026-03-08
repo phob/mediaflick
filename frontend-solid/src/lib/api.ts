@@ -16,8 +16,10 @@ import type {
   MovieFilesResponse,
   PagedResult,
   ScannedFilesDashboard,
+  ScannedFileDiagnostics,
   ScannedFile,
   SeasonInfo,
+  TriageInboxResponse,
   TvEpisodeGroupsResponse,
   TvEpisodeSourceSelection,
   TvFilesResponse,
@@ -78,6 +80,7 @@ export const mediaApi = {
     sortOrder?: "asc" | "desc"
     page?: number
     pageSize?: number
+    ids?: number[]
   }): Promise<PagedResult<ScannedFile>> {
     const query = new URLSearchParams()
     if (params.status) {
@@ -101,11 +104,26 @@ export const mediaApi = {
     if (params.pageSize) {
       query.set("pageSize", String(params.pageSize))
     }
+    for (const id of params.ids ?? []) {
+      query.append("ids", String(id))
+    }
     return request(`/scannedfiles?${query.toString()}`)
   },
 
   getDashboard(): Promise<ScannedFilesDashboard> {
     return request("/scannedfiles/dashboard")
+  },
+
+  getTriageInbox(searchTerm = ""): Promise<TriageInboxResponse> {
+    const query = new URLSearchParams()
+    if (searchTerm.trim()) {
+      query.set("searchTerm", searchTerm.trim())
+    }
+    return request(`/scannedfiles/inbox${query.toString() ? `?${query.toString()}` : ""}`)
+  },
+
+  getScannedFileDiagnostics(id: number): Promise<ScannedFileDiagnostics> {
+    return request(`/scannedfiles/${id}/diagnostics`)
   },
 
   getMovie(tmdbId: number): Promise<MediaInfo> {

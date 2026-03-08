@@ -1,7 +1,7 @@
-import { A, useParams } from "@solidjs/router";
+import { A, useParams, useSearchParams } from "@solidjs/router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/solid-query";
 import { AlertTriangle, Clapperboard, ExternalLink, Layers3, RefreshCw, Tv2 } from "lucide-solid";
-import { For, Show, createEffect, createMemo, createSignal, type ParentProps } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, type ParentProps } from "solid-js";
 import { IdentifyModal } from "@/components/identify-modal";
 import { TvdbSearchInput } from "@/components/tvdb-search-input";
 import { FileRowIdentity, Pill, RowSkeleton, SourceSubgroupSeparator, StatusBadge } from "@/components/common-ui";
@@ -32,7 +32,21 @@ const tvdbSeasonTypeOptions: Array<{ value: TvdbSeasonType; label: string }> = [
 
 interface ScannedEpisodeCard { kind: "file"; episodeNumber: number; file: ScannedFile }
 interface MissingEpisodeCard { kind: "missing"; episodeNumber: number; episodeName: string | null; airDate: string | null }
-type SeasonEpisodeCard = ScannedEpisodeCard | MissingEpisodeCard;
+interface UpcomingEpisodeCard { kind: "upcoming"; episodeNumber: number; episodeName: string | null; airDate: string | null }
+type SeasonEpisodeCard = ScannedEpisodeCard | MissingEpisodeCard | UpcomingEpisodeCard;
+type ConfirmTone = "default" | "warning";
+
+interface ConfirmDialogState {
+    title: string;
+    description: string;
+    confirmLabel: string;
+    tone: ConfirmTone;
+    onConfirm: () => void;
+}
+
+function isFutureAirDate(airDate: string | null, todayIso: string): boolean {
+    return airDate !== null && airDate > todayIso;
+}
 
 function annotateSeasonCardsWithSourceDividers(cards: SeasonEpisodeCard[]) {
     let prev: string | null = null;
@@ -48,6 +62,7 @@ function annotateSeasonCardsWithSourceDividers(cards: SeasonEpisodeCard[]) {
 interface SeasonCoverageGroup {
     seasonNumber: number;
     episodeCount: number;
+    airedEpisodeCount: number;
     episodeCountScanned: number;
     cards: SeasonEpisodeCard[];
 }
@@ -62,8 +77,8 @@ function showStatusVariant(status: string | null | undefined): "default" | "succ
 }
 
 function seasonCoveragePercent(group: SeasonCoverageGroup): number {
-    if (group.episodeCount <= 0) return 0;
-    return Math.min(100, (group.episodeCountScanned / group.episodeCount) * 100);
+    if (group.airedEpisodeCount <= 0) return 100;
+    return Math.min(100, (group.episodeCountScanned / group.airedEpisodeCount) * 100);
 }
 
 function debridMediaManagerSeasonUrl(input: {
@@ -177,15 +192,103 @@ function MissingEpisodeRow(props: {
     );
 }
 
+function UpcomingEpisodeRow(props: {
+    seasonNumber: number;
+    episodeNumber: number;
+    episodeName: string | null;
+    airDate: string | null;
+}) {
+    return (
+        <div class="flex items-start justify-between gap-4 rounded-[1.1rem] border border-info/20 bg-info/10 px-4 py-3">
+            <div class="min-w-0 flex-1">
+                <p class="text-sm font-semibold text-info">
+                    Upcoming {formatEpisodeCode(props.seasonNumber, props.episodeNumber, null)}
+                    <Show when={props.episodeName}><span class="font-normal text-text-secondary"> · {props.episodeName}</span></Show>
+                </p>
+                <p class="mt-0.5 text-xs text-text-tertiary">Airs: {formatAirDate(props.airDate)}</p>
+            </div>
+            <div class="flex shrink-0 items-center gap-2">
+                <Pill variant="info">Upcoming</Pill>
+            </div>
+        </div>
+    );
+}
+
+function ActionConfirmDialog(props: {
+    state: ConfirmDialogState | null;
+    busy: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+}) {
+    createEffect(() => {
+        if (!props.state) return;
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape" && !props.busy) props.onClose();
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        onCleanup(() => window.removeEventListener("keydown", handleKeyDown));
+    });
+
+    return (
+        <Show when={props.state}>
+            {(state) => (
+                <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => !props.busy && props.onClose()}>
+                    <section
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={state().title}
+                        class="w-full max-w-md rounded-xl border border-border-default bg-surface-1 shadow-[0_18px_48px_rgba(0,0,0,0.32)]"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <div class="border-b border-border-subtle px-5 py-4">
+                            <h3 class="text-base font-semibold text-text-primary">{state().title}</h3>
+                            <p class="mt-1 text-sm leading-relaxed text-text-secondary">{state().description}</p>
+                        </div>
+                        <div class="flex items-center justify-end gap-3 px-5 py-4">
+                            <button
+                                type="button"
+                                onClick={props.onClose}
+                                disabled={props.busy}
+                                class="rounded-lg border border-border-default bg-surface-2 px-4 py-2 text-sm font-medium text-text-secondary transition hover:border-border-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={props.onConfirm}
+                                disabled={props.busy}
+                                class={`rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${state().tone === "warning"
+                                    ? "border border-warning/35 bg-warning-muted/18 text-warning hover:bg-warning-muted/28"
+                                    : "border border-info/28 bg-info/12 text-info hover:bg-info/18"}`}
+                            >
+                                {props.busy ? "Working..." : state().confirmLabel}
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            )}
+        </Show>
+    );
+}
+
 export default function TvShowDetailsPage() {
     const params = useParams();
+    const [searchParams] = useSearchParams();
     const queryClient = useQueryClient();
     const tmdbId = createMemo(() => Number(params.tmdbId));
+    const focusedSeasonNumber = createMemo(() => {
+        const raw = searchParams.season;
+        if (!raw) return null;
+        const parsed = Number(raw);
+        return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+    });
     const [reassignOpen, setReassignOpen] = createSignal(false);
     const [reassignSeasonNumber, setReassignSeasonNumber] = createSignal<number | null>(null);
     const [pendingTvdbMatch, setPendingTvdbMatch] = createSignal<TvdbSearchResult | null>(null);
     const [pendingTvdbSeasonType, setPendingTvdbSeasonType] = createSignal<TvdbSeasonType>("default");
     const [hydratedEpisodeSourceTmdbId, setHydratedEpisodeSourceTmdbId] = createSignal<number | null>(null);
+    const [confirmDialog, setConfirmDialog] = createSignal<ConfirmDialogState | null>(null);
+    const todayIso = createMemo(() => new Date().toISOString().slice(0, 10));
 
     const showQuery = useQuery(() => ({ queryKey: ["show", tmdbId()], queryFn: () => mediaApi.getShow(tmdbId()), enabled: Number.isInteger(tmdbId()) && tmdbId() > 0 }));
     const episodeSourceQuery = useQuery(() => ({ queryKey: ["tv-episode-source", tmdbId()], queryFn: () => mediaApi.getShowEpisodeSource(tmdbId()), enabled: Number.isInteger(tmdbId()) && tmdbId() > 0 }));
@@ -277,18 +380,34 @@ export default function TvShowDetailsPage() {
             const sm = scannedBySeason.get(season.seasonNumber) ?? new Map<number, ScannedFile>();
             const tmdbEps = new Set<number>();
             const cards: SeasonEpisodeCard[] = [];
+            let airedEpisodeCount = 0;
             for (const ep of season.episodes) {
                 tmdbEps.add(ep.episodeNumber);
                 const sf = sm.get(ep.episodeNumber);
-                cards.push(sf ? { kind: "file", episodeNumber: ep.episodeNumber, file: sf } : { kind: "missing", episodeNumber: ep.episodeNumber, episodeName: ep.name, airDate: ep.airDate });
+                if (sf) {
+                    cards.push({ kind: "file", episodeNumber: ep.episodeNumber, file: sf });
+                } else if (isFutureAirDate(ep.airDate, todayIso())) {
+                    cards.push({ kind: "upcoming", episodeNumber: ep.episodeNumber, episodeName: ep.name, airDate: ep.airDate });
+                } else {
+                    cards.push({ kind: "missing", episodeNumber: ep.episodeNumber, episodeName: ep.name, airDate: ep.airDate });
+                }
+                if (!isFutureAirDate(ep.airDate, todayIso())) {
+                    airedEpisodeCount += 1;
+                }
             }
             for (const [en, f] of [...sm.entries()].filter(([n]) => !tmdbEps.has(n)).sort((a, b) => a[0] - b[0])) cards.push({ kind: "file", episodeNumber: en, file: f });
-            groups.push({ seasonNumber: season.seasonNumber, episodeCount: season.episodes.length, episodeCountScanned: season.episodes.filter((e) => sm.has(e.episodeNumber)).length, cards });
+            groups.push({
+                seasonNumber: season.seasonNumber,
+                episodeCount: season.episodes.length,
+                airedEpisodeCount,
+                episodeCountScanned: season.episodes.filter((e) => !isFutureAirDate(e.airDate, todayIso()) && sm.has(e.episodeNumber)).length,
+                cards,
+            });
         }
 
         for (const [sn, sm] of [...scannedBySeason.entries()].filter(([s]) => !knownSeasons.has(s)).sort((a, b) => a[0] - b[0])) {
             const cards = [...sm.entries()].sort((a, b) => a[0] - b[0]).map(([en, f]) => ({ kind: "file" as const, episodeNumber: en, file: f }));
-            groups.push({ seasonNumber: sn, episodeCount: cards.length, episodeCountScanned: cards.length, cards });
+            groups.push({ seasonNumber: sn, episodeCount: cards.length, airedEpisodeCount: cards.length, episodeCountScanned: cards.length, cards });
         }
 
         return groups.sort((a, b) => a.seasonNumber - b.seasonNumber);
@@ -300,6 +419,7 @@ export default function TvShowDetailsPage() {
         return categorizedBySeason().map(([sn, files]) => ({
             seasonNumber: sn,
             episodeCount: files.length,
+            airedEpisodeCount: files.length,
             episodeCountScanned: files.length,
             cards: files.map((f) => ({ kind: "file" as const, episodeNumber: f.episodeNumber ?? Number.MAX_SAFE_INTEGER, file: f })),
         }));
@@ -329,10 +449,12 @@ export default function TvShowDetailsPage() {
     });
     const activeEpisodeSource = createMemo(() => episodeSourceQuery.data);
     const activeEpisodeSourceLabel = createMemo(() => activeEpisodeSource()?.sourceLabel ?? "TMDb");
-    const isEpisodeSourceBusy = createMemo(() => episodeSourceMutation.isPending || episodeGroupMutation.isPending);
+    const isEpisodeSourceBusy = createMemo(() => episodeSourceMutation.isPending);
+    const isEpisodeGroupBusy = createMemo(() => episodeGroupMutation.isPending);
+    const selectedTvdbMatch = createMemo(() => pendingTvdbMatch() ?? episodeSourceQuery.data?.suggestedTvdbSeries ?? null);
     const pendingTvdbMatchesActive = createMemo(() => {
         const active = activeEpisodeSource();
-        const pending = pendingTvdbMatch();
+        const pending = selectedTvdbMatch();
         if (!active || active.source !== "tvdb" || !pending) return false;
         return active.tvdbId === pending.tvdbId && (active.tvdbSeasonType ?? "default") === pendingTvdbSeasonType();
     });
@@ -346,29 +468,61 @@ export default function TvShowDetailsPage() {
     const displayedEpisodeTotal = createMemo(() => selectedEpisodeGroup()?.episodeCount ?? showQuery.data?.episodeCount ?? 0);
     const scannedSeasonCount = createMemo(() => new Set(seasonGroupsToRender().filter((g) => g.seasonNumber > 0 && g.cards.some((c) => c.kind === "file")).map((g) => g.seasonNumber)).size);
     const missingEpisodeCount = createMemo(() => seasonCoverageBySeason().reduce((t, g) => t + g.cards.filter((c) => c.kind === "missing").length, 0));
+    const upcomingEpisodeCount = createMemo(() => seasonCoverageBySeason().reduce((t, g) => t + g.cards.filter((c) => c.kind === "upcoming").length, 0));
     const remappedEpisodeFileCount = createMemo(() => new Set([...(tvFilesQuery.data?.categorizedFiles ?? []), ...(tvFilesQuery.data?.uncategorizedFiles ?? [])].filter((f) => f.episodeRemap).map((f) => f.id)).size);
+
+    const requestConfirmation = (state: ConfirmDialogState) => {
+        setConfirmDialog(state);
+    };
+
+    const closeConfirmation = () => {
+        if (isEpisodeSourceBusy() || isEpisodeGroupBusy()) return;
+        setConfirmDialog(null);
+    };
+
+    const confirmPendingAction = () => {
+        const state = confirmDialog();
+        if (!state) return;
+        state.onConfirm();
+        setConfirmDialog(null);
+    };
 
     const handleEpisodeGroupChange = (v: string) => {
         const cur = episodeGroupsQuery.data?.selectedEpisodeGroupId ?? "";
         const n = v.length > 0 ? v : null;
         if ((n ?? "") === cur) return;
-        if (!window.confirm("Changing episode grouping will remove and recreate this show's episodes and symlinks. Continue?")) return;
-        episodeGroupMutation.mutate(n);
+        requestConfirmation({
+            title: "Change episode grouping?",
+            description: "This will remove and recreate this show's mapped episodes and symlinks using the selected TMDb group.",
+            confirmLabel: "Change grouping",
+            tone: "warning",
+            onConfirm: () => episodeGroupMutation.mutate(n),
+        });
     };
     const handleUseTmdbEpisodeSource = () => {
         if (activeEpisodeSource()?.source === "tmdb") return;
-        if (!window.confirm("Switch back to TMDb episode discovery and rebuild this show's mapped episodes and symlinks?")) return;
-        episodeSourceMutation.mutate({ source: "tmdb" });
+        requestConfirmation({
+            title: "Switch back to TMDb order?",
+            description: "MediaFlick will rebuild this show's mapped episodes and symlinks using the standard TMDb season order.",
+            confirmLabel: "Use TMDb order",
+            tone: "default",
+            onConfirm: () => episodeSourceMutation.mutate({ source: "tmdb" }),
+        });
     };
     const handleUseTvdbEpisodeSource = () => {
-        const match = pendingTvdbMatch() ?? episodeSourceQuery.data?.suggestedTvdbSeries ?? null;
+        const match = selectedTvdbMatch();
         if (!match) return;
-        if (!window.confirm("Switch to TVDB episode discovery for this show and rebuild the mapped episodes and symlinks?")) return;
-        episodeSourceMutation.mutate({
-            source: "tvdb",
-            tvdbId: match.tvdbId,
-            tvdbSeriesName: match.title,
-            tvdbSeasonType: pendingTvdbSeasonType(),
+        requestConfirmation({
+            title: "Switch to TVDB order?",
+            description: `MediaFlick will rebuild this show's mapped episodes and symlinks using ${match.title} with the ${tvdbSeasonTypeOptions.find((option) => option.value === pendingTvdbSeasonType())?.label ?? "Default"} season order.`,
+            confirmLabel: "Use TVDB order",
+            tone: "warning",
+            onConfirm: () => episodeSourceMutation.mutate({
+                source: "tvdb",
+                tvdbId: match.tvdbId,
+                tvdbSeriesName: match.title,
+                tvdbSeasonType: pendingTvdbSeasonType(),
+            }),
         });
     };
     const openReassign = (seasonNumber: number | null) => {
@@ -440,7 +594,7 @@ export default function TvShowDetailsPage() {
                                         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                                             <DetailMetricTile label="Episodes scanned" value={String(show().episodeCountScanned ?? 0)} detail={`${displayedEpisodeTotal()} episodes expected in the active ordering.`} accent="cyan" />
                                             <DetailMetricTile label="Seasons covered" value={`${scannedSeasonCount()} / ${show().seasonCount ?? 0}`} detail="Seasons that currently contain mapped files." accent="orange" />
-                                            <DetailMetricTile label="Missing episodes" value={String(missingEpisodeCount())} detail={`${activeEpisodeSourceLabel()} ordering entries not represented by scanned files.`} accent="rose" />
+                                            <DetailMetricTile label="Missing episodes" value={String(missingEpisodeCount())} detail={`Aired ${activeEpisodeSourceLabel()} entries not represented by scanned files.`} accent="rose" />
                                             <DetailMetricTile label="Remapped files" value={String(remappedEpisodeFileCount())} detail={`Files whose source numbering was compacted into the active ${activeEpisodeSourceLabel()} order.`} accent="lime" />
                                         </div>
                                     </div>
@@ -509,7 +663,7 @@ export default function TvShowDetailsPage() {
 
                                             <button
                                                 type="button"
-                                                disabled={isEpisodeSourceBusy() || !(pendingTvdbMatch() ?? episodeSourceQuery.data?.suggestedTvdbSeries) || pendingTvdbMatchesActive()}
+                                                disabled={isEpisodeSourceBusy() || !selectedTvdbMatch() || pendingTvdbMatchesActive()}
                                                 onClick={handleUseTvdbEpisodeSource}
                                                 class={`flex min-h-[8.5rem] flex-col items-start justify-between rounded-xl border px-4 py-4 text-left transition ${activeEpisodeSource()?.source === "tvdb" ? "border-warning/28 bg-warning-muted/12 text-text-primary" : "border-border-default bg-surface-0/35 text-text-primary hover:border-border-hover"} disabled:cursor-not-allowed disabled:opacity-60`}
                                             >
@@ -519,12 +673,12 @@ export default function TvShowDetailsPage() {
                                                         <p class="mt-1 text-sm leading-relaxed text-text-secondary">Apply a selected TVDB series and season type for episode mapping.</p>
                                                     </div>
                                                     <span class={`rounded-md border px-2 py-1 text-[0.68rem] font-medium ${activeEpisodeSource()?.source === "tvdb" ? "border-warning/25 bg-warning-muted/15 text-warning" : "border-border-default bg-surface-2 text-text-tertiary"}`}>
-                                                        {activeEpisodeSource()?.source === "tvdb" ? "Current" : pendingTvdbMatch() ? "Ready" : "Select first"}
+                                                        {activeEpisodeSource()?.source === "tvdb" ? "Current" : selectedTvdbMatch() ? "Ready" : "Select first"}
                                                     </span>
                                                 </div>
                                                 <p class="text-xs text-text-tertiary">
-                                                    {pendingTvdbMatch()
-                                                        ? `${pendingTvdbMatch()?.title} · ${tvdbSeasonTypeOptions.find((option) => option.value === pendingTvdbSeasonType())?.label ?? "Default"}`
+                                                    {selectedTvdbMatch()
+                                                        ? `${selectedTvdbMatch()?.title} · ${tvdbSeasonTypeOptions.find((option) => option.value === pendingTvdbSeasonType())?.label ?? "Default"}`
                                                         : "Search for a TVDB series below before switching this show to TVDB ordering."}
                                                 </p>
                                             </button>
@@ -536,7 +690,7 @@ export default function TvShowDetailsPage() {
                                                     <h3 class="text-sm font-semibold text-text-primary">TVDB lookup</h3>
                                                     <p class="mt-1 text-sm text-text-secondary">Pick the TVDB series match first, then choose which season ordering MediaFlick should use.</p>
                                                 </div>
-                                                <Show when={pendingTvdbMatch()}>
+                                                <Show when={selectedTvdbMatch()}>
                                                     {(match) => (
                                                         <div class="rounded-lg border border-border-default bg-surface-2 px-3 py-2 text-sm text-text-secondary">
                                                             <p class="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-text-tertiary">Selected</p>
@@ -586,7 +740,7 @@ export default function TvShowDetailsPage() {
                                                 <select
                                                     class="mt-4 block w-full max-w-xl rounded-lg border border-border-default bg-surface-3 px-3.5 py-2.5 text-sm text-text-primary transition focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
                                                     value={episodeGroupsQuery.data?.selectedEpisodeGroupId ?? ""}
-                                                    disabled={episodeGroupMutation.isPending}
+                                                    disabled={isEpisodeGroupBusy()}
                                                     onChange={(e) => handleEpisodeGroupChange(e.currentTarget.value)}
                                                 >
                                                     <option value="">Default TMDb order</option>
@@ -598,7 +752,7 @@ export default function TvShowDetailsPage() {
                                             </div>
                                         </Show>
 
-                                        <Show when={isEpisodeSourceBusy()}>
+                                        <Show when={isEpisodeSourceBusy() || isEpisodeGroupBusy()}>
                                             <p class="text-xs text-text-secondary animate-pulse">Rebuilding episodes and symlinks...</p>
                                         </Show>
                                     </div>
@@ -634,7 +788,7 @@ export default function TvShowDetailsPage() {
                                         <div class="mt-5 border-t border-border-subtle pt-4">
                                             <p class="text-[0.7rem] font-medium uppercase tracking-[0.14em] text-text-tertiary">Pending TVDB selection</p>
                                             <Show
-                                                when={pendingTvdbMatch()}
+                                                when={selectedTvdbMatch()}
                                                 fallback={<p class="mt-2 text-sm leading-relaxed text-text-secondary">Choose a TVDB series if this show needs a different episode order than TMDb provides.</p>}
                                             >
                                                 {(match) => (
@@ -664,6 +818,12 @@ export default function TvShowDetailsPage() {
                                             <span>{missingEpisodeCount()} episodes are missing from the active {activeEpisodeSourceLabel()} season order.</span>
                                         </div>
                                     </Show>
+                                    <Show when={upcomingEpisodeCount() > 0}>
+                                        <div class="flex items-center gap-2 rounded-[1.1rem] border border-info/20 bg-info/10 px-4 py-3 text-sm text-info">
+                                            <Tv2 size={16} />
+                                            <span>{upcomingEpisodeCount()} episodes are scheduled in the future and are not expected in the library yet.</span>
+                                        </div>
+                                    </Show>
                                     <Show when={remappedEpisodeFileCount() > 0}>
                                         <div class="flex items-center gap-2 rounded-[1.1rem] border border-info/20 bg-info/10 px-4 py-3 text-sm text-info">
                                             <RefreshCw size={16} />
@@ -676,6 +836,7 @@ export default function TvShowDetailsPage() {
                                             const seasonMeta = seasonMetaByNumber().get(group.seasonNumber);
                                             const seasonLabel = group.seasonNumber > 0 ? `Season ${String(group.seasonNumber).padStart(2, "0")}` : "Unassigned";
                                             const missingCount = group.cards.filter((card) => card.kind === "missing").length;
+                                            const upcomingCount = group.cards.filter((card) => card.kind === "upcoming").length;
                                             const reassignableFiles = reassignableFilesBySeason().get(group.seasonNumber) ?? [];
                                             const coveragePercent = seasonCoveragePercent(group);
                                             const dmmSeasonUrl = debridMediaManagerSeasonUrl({
@@ -684,7 +845,11 @@ export default function TvShowDetailsPage() {
                                                 seasonNumber: group.seasonNumber,
                                             });
                                             return (
-                                                <details class="group overflow-hidden rounded-[1.4rem] border border-border-subtle bg-surface-0/25" open={group.seasonNumber === 1}>
+                                                <details
+                                                    id={`season-${group.seasonNumber}`}
+                                                    class="group overflow-hidden rounded-[1.4rem] border border-border-subtle bg-surface-0/25"
+                                                    open={group.seasonNumber === (focusedSeasonNumber() ?? 1)}
+                                                >
                                                     <summary class="flex cursor-pointer list-none items-center gap-4 px-4 py-4 [&::-webkit-details-marker]:hidden">
                                                         <Show when={posterUrl(seasonMeta?.posterPath, "w154")} fallback={<div class="flex h-24 w-16 items-center justify-center rounded-xl border border-border-default bg-surface-3 px-1 text-center text-[0.62rem] font-mono uppercase tracking-wider text-text-tertiary">{seasonLabel}</div>}>
                                                             {(url) => <img src={url()} alt={seasonMeta?.name ?? seasonLabel} loading="lazy" class="h-24 w-16 rounded-xl border border-border-default object-cover" />}
@@ -693,8 +858,11 @@ export default function TvShowDetailsPage() {
                                                             <div class="flex flex-wrap items-center gap-2">
                                                                 <h3 class="text-base font-semibold text-text-primary">{seasonLabel}</h3>
                                                                 <Show when={missingCount > 0}><Pill variant="warning">{missingCount} missing</Pill></Show>
+                                                                <Show when={upcomingCount > 0}><Pill variant="info">{upcomingCount} upcoming</Pill></Show>
                                                             </div>
-                                                            <p class="mt-1 text-sm text-text-secondary">{group.episodeCountScanned}/{group.episodeCount || group.cards.length} scanned in this season.</p>
+                                                            <p class="mt-1 text-sm text-text-secondary">
+                                                                {group.episodeCountScanned}/{group.airedEpisodeCount || group.episodeCount || group.cards.length} aired episodes scanned in this season.
+                                                            </p>
                                                             <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-3">
                                                                 <div class={`h-full rounded-full ${coveragePercent >= 100 ? "bg-success" : coveragePercent > 0 ? "bg-warning" : "bg-error"}`} style={{ width: `${coveragePercent}%` }} />
                                                             </div>
@@ -735,7 +903,9 @@ export default function TvShowDetailsPage() {
                                                         <For each={annotateSeasonCardsWithSourceDividers(group.cards)}>
                                                             {(entry) => entry.card.kind === "file"
                                                                 ? <EpisodeFileRow file={entry.card.file} sourceDividerPath={entry.sourceDividerPath} />
-                                                                : <MissingEpisodeRow seasonNumber={group.seasonNumber} episodeNumber={entry.card.episodeNumber} episodeName={entry.card.episodeName} airDate={entry.card.airDate} showTitle={show().title} showImdbId={show().imdbId} />}
+                                                                : entry.card.kind === "missing"
+                                                                    ? <MissingEpisodeRow seasonNumber={group.seasonNumber} episodeNumber={entry.card.episodeNumber} episodeName={entry.card.episodeName} airDate={entry.card.airDate} showTitle={show().title} showImdbId={show().imdbId} />
+                                                                    : <UpcomingEpisodeRow seasonNumber={group.seasonNumber} episodeNumber={entry.card.episodeNumber} episodeName={entry.card.episodeName} airDate={entry.card.airDate} />}
                                                         </For>
                                                     </div>
                                                 </details>
@@ -769,6 +939,12 @@ export default function TvShowDetailsPage() {
                                 files={activeReassignFiles()}
                                 preselectedTmdbId={tmdbId()}
                                 reassignOldTmdbId={tmdbId()}
+                            />
+                            <ActionConfirmDialog
+                                state={confirmDialog()}
+                                busy={isEpisodeSourceBusy() || isEpisodeGroupBusy()}
+                                onClose={closeConfirmation}
+                                onConfirm={confirmPendingAction}
                             />
                         </>
                     )}

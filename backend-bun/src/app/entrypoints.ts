@@ -28,6 +28,8 @@ export const ENTRYPOINTS = {
     scannedFiles: {
       base: "/api/scannedfiles",
       byId: "/api/scannedfiles/:id",
+      inbox: "/api/scannedfiles/inbox",
+      diagnosticsById: "/api/scannedfiles/:id/diagnostics",
       stats: "/api/scannedfiles/stats",
       dashboard: "/api/scannedfiles/dashboard",
       tmdbIdsAndTitles: "/api/scannedfiles/tmdb-ids-and-titles",

@@ -71,6 +71,7 @@ export function IdentifyModal(props: {
     const [saveResult, setSaveResult] = createSignal<string | null>(null);
     const [showDryRun, setShowDryRun] = createSignal(false);
     const [dryRunInfo, setDryRunInfo] = createSignal<string | null>(null);
+    const [applyShowToAllCompatible, setApplyShowToAllCompatible] = createSignal(true);
     const [episodeSource, setEpisodeSource] = createSignal<TvEpisodeSourceType>("tmdb");
     const [selectedTvdbSeries, setSelectedTvdbSeries] = createSignal<TvdbSearchResult | null>(null);
     const [tvdbSeasonType, setTvdbSeasonType] = createSignal<TvdbSeasonType>("default");
@@ -89,6 +90,7 @@ export function IdentifyModal(props: {
         setSaveResult(null);
         setShowDryRun(false);
         setDryRunInfo(null);
+        setApplyShowToAllCompatible(true);
         resetTvEpisodeSourceState();
 
         const parsed = props.files
@@ -166,7 +168,10 @@ export function IdentifyModal(props: {
     const handleTvMediaSelect = (result: MediaSearchResult) => {
         const currentTmdbId = selectedTvShowTmdbId();
         setSelectedMedia(result);
-        setEditableFiles((prev) => prev.map((f) => ({ ...f, tmdbId: result.tmdbId })));
+        setEditableFiles((prev) => prev.map((f) => ({
+            ...f,
+            tmdbId: applyShowToAllCompatible() ? result.tmdbId : (f.tmdbId ?? result.tmdbId),
+        })));
         if (currentTmdbId !== result.tmdbId) {
             resetTvEpisodeSourceState();
         }
@@ -328,7 +333,7 @@ export function IdentifyModal(props: {
             if (episodeSourceUpdated) parts.push("Episode source updated.");
             setSaveResult(parts.join(" "));
 
-            for (const key of ["titles", "show", "movie", "tv-files", "movie-files", "unidentified-files", "tv-seasons", "tv-episode-source"]) {
+            for (const key of ["titles", "show", "movie", "tv-files", "movie-files", "unidentified-files", "tv-seasons", "tv-episode-source", "triage-inbox", "wanted-shows", "sidebar-badges"]) {
                 void queryClient.invalidateQueries({ queryKey: [key] });
             }
 
@@ -388,6 +393,20 @@ export function IdentifyModal(props: {
                                     )}
                                 </Show>
                             </div>
+                            <label class="flex items-start gap-3 rounded-xl border border-border-subtle bg-surface-1/80 px-3 py-3 text-sm text-text-secondary">
+                                <input
+                                    type="checkbox"
+                                    checked={applyShowToAllCompatible()}
+                                    onChange={(e) => setApplyShowToAllCompatible(e.currentTarget.checked)}
+                                    class="mt-0.5 accent-accent"
+                                />
+                                <span>
+                                    Apply the selected TMDb show to all compatible rows in this batch.
+                                    <span class="mt-1 block text-xs text-text-tertiary">
+                                        When disabled, existing TMDb assignments stay in place and only unassigned rows inherit the selected show.
+                                    </span>
+                                </span>
+                            </label>
                             <div class="rounded-xl border border-border-subtle bg-surface-2/70 p-4 space-y-4">
                                 <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                                     <div>

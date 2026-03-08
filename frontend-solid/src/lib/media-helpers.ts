@@ -273,27 +273,6 @@ export async function countScannedFiles(params: { status?: MediaStatus; mediaTyp
     return result.totalItems;
 }
 
-async function mapWithConcurrency<T, R>(
-    items: T[],
-    limit: number,
-    mapper: (item: T, index: number) => Promise<R>,
-): Promise<R[]> {
-    if (items.length === 0) return [];
-    const nextResults = new Array<R>(items.length);
-    let cursor = 0;
-    const workerCount = Math.max(1, Math.min(limit, items.length));
-    const workers = Array.from({ length: workerCount }, async () => {
-        while (true) {
-            const index = cursor;
-            cursor += 1;
-            if (index >= items.length) return;
-            nextResults[index] = await mapper(items[index], index);
-        }
-    });
-    await Promise.all(workers);
-    return nextResults;
-}
-
 export interface WantedShowItem {
     tmdbId: number;
     title: string;
@@ -306,32 +285,18 @@ export interface WantedShowItem {
 }
 
 export async function listWantedShows(searchTerm = ""): Promise<WantedShowItem[]> {
-    const titles = await mediaApi.listTitles("TvShows", searchTerm);
-    const todayIso = new Date().toISOString().slice(0, 10);
-    const details = await mapWithConcurrency(titles, 6, async (title) => {
-        try {
-            const show = await mediaApi.getShow(title.tmdbId);
-            const airedEpisodes = Math.max(0, show.episodeCount ?? 0);
-            const scannedEpisodes = Math.max(0, show.episodeCountScanned ?? 0);
-            const missingEpisodes = Math.max(0, airedEpisodes - scannedEpisodes);
-            const isAiredAlready = !!show.lastAirDate && show.lastAirDate <= todayIso;
-            if (missingEpisodes <= 0 || !isAiredAlready) return null;
-            return {
-                tmdbId: title.tmdbId,
-                title: show.title,
-                year: show.year,
-                posterPath: show.posterPath,
-                missingEpisodes,
-                airedEpisodes,
-                scannedEpisodes,
-                lastAirDate: show.lastAirDate,
-            } satisfies WantedShowItem;
-        } catch {
-            return null;
-        }
-    });
-
-    return details
-        .filter((item): item is WantedShowItem => item !== null)
+    const inbox = await mediaApi.getTriageInbox(searchTerm);
+    return inbox.items
+        .filter((item) => item.kind === "wanted-show" && item.tmdbId)
+        .map((item) => ({
+            tmdbId: item.tmdbId!,
+            title: item.title,
+            year: null,
+            posterPath: null,
+            missingEpisodes: item.counts.missingEpisodes ?? 0,
+            airedEpisodes: item.counts.airedEpisodes ?? 0,
+            scannedEpisodes: item.counts.scannedEpisodes ?? 0,
+            lastAirDate: item.lastActivityAt,
+        }))
         .sort((left, right) => right.missingEpisodes - left.missingEpisodes || compareMediaTitles(left.title, right.title));
 }

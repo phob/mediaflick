@@ -7,6 +7,7 @@ import MovieDetailsPage from "@/pages/movie-details-page";
 import MoviesPage from "@/pages/movies-page";
 import NotFoundPage from "@/pages/not-found-page";
 import SettingsPage from "@/pages/settings-page";
+import TriagePage from "@/pages/triage-page";
 import TvShowDetailsPage from "@/pages/tv-show-details-page";
 import TvShowsPage from "@/pages/tv-shows-page";
 import UnidentifiedPage from "@/pages/unidentified-page";
@@ -15,7 +16,8 @@ import WantedPage from "@/pages/wanted-page";
 export default function App() {
     return (
         <Router root={AppShell}>
-            <Route path="/" component={DashboardPage} />
+            <Route path="/" component={TriagePage} />
+            <Route path="/triage" component={TriagePage} />
             <Route path="/dashboard" component={DashboardPage} />
             <Route path="/shows" component={TvShowsPage} />
             <Route path="/shows/:tmdbId" component={TvShowDetailsPage} />

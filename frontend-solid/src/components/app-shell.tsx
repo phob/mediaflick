@@ -10,8 +10,8 @@ import {
     type ParentComponent,
 } from "solid-js";
 import { SidebarNavigation } from "@/components/sidebar-navigation";
+import { mediaApi } from "@/lib/api";
 import { createRealtimeSocket } from "@/lib/realtime";
-import { countScannedFiles, listWantedShows } from "@/lib/media-helpers";
 
 export const AppShell: ParentComponent = (props) => {
     const sidebarExpandedKey = "mediaflick.sidebar.expanded";
@@ -68,6 +68,7 @@ export const AppShell: ParentComponent = (props) => {
             ) {
                 for (const key of [
                     "dashboard",
+                    "triage-inbox",
                     "sidebar-badges",
                     "titles",
                     "show",
@@ -106,13 +107,14 @@ export const AppShell: ParentComponent = (props) => {
     const sidebarBadgesQuery = useQuery(() => ({
         queryKey: ["sidebar-badges"],
         queryFn: async () => {
-            const [wantedItems, unidentifiedCount] = await Promise.all([
-                listWantedShows(""),
-                countScannedFiles({ mediaType: "Unknown" }),
-            ]);
+            const triageInbox = await mediaApi.getTriageInbox();
             return {
-                wanted: wantedItems.length,
-                unidentified: unidentifiedCount,
+                triage: triageInbox.summary.totalItems,
+                wanted: triageInbox.summary.wantedShows,
+                unidentified: triageInbox.summary.unidentifiedTv
+                    + triageInbox.summary.unidentifiedMovies
+                    + triageInbox.summary.failedFiles
+                    + triageInbox.summary.duplicateFiles,
             };
         },
         staleTime: 60 * 1000,
@@ -134,6 +136,7 @@ export const AppShell: ParentComponent = (props) => {
                     <SidebarNavigation
                         backendOnline={backendOnline()}
                         zurgOnline={zurgOnline()}
+                        triageBadge={sidebarBadgesQuery.data?.triage}
                         wantedBadge={sidebarBadgesQuery.data?.wanted}
                         unidentifiedBadge={sidebarBadgesQuery.data?.unidentified}
                         expanded={sidebarExpanded()}
@@ -197,6 +200,7 @@ export const AppShell: ParentComponent = (props) => {
                             <SidebarNavigation
                                 backendOnline={backendOnline()}
                                 zurgOnline={zurgOnline()}
+                                triageBadge={sidebarBadgesQuery.data?.triage}
                                 wantedBadge={sidebarBadgesQuery.data?.wanted}
                                 unidentifiedBadge={sidebarBadgesQuery.data?.unidentified}
                                 expanded={true}

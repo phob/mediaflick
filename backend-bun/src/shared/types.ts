@@ -210,6 +210,65 @@ export interface DashboardRecentItem {
   updatedAt: string | null
 }
 
+export const triageIssueKinds = [
+  "wanted-show",
+  "unidentified-tv",
+  "unidentified-movie",
+  "failed-file",
+  "duplicate-file",
+  "episode-order",
+] as const
+export type TriageIssueKind = (typeof triageIssueKinds)[number]
+
+export const triageEntityTypes = ["show", "movie", "file", "folder"] as const
+export type TriageEntityType = (typeof triageEntityTypes)[number]
+
+export const triagePriorities = ["critical", "high", "medium", "low"] as const
+export type TriagePriority = (typeof triagePriorities)[number]
+
+export interface TriageItemCounts {
+  files: number
+  missingEpisodes?: number
+  scannedEpisodes?: number
+  airedEpisodes?: number
+  missingSeasons?: number[]
+}
+
+export interface TriageInboxItem {
+  id: string
+  kind: TriageIssueKind
+  entityType: TriageEntityType
+  entityId: string
+  title: string
+  subtitle: string
+  priority: TriagePriority
+  recommendedAction: string
+  counts: TriageItemCounts
+  lastActivityAt: string | null
+  deepLink: string
+  tmdbId?: number | null
+  imdbId?: string | null
+  mediaType?: MediaType | null
+  sourceFolder?: string | null
+  fileIds: number[]
+  sampleFiles: ScannedFile[]
+  diagnosticsSummary?: string | null
+}
+
+export interface TriageInboxResponse {
+  items: TriageInboxItem[]
+  summary: {
+    totalItems: number
+    wantedShows: number
+    missingEpisodes: number
+    unidentifiedTv: number
+    unidentifiedMovies: number
+    failedFiles: number
+    duplicateFiles: number
+    episodeOrderShows: number
+  }
+}
+
 export interface ScannedFilesDashboard {
   totalFiles: number
   totalSuccessfulFiles: number
@@ -318,6 +377,53 @@ export interface BulkUpdateApplyResponse {
   symlinksRecreated: number
   symlinksFailed: number
   identityUpdated: boolean
+}
+
+export interface ScannedFileDiagnostics {
+  file: ScannedFile
+  inferredMediaKind: "tv" | "movie" | "unknown"
+  parseSnapshot: {
+    rawTitleHint: string | null
+    normalizedTitleHint: string | null
+    yearHint: number | null
+    seasonNumber: number | null
+    episodeNumber: number | null
+    episodeNumber2: number | null
+  }
+  identitySnapshot: {
+    mediaType: MediaType | null
+    tmdbId: number | null
+    tvdbId: number | null
+    imdbId: string | null
+    storedTitle: string | null
+    storedYear: number | null
+    canonicalTitle: string | null
+    normalizedTitle: string | null
+    aliases: string[]
+  }
+  orderingSnapshot: {
+    episodeSource: TvEpisodeSourceType | null
+    tvdbSeriesName: string | null
+    tvdbSeasonType: TvdbSeasonType | null
+    episodeGroupId: string | null
+    episodeGroupName: string | null
+    storedSeasonNumber: number | null
+    storedEpisodeNumber: number | null
+    storedEpisodeNumber2: number | null
+    resolvedSeasonNumber: number | null
+    resolvedEpisodeNumber: number | null
+    resolvedEpisodeNumber2: number | null
+    episodeRemap: EpisodeRemapInfo | null
+  }
+  processingSnapshot: {
+    status: MediaStatus
+    destinationFile: string | null
+    createdAt: string
+    updatedAt: string | null
+    versionUpdated: number
+    updateToVersion: number
+  }
+  explanations: string[]
 }
 
 export function parseGenres(value: string | null): string[] | null {

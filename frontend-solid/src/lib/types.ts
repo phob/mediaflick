@@ -271,6 +271,107 @@ export interface DashboardRecentItem {
   updatedAt: string | null
 }
 
+export type TriageIssueKind =
+    | "wanted-show"
+    | "unidentified-tv"
+    | "unidentified-movie"
+    | "failed-file"
+    | "duplicate-file"
+    | "episode-order";
+
+export type TriageEntityType = "show" | "movie" | "file" | "folder";
+export type TriagePriority = "critical" | "high" | "medium" | "low";
+
+export interface TriageItemCounts {
+    files: number;
+    missingEpisodes?: number;
+    scannedEpisodes?: number;
+    airedEpisodes?: number;
+    missingSeasons?: number[];
+}
+
+export interface TriageInboxItem {
+    id: string;
+    kind: TriageIssueKind;
+    entityType: TriageEntityType;
+    entityId: string;
+    title: string;
+    subtitle: string;
+    priority: TriagePriority;
+    recommendedAction: string;
+    counts: TriageItemCounts;
+    lastActivityAt: string | null;
+    deepLink: string;
+    tmdbId?: number | null;
+    imdbId?: string | null;
+    mediaType?: MediaType | null;
+    sourceFolder?: string | null;
+    fileIds: number[];
+    sampleFiles: ScannedFile[];
+    diagnosticsSummary?: string | null;
+}
+
+export interface TriageInboxResponse {
+    items: TriageInboxItem[];
+    summary: {
+        totalItems: number;
+        wantedShows: number;
+        missingEpisodes: number;
+        unidentifiedTv: number;
+        unidentifiedMovies: number;
+        failedFiles: number;
+        duplicateFiles: number;
+        episodeOrderShows: number;
+    };
+}
+
+export interface ScannedFileDiagnostics {
+    file: ScannedFile;
+    inferredMediaKind: "tv" | "movie" | "unknown";
+    parseSnapshot: {
+        rawTitleHint: string | null;
+        normalizedTitleHint: string | null;
+        yearHint: number | null;
+        seasonNumber: number | null;
+        episodeNumber: number | null;
+        episodeNumber2: number | null;
+    };
+    identitySnapshot: {
+        mediaType: MediaType | null;
+        tmdbId: number | null;
+        tvdbId: number | null;
+        imdbId: string | null;
+        storedTitle: string | null;
+        storedYear: number | null;
+        canonicalTitle: string | null;
+        normalizedTitle: string | null;
+        aliases: string[];
+    };
+    orderingSnapshot: {
+        episodeSource: TvEpisodeSourceType | null;
+        tvdbSeriesName: string | null;
+        tvdbSeasonType: TvdbSeasonType | null;
+        episodeGroupId: string | null;
+        episodeGroupName: string | null;
+        storedSeasonNumber: number | null;
+        storedEpisodeNumber: number | null;
+        storedEpisodeNumber2: number | null;
+        resolvedSeasonNumber: number | null;
+        resolvedEpisodeNumber: number | null;
+        resolvedEpisodeNumber2: number | null;
+        episodeRemap: EpisodeRemapInfo | null;
+    };
+    processingSnapshot: {
+        status: MediaStatus;
+        destinationFile: string | null;
+        createdAt: string;
+        updatedAt: string | null;
+        versionUpdated: number;
+        updateToVersion: number;
+    };
+    explanations: string[];
+}
+
 export interface ScannedFilesDashboard {
   totalFiles: number
   totalSuccessfulFiles: number

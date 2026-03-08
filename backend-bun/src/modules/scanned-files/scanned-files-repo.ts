@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, isNotNull, isNull, like, or, sql } from "drizzle-orm"
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, like, ne, or, sql } from "drizzle-orm"
 import type { AppDb } from "@/db/client"
 import { scannedFiles } from "@/db/schema"
 import {
@@ -147,6 +147,32 @@ export class ScannedFilesRepo {
         eq(scannedFiles.sourceFile, normalizedPrefix),
         like(scannedFiles.sourceFile, `${normalizedPrefix}/%`),
       ))
+    return rows.map(mapRow)
+  }
+
+  async listAttentionCandidates(searchTerm?: string): Promise<ScannedFile[]> {
+    const conditions = [
+      or(
+        ne(scannedFiles.status, "Success"),
+        eq(scannedFiles.mediaType, "Unknown"),
+      ),
+    ]
+
+    if (searchTerm) {
+      const pattern = `%${searchTerm.toLowerCase()}%`
+      conditions.push(or(
+        like(sql`lower(${scannedFiles.sourceFile})`, pattern),
+        like(sql`lower(${scannedFiles.destFile})`, pattern),
+        like(sql`lower(coalesce(${scannedFiles.title}, ''))`, pattern),
+      ))
+    }
+
+    const rows = await this.db
+      .select()
+      .from(scannedFiles)
+      .where(and(...conditions))
+      .orderBy(desc(sql`coalesce(${scannedFiles.updatedAt}, ${scannedFiles.createdAt})`), desc(scannedFiles.id))
+
     return rows.map(mapRow)
   }
 

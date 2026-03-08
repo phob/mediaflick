@@ -3,6 +3,7 @@ import {
     Archive,
     CircleHelp,
     Clapperboard,
+    Inbox,
     LayoutDashboard,
     Logs,
     Settings,
@@ -13,6 +14,7 @@ import { For, Show, createMemo } from "solid-js";
 import { StatusDot } from "@/components/common-ui";
 
 type AppNavIcon =
+    | "triage"
     | "dashboard"
     | "wanted"
     | "shows"
@@ -23,6 +25,7 @@ type AppNavIcon =
     | "logs";
 
 function NavIcon(props: { icon: AppNavIcon }) {
+    if (props.icon === "triage") return <Inbox class="w-4 h-4" strokeWidth={1.9} />;
     if (props.icon === "dashboard") return <LayoutDashboard class="w-4 h-4" strokeWidth={1.9} />;
     if (props.icon === "wanted") return <ShieldAlert class="w-4 h-4" strokeWidth={1.9} />;
     if (props.icon === "shows") return <Tv class="w-4 h-4" strokeWidth={1.9} />;
@@ -44,6 +47,7 @@ function SideNavLink(props: {
     const location = useLocation();
     const active = createMemo(
         () =>
+            (props.href === "/" && location.pathname === "/triage") ||
             location.pathname === props.href ||
             location.pathname.startsWith(`${props.href}/`),
     );
@@ -98,6 +102,12 @@ const appNavSections: AppNavSection[] = [
         items: [
             {
                 href: "/",
+                label: "Triage Inbox",
+                hint: "Unified operator queue",
+                icon: "triage",
+            },
+            {
+                href: "/dashboard",
                 label: "Dashboard",
                 hint: "Health + quick stats",
                 icon: "dashboard",
@@ -163,11 +173,13 @@ export function SidebarNavigation(props: {
     zurgOnline: boolean;
     wantedBadge?: number | null;
     unidentifiedBadge?: number | null;
+    triageBadge?: number | null;
     expanded: boolean;
     onToggle: () => void;
     onNavigate?: () => void;
 }) {
     const badgeForHref = (href: string): number | null | undefined => {
+        if (href === "/") return props.triageBadge;
         if (href === "/wanted") return props.wantedBadge;
         if (href === "/unidentified") return props.unidentifiedBadge;
         return undefined;
