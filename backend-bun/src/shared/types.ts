@@ -19,6 +19,13 @@ export interface PlexConfig {
   processNewFolderDelay: number
 }
 
+export interface JellyfinConfig {
+  enabled: boolean
+  baseUrl: string
+  apiKey: string
+  requestTimeoutMs: number
+}
+
 export interface TMDbConfig {
   apiKey: string
 }
@@ -34,9 +41,52 @@ export interface ZurgConfig {
 
 export interface ConfigurationPayload {
   plex: PlexConfig
+  jellyfin: JellyfinConfig
   tmDb: TMDbConfig
   mediaDetection: MediaDetectionConfig
   zurg: ZurgConfig
+}
+
+export type JellyfinSyncState = "unknown" | "pending" | "inSync" | "outOfSync" | "missing" | "error"
+export type JellyfinMatchSource = "providerId" | "path" | "title"
+export type JellyfinSyncIssue =
+  | "none"
+  | "pendingJellyfin"
+  | "missingInJellyfin"
+  | "pathMismatch"
+  | "episodeMismatch"
+  | "pathAndEpisodeMismatch"
+  | "localMissing"
+  | "verificationError"
+
+export interface JellyfinSyncSummary {
+  state: JellyfinSyncState
+  lastCheckedAt: string | null
+  jellyfinItemId: string | null
+}
+
+export interface JellyfinSyncDetails extends JellyfinSyncSummary {
+  jellyfinLibraryId: string | null
+  matchedBy: JellyfinMatchSource | null
+  lastNotifiedAt: string | null
+  lastError: string | null
+  message: string | null
+  issue?: JellyfinSyncIssue | null
+  jellyfinPath?: string | null
+  localPaths?: string[]
+  localDirectories?: string[]
+  verifiedEpisodes?: number
+  missingEpisodes?: number
+  touchedSeasons?: number[]
+  seasonDiagnostics?: JellyfinSeasonSync[]
+}
+
+export interface JellyfinSeasonSync {
+  seasonNumber: number
+  localEpisodeCount: number
+  jellyfinEpisodeCount: number
+  verifiedEpisodes: number
+  missingEpisodes: number
 }
 
 export interface ScannedFile {
@@ -141,6 +191,7 @@ export interface MediaInfo {
   episodeCountScanned?: number
   seasonCount?: number
   seasonCountScanned?: number
+  jellyfin?: JellyfinSyncDetails | null
 }
 
 export interface EpisodeInfo {
@@ -208,6 +259,14 @@ export interface DashboardRecentItem {
   fileSize: number | null
   createdAt: string
   updatedAt: string | null
+}
+
+export interface MediaTitleItem {
+  tmdbId: number
+  title: string | null
+  year: number | null
+  posterPath: string | null
+  jellyfin: JellyfinSyncSummary | null
 }
 
 export const triageIssueKinds = [

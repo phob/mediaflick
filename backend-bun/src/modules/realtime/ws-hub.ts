@@ -7,6 +7,7 @@ export type RealtimeEvent =
   | "file.added"
   | "file.updated"
   | "file.removed"
+  | "library.changed"
   | "heartbeat"
   | "zurg.version"
 

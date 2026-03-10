@@ -6,12 +6,14 @@ import type { AppContext } from "@/app/context"
 import { seriesAliases, seriesIdentityMap, tvEpisodeGroupSelections, tvEpisodeSourceSelections } from "@/db/schema"
 import { extractYear, normalizeTitle } from "@/modules/detection/normalization"
 import { detectMovieFromFileName } from "@/modules/detection/movie-detection"
+import type { JellyfinSyncBatch } from "@/modules/jellyfin/jellyfin-sync-coordinator"
 import {
   buildDestinationPath,
   cleanupDeadSymlinks,
   createSymlinkAt,
   isDestinationConflictError,
   removeSymlinkIfExists,
+  removeSymlinksForSource,
 } from "@/modules/symlink/symlink-service"
 import { HttpError } from "@/shared/errors"
 import { parseJson } from "@/shared/http"
@@ -169,7 +171,52 @@ async function resolveSymlinkMeta(
   }
 }
 
-async function recreateSingleSymlink(id: number, context: AppContext, metadataResolver: MediaMetadataResolver) {
+function trackDeletedJellyfinState(
+  context: AppContext,
+  jellyfinBatch: JellyfinSyncBatch,
+  file: ScannedFile,
+): void {
+  if (!file.destFile || !file.tmdbId || (file.mediaType !== "Movies" && file.mediaType !== "TvShows")) {
+    return
+  }
+
+  context.jellyfinSyncCoordinator.recordChange(jellyfinBatch, {
+    mediaType: file.mediaType,
+    tmdbId: file.tmdbId,
+    tvdbId: file.tvdbId,
+    imdbId: file.imdbId,
+    title: file.title,
+    action: "deleted",
+    oldDestFile: file.destFile,
+    seasonNumber: file.seasonNumber,
+    episodeNumber: file.episodeNumber,
+    episodeNumber2: file.episodeNumber2,
+    structural: true,
+  })
+}
+
+async function removeTrackedSymlink(
+  context: AppContext,
+  file: { destFile: string | null; mediaType?: MediaType | null },
+): Promise<void> {
+  if (!file.destFile) {
+    return
+  }
+
+  const config = await context.configStore.get()
+  const destinationRoot = config.plex.folderMappings.find(
+    mapping => mapping.mediaType === file.mediaType,
+  )?.destinationFolder
+
+  await removeSymlinkIfExists(file.destFile, destinationRoot)
+}
+
+async function recreateSingleSymlink(
+  id: number,
+  context: AppContext,
+  metadataResolver: MediaMetadataResolver,
+  jellyfinBatch?: JellyfinSyncBatch,
+) {
   const scannedFile = await context.scannedFilesRepo.findById(id)
   if (!scannedFile) {
     throw new HttpError(404, "Scanned file not found")
@@ -190,6 +237,7 @@ async function recreateSingleSymlink(id: number, context: AppContext, metadataRe
     title: meta.title,
     year: meta.year,
     imdbId: meta.imdbId,
+    tvdbId: meta.tvdbId,
     seasonNumber: meta.seasonNumber,
     episodeNumber: meta.episodeNumber,
     episodeNumber2: meta.episodeNumber2,
@@ -197,8 +245,13 @@ async function recreateSingleSymlink(id: number, context: AppContext, metadataRe
   })
 
   if (scannedFile.destFile && scannedFile.destFile !== destinationPath) {
-    await removeSymlinkIfExists(scannedFile.destFile)
+    await removeSymlinkIfExists(scannedFile.destFile, mapping.destinationFolder)
   }
+  await removeSymlinksForSource(
+    mapping.destinationFolder,
+    scannedFile.sourceFile,
+    destinationPath,
+  )
 
   let updated = null
   try {
@@ -235,7 +288,7 @@ async function recreateSingleSymlink(id: number, context: AppContext, metadataRe
         destinationFile: conflictPath,
       })
 
-      await removeSymlinkIfExists(conflictPath)
+      await removeSymlinkIfExists(conflictPath, mapping.destinationFolder)
 
       try {
         await createSymlinkAt(scannedFile.sourceFile, destinationPath)
@@ -298,6 +351,22 @@ async function recreateSingleSymlink(id: number, context: AppContext, metadataRe
   }
 
   if (updated) {
+    if (jellyfinBatch && updated.mediaType && (updated.mediaType === "Movies" || updated.mediaType === "TvShows")) {
+      context.jellyfinSyncCoordinator.recordChange(jellyfinBatch, {
+        mediaType: updated.mediaType,
+        tmdbId: updated.tmdbId,
+        tvdbId: updated.tvdbId,
+        imdbId: updated.imdbId,
+        title: updated.title,
+        action: scannedFile.destFile ? "updated" : "added",
+        oldDestFile: scannedFile.destFile,
+        newDestFile: updated.destFile,
+        seasonNumber: updated.seasonNumber,
+        episodeNumber: updated.episodeNumber,
+        episodeNumber2: updated.episodeNumber2,
+        structural: scannedFile.destFile !== updated.destFile,
+      })
+    }
     context.wsHub.broadcast("file.updated", updated)
   }
 
@@ -1030,11 +1099,24 @@ export function createScannedFilesRouter(context: AppContext) {
   })
 
   router.get(ENTRYPOINTS.api.scannedFiles.tmdbIdsAndTitles, async c => {
+    const mediaType = (c.req.query("mediaType") as MediaType | undefined) ?? undefined
     const result = await context.scannedFilesRepo.listForTmdbTitles(
-      (c.req.query("mediaType") as MediaType | undefined) ?? undefined,
+      mediaType,
       c.req.query("searchTerm") ?? undefined,
     )
-    return c.json(result)
+    if (mediaType !== "Movies" && mediaType !== "TvShows") {
+      return c.json(result.map(item => ({ ...item, jellyfin: null })))
+    }
+
+    const summaries = await context.jellyfinSyncRepo.findSummariesByMediaTmdbIds(
+      mediaType,
+      result.map(item => item.tmdbId).filter((tmdbId): tmdbId is number => tmdbId !== null),
+    )
+
+    return c.json(result.map(item => ({
+      ...item,
+      jellyfin: item.tmdbId !== null ? summaries.get(item.tmdbId) ?? null : null,
+    })))
   })
 
   router.delete(ENTRYPOINTS.api.scannedFiles.batchDelete, async c => {
@@ -1044,11 +1126,11 @@ export function createScannedFilesRouter(context: AppContext) {
       return c.json({ error: "No IDs provided" }, 400)
     }
 
+    const jellyfinBatch = context.jellyfinSyncCoordinator.beginBatch()
     const deleted = await context.scannedFilesRepo.deleteByIds(ids)
     for (const item of deleted) {
-      if (item.destFile) {
-        await removeSymlinkIfExists(item.destFile)
-      }
+      trackDeletedJellyfinState(context, jellyfinBatch, item)
+      await removeTrackedSymlink(context, item)
       context.wsHub.broadcast("file.removed", item)
     }
 
@@ -1056,6 +1138,7 @@ export function createScannedFilesRouter(context: AppContext) {
     for (const mapping of config.plex.folderMappings) {
       await cleanupDeadSymlinks(mapping.destinationFolder)
     }
+    await context.jellyfinSyncCoordinator.flush(jellyfinBatch)
 
     return c.json({ deletedIds: deleted.map(item => item.id) })
   })
@@ -1128,6 +1211,7 @@ export function createScannedFilesRouter(context: AppContext) {
     let updatedCount = 0
     const failed: Array<{ id: number; error: string }> = []
     const updatedIds: number[] = []
+    const jellyfinBatch = context.jellyfinSyncCoordinator.beginBatch()
 
     for (let i = 0; i < body.updates.length; i += CHUNK_SIZE) {
       const chunk = body.updates.slice(i, i + CHUNK_SIZE)
@@ -1143,7 +1227,8 @@ export function createScannedFilesRouter(context: AppContext) {
 
           if (item.mediaType === "Extras") {
             if (existing.destFile) {
-              await removeSymlinkIfExists(existing.destFile)
+              trackDeletedJellyfinState(context, jellyfinBatch, existing)
+              await removeTrackedSymlink(context, existing)
             }
             const updated = await context.scannedFilesRepo.markAsExtra(item.id)
             if (updated) {
@@ -1151,6 +1236,20 @@ export function createScannedFilesRouter(context: AppContext) {
               updatedCount += 1
             }
           } else {
+            if (
+              existing.destFile &&
+              existing.tmdbId &&
+              (existing.mediaType === "Movies" || existing.mediaType === "TvShows") &&
+              (
+                item.tmdbId !== undefined && item.tmdbId !== existing.tmdbId
+                || item.mediaType !== undefined && item.mediaType !== existing.mediaType
+                || item.seasonNumber !== undefined && item.seasonNumber !== existing.seasonNumber
+                || item.episodeNumber !== undefined && item.episodeNumber !== existing.episodeNumber
+                || item.episodeNumber2 !== undefined && item.episodeNumber2 !== existing.episodeNumber2
+              )
+            ) {
+              trackDeletedJellyfinState(context, jellyfinBatch, existing)
+            }
             const updated = await context.scannedFilesRepo.updateById(item.id, {
               tmdbId: item.tmdbId,
               seasonNumber: item.seasonNumber,
@@ -1185,7 +1284,7 @@ export function createScannedFilesRouter(context: AppContext) {
 
       for (const id of chunk) {
         try {
-          await recreateSingleSymlink(id, context, metadataResolver)
+          await recreateSingleSymlink(id, context, metadataResolver, jellyfinBatch)
           symlinksRecreated += 1
         } catch (err) {
           symlinksFailed += 1
@@ -1196,6 +1295,8 @@ export function createScannedFilesRouter(context: AppContext) {
         }
       }
     }
+
+    await context.jellyfinSyncCoordinator.flush(jellyfinBatch)
 
     const result: BulkUpdateApplyResponse = {
       updated: updatedCount,
@@ -1211,20 +1312,36 @@ export function createScannedFilesRouter(context: AppContext) {
       symlinksFailed: result.symlinksFailed,
       identityUpdated: result.identityUpdated,
     })
+    context.wsHub.broadcast("library.changed", {
+      source: "batch-update",
+      updated: result.updated,
+      failed: result.failed.length,
+      symlinksRecreated: result.symlinksRecreated,
+      symlinksFailed: result.symlinksFailed,
+      identityUpdated: result.identityUpdated,
+    })
     return c.json(result)
   })
 
   router.post(ENTRYPOINTS.api.scannedFiles.recreateSymlinks, async c => {
     const all = await context.scannedFilesRepo.listSuccessfulWithDestination()
     let successCount = 0
+    const jellyfinBatch = context.jellyfinSyncCoordinator.beginBatch()
 
     for (const entry of all) {
       try {
-        await recreateSingleSymlink(entry.id, context, metadataResolver)
+        await recreateSingleSymlink(entry.id, context, metadataResolver, jellyfinBatch)
         successCount += 1
       } catch {
       }
     }
+
+    await context.jellyfinSyncCoordinator.flush(jellyfinBatch)
+
+    context.wsHub.broadcast("library.changed", {
+      source: "recreate-symlinks",
+      successCount,
+    })
 
     return c.json({ successCount })
   })
@@ -1235,7 +1352,9 @@ export function createScannedFilesRouter(context: AppContext) {
       return c.json({ error: "Invalid id" }, 400)
     }
 
-    const updated = await recreateSingleSymlink(id, context, metadataResolver)
+    const jellyfinBatch = context.jellyfinSyncCoordinator.beginBatch()
+    const updated = await recreateSingleSymlink(id, context, metadataResolver, jellyfinBatch)
+    await context.jellyfinSyncCoordinator.flush(jellyfinBatch)
     return c.json(updated)
   })
 
@@ -1280,7 +1399,10 @@ export function createScannedFilesRouter(context: AppContext) {
     }
 
     if (body.mediaType === "Extras" && existing.destFile) {
-      await removeSymlinkIfExists(existing.destFile)
+      const jellyfinBatch = context.jellyfinSyncCoordinator.beginBatch()
+      trackDeletedJellyfinState(context, jellyfinBatch, existing)
+      await removeTrackedSymlink(context, existing)
+      await context.jellyfinSyncCoordinator.flush(jellyfinBatch)
     }
 
     const updated = body.mediaType === "Extras"
@@ -1301,14 +1423,15 @@ export function createScannedFilesRouter(context: AppContext) {
       return c.json({ error: "Invalid id" }, 400)
     }
 
+    const jellyfinBatch = context.jellyfinSyncCoordinator.beginBatch()
     const deleted = await context.scannedFilesRepo.deleteById(id)
     if (!deleted) {
       return c.json({ error: "Not found" }, 404)
     }
-    if (deleted.destFile) {
-      await removeSymlinkIfExists(deleted.destFile)
-    }
+    trackDeletedJellyfinState(context, jellyfinBatch, deleted)
+    await removeTrackedSymlink(context, deleted)
     context.wsHub.broadcast("file.removed", deleted)
+    await context.jellyfinSyncCoordinator.flush(jellyfinBatch)
     return c.json({ deletedId: id })
   })
 
@@ -1318,13 +1441,14 @@ export function createScannedFilesRouter(context: AppContext) {
       return c.json({ error: "No ids provided" }, 400)
     }
 
+    const jellyfinBatch = context.jellyfinSyncCoordinator.beginBatch()
     const deleted = await context.scannedFilesRepo.deleteByIds(ids)
     for (const item of deleted) {
-      if (item.destFile) {
-        await removeSymlinkIfExists(item.destFile)
-      }
+      trackDeletedJellyfinState(context, jellyfinBatch, item)
+      await removeTrackedSymlink(context, item)
       context.wsHub.broadcast("file.removed", item)
     }
+    await context.jellyfinSyncCoordinator.flush(jellyfinBatch)
     return c.json({ deletedIds: deleted.map(item => item.id) })
   })
 

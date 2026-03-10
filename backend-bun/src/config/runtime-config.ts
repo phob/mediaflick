@@ -18,6 +18,12 @@ export const configSchema = z.object({
     processNewFolderDelay: z.number().int().nonnegative(),
     folderMappings: z.array(folderMappingSchema).min(1),
   }),
+  jellyfin: z.object({
+    enabled: z.boolean(),
+    baseUrl: z.string(),
+    apiKey: z.string(),
+    requestTimeoutMs: z.number().int().positive(),
+  }),
   tmDb: z.object({
     apiKey: z.string().min(1),
   }),
@@ -49,6 +55,12 @@ export const defaultConfig: ConfigurationPayload = {
         mediaType: "TvShows",
       },
     ],
+  },
+  jellyfin: {
+    enabled: false,
+    baseUrl: "http://localhost:8096",
+    apiKey: "",
+    requestTimeoutMs: 10_000,
   },
   tmDb: {
     apiKey: "your-tmdb-api-key",

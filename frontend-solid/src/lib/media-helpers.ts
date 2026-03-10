@@ -33,6 +33,7 @@ export function cloneConfig(config: ConfigurationPayload): ConfigurationPayload 
             ...config.plex,
             folderMappings: config.plex.folderMappings.map((m) => ({ ...m })),
         },
+        jellyfin: { ...config.jellyfin },
         tmDb: { ...config.tmDb },
         mediaDetection: { ...config.mediaDetection },
         zurg: { ...config.zurg },

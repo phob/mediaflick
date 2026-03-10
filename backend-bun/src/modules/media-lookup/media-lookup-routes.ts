@@ -37,6 +37,17 @@ interface EpisodeSourceSelectionRequest {
   tvdbSeasonType?: TvdbSeasonType | null
 }
 
+interface EpisodeOrderingSelectionRequest extends EpisodeSourceSelectionRequest {
+  episodeGroupId?: string | null
+}
+
+interface EpisodeOrderingChangeResponse extends TvEpisodeSourceSelectionResponse {
+  selectedEpisodeGroupId: string | null
+  selectedEpisodeGroupName: string | null
+  removedCount: number
+  reprocessedCount: number
+}
+
 interface TvFilesResponse {
   tmdbId: number
   selectedEpisodeGroupId: string | null
@@ -145,6 +156,79 @@ async function toEpisodeSourceResponse(
   }
 }
 
+async function setEpisodeGroupSelection(
+  context: AppContext,
+  tmdbId: number,
+  episodeGroupId: string | null,
+): Promise<{ episodeGroupId: string | null; episodeGroupName: string | null }> {
+  if (episodeGroupId === null) {
+    await context.db.delete(tvEpisodeGroupSelections).where(eq(tvEpisodeGroupSelections.tmdbId, tmdbId))
+    return {
+      episodeGroupId: null,
+      episodeGroupName: null,
+    }
+  }
+
+  const episodeGroups = await context.tmdb.getTvEpisodeGroups(tmdbId)
+  const matchedGroup = episodeGroups.find(group => group.id === episodeGroupId)
+  if (!matchedGroup) {
+    throw new Error("Episode group not found for show")
+  }
+
+  const now = new Date().toISOString()
+  await context.db
+    .insert(tvEpisodeGroupSelections)
+    .values({
+      tmdbId,
+      episodeGroupId: matchedGroup.id,
+      episodeGroupName: matchedGroup.name,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: tvEpisodeGroupSelections.tmdbId,
+      set: {
+        episodeGroupId: matchedGroup.id,
+        episodeGroupName: matchedGroup.name,
+        updatedAt: now,
+      },
+    })
+
+  return {
+    episodeGroupId: matchedGroup.id,
+    episodeGroupName: matchedGroup.name,
+  }
+}
+
+async function applyEpisodeOrderingSelection(
+  context: AppContext,
+  episodeSourceService: TvEpisodeSourceService,
+  tmdbId: number,
+  body: EpisodeOrderingSelectionRequest,
+): Promise<EpisodeOrderingChangeResponse> {
+  const selection = await episodeSourceService.setSelection(tmdbId, {
+    source: body.source,
+    tvdbId: body.tvdbId ?? null,
+    tvdbSeriesName: body.tvdbSeriesName ?? null,
+    tvdbSeasonType: body.tvdbSeasonType ?? "default",
+  })
+  const groupSelection = await setEpisodeGroupSelection(context, tmdbId, body.episodeGroupId ?? null)
+  const rebuildResult = await context.poller.rebuildTvShow(tmdbId, {
+    orderingSnapshot: {
+      episodeSource: selection,
+      episodeGroupId: groupSelection.episodeGroupId,
+      episodeGroupName: groupSelection.episodeGroupName,
+    },
+  })
+
+  return {
+    ...(await toEpisodeSourceResponse(selection, episodeSourceService)),
+    selectedEpisodeGroupId: groupSelection.episodeGroupId,
+    selectedEpisodeGroupName: groupSelection.episodeGroupName,
+    removedCount: rebuildResult.removedCount,
+    reprocessedCount: rebuildResult.reprocessedCount,
+  }
+}
+
 export function createMediaLookupRouter(context: AppContext) {
   const router = new Hono()
   const episodeSourceService = new TvEpisodeSourceService(context.db, () => context.tmdb, () => context.tvdb)
@@ -183,6 +267,7 @@ export function createMediaLookupRouter(context: AppContext) {
 
   router.get(ENTRYPOINTS.api.mediaLookup.movieByTmdbId, async c => {
     const tmdbId = toInt(c.req.param("tmdbId"))
+    const forceJellyfin = c.req.query("forceJellyfin") === "true"
     if (!tmdbId) {
       return c.json({ error: "Invalid TMDb id" }, 400)
     }
@@ -192,6 +277,13 @@ export function createMediaLookupRouter(context: AppContext) {
       context.tmdb.getMovieExternalIds(tmdbId),
       context.tmdb.getMovieCredits(tmdbId),
     ])
+    const jellyfin = await context.jellyfinSyncCoordinator.refreshForDetail({
+      mediaType: "Movies",
+      tmdbId,
+      title: movie.title,
+      imdbId: external.imdb_id,
+      force: forceJellyfin,
+    })
 
     const payload: MediaInfo = {
       title: movie.title,
@@ -211,6 +303,7 @@ export function createMediaLookupRouter(context: AppContext) {
       voteCount: movie.vote_count ?? null,
       originalLanguage: movie.original_language ?? null,
       cast: toCastMembers(cast),
+      jellyfin,
     }
 
     return c.json(payload)
@@ -252,6 +345,7 @@ export function createMediaLookupRouter(context: AppContext) {
 
   router.get(ENTRYPOINTS.api.mediaLookup.tvByTmdbId, async c => {
     const tmdbId = toInt(c.req.param("tmdbId"))
+    const forceJellyfin = c.req.query("forceJellyfin") === "true"
     if (!tmdbId) {
       return c.json({ error: "Invalid TMDb id" }, 400)
     }
@@ -277,6 +371,14 @@ export function createMediaLookupRouter(context: AppContext) {
       episodeCount = episodes.length
       seasonCount = new Set(episodes.map(episode => episode.seasonNumber).filter(season => season > 0)).size
     }
+    const jellyfin = await context.jellyfinSyncCoordinator.refreshForDetail({
+      mediaType: "TvShows",
+      tmdbId,
+      title: show.name,
+      imdbId: external.imdb_id,
+      tvdbId: sourceSelection.tvdbId,
+      force: forceJellyfin,
+    })
 
     const payload: MediaInfo = {
       title: show.name,
@@ -303,6 +405,7 @@ export function createMediaLookupRouter(context: AppContext) {
       episodeCountScanned: counts[0]?.count ?? 0,
       seasonCount,
       seasonCountScanned: 0,
+      jellyfin,
     }
 
     return c.json(payload)
@@ -318,6 +421,24 @@ export function createMediaLookupRouter(context: AppContext) {
     return c.json(await toEpisodeSourceResponse(selection, episodeSourceService))
   })
 
+  router.put(ENTRYPOINTS.api.mediaLookup.tvEpisodeOrderingByTmdbId, async c => {
+    const tmdbId = toInt(c.req.param("tmdbId"))
+    if (!tmdbId) {
+      return c.json({ error: "Invalid TMDb id" }, 400)
+    }
+
+    const body = await parseJson<EpisodeOrderingSelectionRequest>(c.req.raw)
+    if (body.source !== "tmdb" && body.source !== "tvdb") {
+      return c.json({ error: "source must be 'tmdb' or 'tvdb'" }, 400)
+    }
+
+    try {
+      return c.json(await applyEpisodeOrderingSelection(context, episodeSourceService, tmdbId, body))
+    } catch (error) {
+      return c.json({ error: error instanceof Error ? error.message : "Failed to update episode ordering" }, 400)
+    }
+  })
+
   router.put(ENTRYPOINTS.api.mediaLookup.tvEpisodeSourceByTmdbId, async c => {
     const tmdbId = toInt(c.req.param("tmdbId"))
     if (!tmdbId) {
@@ -330,17 +451,13 @@ export function createMediaLookupRouter(context: AppContext) {
     }
 
     try {
-      const selection = await episodeSourceService.setSelection(tmdbId, {
-        source: body.source,
-        tvdbId: body.tvdbId ?? null,
-        tvdbSeriesName: body.tvdbSeriesName ?? null,
-        tvdbSeasonType: body.tvdbSeasonType ?? "default",
+      const currentGroupSelection = await getEpisodeGroupSelection(context, tmdbId)
+      const result = await applyEpisodeOrderingSelection(context, episodeSourceService, tmdbId, {
+        ...body,
+        episodeGroupId: currentGroupSelection.episodeGroupId,
       })
-      const rebuildResult = await context.poller.rebuildTvShow(tmdbId)
       return c.json({
-        ...(await toEpisodeSourceResponse(selection, episodeSourceService)),
-        removedCount: rebuildResult.removedCount,
-        reprocessedCount: rebuildResult.reprocessedCount,
+        ...result,
       })
     } catch (error) {
       return c.json({ error: error instanceof Error ? error.message : "Failed to update episode source" }, 400)
@@ -401,42 +518,21 @@ export function createMediaLookupRouter(context: AppContext) {
       return c.json({ error: "episodeGroupId must be a valid TMDb episode group id or null" }, 400)
     }
 
-    if (nextEpisodeGroupId === null) {
-      await context.db.delete(tvEpisodeGroupSelections).where(eq(tvEpisodeGroupSelections.tmdbId, tmdbId))
-    } else {
-      const episodeGroups = await context.tmdb.getTvEpisodeGroups(tmdbId)
-      const matchedGroup = episodeGroups.find(group => group.id === nextEpisodeGroupId)
-      if (!matchedGroup) {
-        return c.json({ error: "Episode group not found for show" }, 404)
-      }
-
-      await context.db
-        .insert(tvEpisodeGroupSelections)
-        .values({
-          tmdbId,
-          episodeGroupId: matchedGroup.id,
-          episodeGroupName: matchedGroup.name,
-          updatedAt: new Date().toISOString(),
-        })
-        .onConflictDoUpdate({
-          target: tvEpisodeGroupSelections.tmdbId,
-          set: {
-            episodeGroupId: matchedGroup.id,
-            episodeGroupName: matchedGroup.name,
-            updatedAt: new Date().toISOString(),
-          },
-        })
-    }
-
-    const rebuildResult = await context.poller.rebuildTvShow(tmdbId)
-    const selection = await getEpisodeGroupSelection(context, tmdbId)
+    const currentSourceSelection = await episodeSourceService.getSelection(tmdbId)
+    const result = await applyEpisodeOrderingSelection(context, episodeSourceService, tmdbId, {
+      source: currentSourceSelection.source,
+      tvdbId: currentSourceSelection.tvdbId,
+      tvdbSeriesName: currentSourceSelection.tvdbSeriesName,
+      tvdbSeasonType: currentSourceSelection.tvdbSeasonType,
+      episodeGroupId: nextEpisodeGroupId,
+    })
 
     return c.json({
       tmdbId,
-      selectedEpisodeGroupId: selection.episodeGroupId,
-      selectedEpisodeGroupName: selection.episodeGroupName,
-      removedCount: rebuildResult.removedCount,
-      reprocessedCount: rebuildResult.reprocessedCount,
+      selectedEpisodeGroupId: result.selectedEpisodeGroupId,
+      selectedEpisodeGroupName: result.selectedEpisodeGroupName,
+      removedCount: result.removedCount,
+      reprocessedCount: result.reprocessedCount,
     })
   })
 

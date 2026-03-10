@@ -114,6 +114,26 @@ export const tvEpisodeSourceSelections = sqliteTable(
   ],
 )
 
+export const jellyfinSyncState = sqliteTable(
+  "jellyfin_sync_state",
+  {
+    mediaType: text("media_type").notNull(),
+    tmdbId: integer("tmdb_id").notNull(),
+    jellyfinItemId: text("jellyfin_item_id"),
+    jellyfinLibraryId: text("jellyfin_library_id"),
+    state: text("state").notNull().default("unknown"),
+    matchedBy: text("matched_by"),
+    lastCheckedAt: text("last_checked_at"),
+    lastNotifiedAt: text("last_notified_at"),
+    lastError: text("last_error"),
+    detailsJson: text("details_json"),
+  },
+  table => [
+    uniqueIndex("ux_jellyfin_sync_state_media_tmdb").on(table.mediaType, table.tmdbId),
+    index("ix_jellyfin_sync_state_state").on(table.state),
+  ],
+)
+
 export const seriesIdentityRelations = relations(seriesIdentityMap, ({ many }) => ({
   aliases: many(seriesAliases),
 }))

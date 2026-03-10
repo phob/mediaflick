@@ -1,9 +1,30 @@
 import { useQuery } from "@tanstack/solid-query";
 import { For, Show, createMemo, createSignal } from "solid-js";
-import { Film, Image as ImageIcon } from "lucide-solid";
+import { Film } from "lucide-solid";
 import { CardSkeleton } from "@/components/common-ui";
 import { CollectionHero, MediaShelfCard } from "@/components/media-shared";
 import { mediaApi } from "@/lib/api";
+
+function MoviePosterCard(props: {
+    tmdbId: number;
+    title: string;
+    year: number | null;
+    posterPath: string | null;
+}) {
+    return (
+        <MediaShelfCard
+            href={`/movies/${props.tmdbId}`}
+            title={props.title}
+            posterPath={props.posterPath}
+            eyebrow="Movie"
+            subtitle={props.year ? `Released ${props.year}` : "Release year not available"}
+            tone="movie"
+            topRight={<Film size={14} class="text-white/68" />}
+        >
+            <div class="text-xs text-white/70">Open title details, files, and related extras.</div>
+        </MediaShelfCard>
+    );
+}
 
 export default function MoviesPage() {
     const [searchTerm, setSearchTerm] = createSignal("");
@@ -71,28 +92,7 @@ export default function MoviesPage() {
 
             <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
                 <For each={filteredTitles()}>
-                    {(item) => (
-                        <MediaShelfCard
-                            href={`/movies/${item.tmdbId}`}
-                            title={item.title ?? "Unknown title"}
-                            posterPath={item.posterPath}
-                            eyebrow="Movie"
-                            subtitle={item.year ? `Released ${item.year}` : "Release year not available"}
-                            footer={`TMDb ${item.tmdbId}`}
-                            tone="movie"
-                            topRight={
-                                <div class="inline-flex items-center gap-2 rounded-full border border-white/12 bg-black/30 px-3 py-1.5 text-[0.68rem] font-mono uppercase tracking-[0.14em] text-white/70">
-                                    {item.posterPath ? <ImageIcon size={13} /> : <Film size={13} />}
-                                    <span>{item.posterPath ? "Art ready" : "Fallback"}</span>
-                                </div>
-                            }
-                        >
-                            <div class="flex items-center justify-between gap-3 text-xs text-white/70">
-                                <span>Open title details</span>
-                                <span class="rounded-full border border-white/12 bg-white/8 px-2 py-1">Extras review</span>
-                            </div>
-                        </MediaShelfCard>
-                    )}
+                    {(item) => <MoviePosterCard tmdbId={item.tmdbId} title={item.title ?? "Unknown title"} year={item.year} posterPath={item.posterPath} />}
                 </For>
             </div>
         </section>

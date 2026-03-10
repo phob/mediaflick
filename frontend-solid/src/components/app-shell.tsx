@@ -1,6 +1,7 @@
 import { useLocation } from "@solidjs/router";
 import { useQuery, useQueryClient } from "@tanstack/solid-query";
 import {
+    For,
     Show,
     createEffect,
     createMemo,
@@ -11,7 +12,18 @@ import {
 } from "solid-js";
 import { SidebarNavigation } from "@/components/sidebar-navigation";
 import { mediaApi } from "@/lib/api";
+import { onAppNotification, type AppNotification, type AppNotificationTone } from "@/lib/notifications";
 import { createRealtimeSocket } from "@/lib/realtime";
+
+interface ToastItem extends AppNotification {
+    id: number;
+}
+
+function toastToneClass(tone: AppNotificationTone | undefined): string {
+    if (tone === "success") return "border-success/30 bg-success/14 text-text-primary";
+    if (tone === "error") return "border-error/30 bg-error/14 text-text-primary";
+    return "border-info/30 bg-info/14 text-text-primary";
+}
 
 export const AppShell: ParentComponent = (props) => {
     const sidebarExpandedKey = "mediaflick.sidebar.expanded";
@@ -23,6 +35,7 @@ export const AppShell: ParentComponent = (props) => {
     const [mobileNavOpen, setMobileNavOpen] = createSignal(false);
     const [mobileTriggerVisible, setMobileTriggerVisible] = createSignal(true);
     const [sidebarExpanded, setSidebarExpanded] = createSignal(true);
+    const [toasts, setToasts] = createSignal<ToastItem[]>([]);
 
     onMount(() => {
         const savedSidebarState = window.localStorage.getItem(
@@ -37,6 +50,9 @@ export const AppShell: ParentComponent = (props) => {
         }
 
         let lastY = window.scrollY;
+        const dismissToast = (id: number) => {
+            setToasts((items) => items.filter((item) => item.id !== id));
+        };
         const handleScroll = () => {
             const currentY = window.scrollY;
             if (mobileNavOpen()) {
@@ -50,6 +66,12 @@ export const AppShell: ParentComponent = (props) => {
         };
         window.addEventListener("scroll", handleScroll, { passive: true });
 
+        const cleanupNotifications = onAppNotification((notification) => {
+            const id = Date.now() + Math.floor(Math.random() * 1000);
+            setToasts((items) => [...items, { id, ...notification }]);
+            window.setTimeout(() => dismissToast(id), notification.tone === "error" ? 7000 : 4500);
+        });
+
         const cleanupSocket = createRealtimeSocket((message) => {
             if (message.type === "heartbeat") {
                 const ts = Number(message.payload);
@@ -62,6 +84,7 @@ export const AppShell: ParentComponent = (props) => {
                 return;
             }
             if (
+                message.type === "library.changed" ||
                 message.type === "file.added" ||
                 message.type === "file.updated" ||
                 message.type === "file.removed"
@@ -74,6 +97,9 @@ export const AppShell: ParentComponent = (props) => {
                     "show",
                     "movie",
                     "tv-files",
+                    "tv-seasons",
+                    "tv-episode-source",
+                    "tv-episode-groups",
                     "movie-files",
                     "archive-files",
                     "wanted-shows",
@@ -86,6 +112,7 @@ export const AppShell: ParentComponent = (props) => {
         });
 
         onCleanup(() => {
+            cleanupNotifications();
             cleanupSocket();
             window.removeEventListener("scroll", handleScroll);
         });
@@ -211,6 +238,17 @@ export const AppShell: ParentComponent = (props) => {
                     </aside>
                 </div>
             </Show>
+
+            <div class="pointer-events-none fixed bottom-4 right-4 z-[70] flex w-full max-w-sm flex-col gap-3 px-4">
+                <For each={toasts()}>
+                    {(toast) => (
+                        <div class={`pointer-events-auto rounded-2xl border px-4 py-3 shadow-[0_18px_48px_rgba(0,0,0,0.28)] backdrop-blur-sm ${toastToneClass(toast.tone)}`}>
+                            <p class="text-sm font-semibold">{toast.title}</p>
+                            <Show when={toast.message}><p class="mt-1 text-sm text-text-secondary">{toast.message}</p></Show>
+                        </div>
+                    )}
+                </For>
+            </div>
         </div>
     );
 };

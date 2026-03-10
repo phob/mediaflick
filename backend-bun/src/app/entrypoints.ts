@@ -6,6 +6,7 @@ export const ENTRYPOINTS = {
   },
   api: {
     config: "/api/config",
+    configBrowse: "/api/config/browse",
     logs: "/api/logs",
     mediaLookup: {
       base: "/api/medialookup",
@@ -13,6 +14,7 @@ export const ENTRYPOINTS = {
       tvSearch: "/api/medialookup/tvshows/search",
       movieByTmdbId: "/api/medialookup/movies/:tmdbId",
       tvByTmdbId: "/api/medialookup/tvshows/:tmdbId",
+      tvEpisodeOrderingByTmdbId: "/api/medialookup/tvshows/:tmdbId/episode-ordering",
       tvEpisodeSourceByTmdbId: "/api/medialookup/tvshows/:tmdbId/episode-source",
       tvdbSearchByTmdbId: "/api/medialookup/tvshows/:tmdbId/tvdb/search",
       tvEpisodeGroupsByTmdbId: "/api/medialookup/tvshows/:tmdbId/episode-groups",

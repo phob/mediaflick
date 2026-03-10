@@ -3,8 +3,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/solid-query";
 import { AlertTriangle, Clapperboard, ExternalLink, Layers3, RefreshCw, Tv2 } from "lucide-solid";
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, type ParentProps } from "solid-js";
 import { IdentifyModal } from "@/components/identify-modal";
+import { JellyfinSyncPanel } from "@/components/jellyfin-sync-panel";
 import { TvdbSearchInput } from "@/components/tvdb-search-input";
-import { FileRowIdentity, Pill, RowSkeleton, SourceSubgroupSeparator, StatusBadge } from "@/components/common-ui";
+import { FileRowIdentity, JellyfinSyncBadge, JellyfinSyncPill, Pill, RowSkeleton, SourceSubgroupSeparator, StatusBadge } from "@/components/common-ui";
 import { CastPanel, DetailPageBackdrop } from "@/components/media-shared";
 import { mediaApi } from "@/lib/api";
 import { parseEpisodeInfo } from "@/lib/filename-parser";
@@ -19,7 +20,8 @@ import {
     posterUrl,
     sourceDirectory,
 } from "@/lib/media-helpers";
-import type { ScannedFile, SeasonInfo, TvdbSearchResult, TvdbSeasonType } from "@/lib/types";
+import { pushAppNotification } from "@/lib/notifications";
+import type { EpisodeOrderingSelectionRequest, ScannedFile, SeasonInfo, TvdbSearchResult, TvdbSeasonType, TvEpisodeSourceType } from "@/lib/types";
 
 const tvdbSeasonTypeOptions: Array<{ value: TvdbSeasonType; label: string }> = [
     { value: "default", label: "Default" },
@@ -136,13 +138,18 @@ function DetailPanel(props: ParentProps<{ eyebrow: string; title: string; aside?
     );
 }
 
-function EpisodeFileRow(props: { file: ScannedFile; sourceDividerPath?: string | null }) {
+function EpisodeFileRow(props: {
+    file: ScannedFile;
+    sourceDividerPath?: string | null;
+    jellyfinSync?: { state: "unknown" | "pending" | "inSync" | "outOfSync" | "missing" | "error" } | null;
+}) {
     return (
         <>
             <Show when={props.sourceDividerPath}>{(p) => <SourceSubgroupSeparator sourcePath={p()} />}</Show>
             <div class="flex items-start justify-between gap-4 rounded-[1.1rem] border border-border-subtle bg-surface-0/35 px-4 py-3">
                 <FileRowIdentity file={props.file} />
                 <div class="flex shrink-0 flex-wrap items-center gap-1.5">
+                    <JellyfinSyncBadge sync={props.jellyfinSync} compact />
                     <Pill variant="success">{formatEpisodeCode(props.file.seasonNumber, props.file.episodeNumber, props.file.episodeNumber2)}</Pill>
                     <StatusBadge status={props.file.status} />
                 </div>
@@ -284,10 +291,14 @@ export default function TvShowDetailsPage() {
     });
     const [reassignOpen, setReassignOpen] = createSignal(false);
     const [reassignSeasonNumber, setReassignSeasonNumber] = createSignal<number | null>(null);
+    const [pendingEpisodeSourceMode, setPendingEpisodeSourceMode] = createSignal<TvEpisodeSourceType>("tmdb");
+    const [pendingEpisodeGroupId, setPendingEpisodeGroupId] = createSignal("");
     const [pendingTvdbMatch, setPendingTvdbMatch] = createSignal<TvdbSearchResult | null>(null);
     const [pendingTvdbSeasonType, setPendingTvdbSeasonType] = createSignal<TvdbSeasonType>("default");
     const [hydratedEpisodeSourceTmdbId, setHydratedEpisodeSourceTmdbId] = createSignal<number | null>(null);
+    const [hydratedOpenSeasonTmdbId, setHydratedOpenSeasonTmdbId] = createSignal<number | null>(null);
     const [confirmDialog, setConfirmDialog] = createSignal<ConfirmDialogState | null>(null);
+    const [openSeasonNumbers, setOpenSeasonNumbers] = createSignal<Set<number>>(new Set());
     const todayIso = createMemo(() => new Date().toISOString().slice(0, 10));
 
     const showQuery = useQuery(() => ({ queryKey: ["show", tmdbId()], queryFn: () => mediaApi.getShow(tmdbId()), enabled: Number.isInteger(tmdbId()) && tmdbId() > 0 }));
@@ -305,9 +316,24 @@ export default function TvShowDetailsPage() {
         enabled: Number.isInteger(tmdbId()) && tmdbId() > 0 && (showQuery.data?.seasonCount ?? 0) > 0,
     }));
 
-    const episodeSourceMutation = useMutation(() => ({
-        mutationFn: (body: { source: "tmdb" | "tvdb"; tvdbId?: number | null; tvdbSeriesName?: string | null; tvdbSeasonType?: TvdbSeasonType | null }) => mediaApi.setShowEpisodeSource(tmdbId(), body),
-        onSuccess: async () => {
+    const episodeOrderingMutation = useMutation(() => ({
+        mutationFn: (body: EpisodeOrderingSelectionRequest) => mediaApi.setShowEpisodeOrdering(tmdbId(), body),
+        onSuccess: async (data) => {
+            setPendingEpisodeSourceMode(data.source);
+            setPendingEpisodeGroupId(data.selectedEpisodeGroupId ?? "");
+            setPendingTvdbSeasonType(data.tvdbSeasonType ?? "default");
+            if (data.source === "tvdb" && data.tvdbId && data.tvdbSeriesName) {
+                setPendingTvdbMatch({
+                    tvdbId: data.tvdbId,
+                    title: data.tvdbSeriesName,
+                    year: null,
+                    posterPath: null,
+                    overview: null,
+                });
+            } else {
+                setPendingTvdbMatch(data.suggestedTvdbSeries ?? null);
+            }
+
             await Promise.all([
                 queryClient.invalidateQueries({ queryKey: ["show", tmdbId()] }),
                 queryClient.invalidateQueries({ queryKey: ["tv-files", tmdbId()] }),
@@ -315,39 +341,67 @@ export default function TvShowDetailsPage() {
                 queryClient.invalidateQueries({ queryKey: ["tv-episode-source", tmdbId()] }),
                 queryClient.invalidateQueries({ queryKey: ["tv-episode-groups", tmdbId()] }),
             ]);
+
+            pushAppNotification({
+                title: "Episode ordering applied",
+                message: `Rebuilt ${data.reprocessedCount} file(s) for the selected ${data.source === "tvdb" ? "TVDB" : "TMDb"} ordering.`,
+                tone: "success",
+            });
+        },
+    }));
+    const recheckJellyfinMutation = useMutation(() => ({
+        mutationFn: () => mediaApi.getShow(tmdbId(), { forceJellyfin: true }),
+        onSuccess: (data) => {
+            queryClient.setQueryData(["show", tmdbId()], data);
+            pushAppNotification({
+                title: "Jellyfin rechecked",
+                message: "Series sync details were refreshed.",
+                tone: "success",
+            });
+        },
+        onError: (error) => {
+            pushAppNotification({
+                title: "Jellyfin recheck failed",
+                message: error instanceof Error ? error.message : "Unknown error",
+                tone: "error",
+            });
         },
     }));
 
-    const episodeGroupMutation = useMutation(() => ({
-        mutationFn: (episodeGroupId: string | null) => mediaApi.setShowEpisodeGroup(tmdbId(), episodeGroupId),
-        onSuccess: async () => {
-            await Promise.all([
-                queryClient.invalidateQueries({ queryKey: ["show", tmdbId()] }),
-                queryClient.invalidateQueries({ queryKey: ["tv-files", tmdbId()] }),
-                queryClient.invalidateQueries({ queryKey: ["tv-episode-groups", tmdbId()] }),
-            ]);
-        },
-    }));
-
-    createEffect(() => {
-        const currentTmdbId = tmdbId();
+    const syncPendingOrderingFromActive = () => {
         const selection = episodeSourceQuery.data;
-        if (!selection || !episodeSourceQuery.isFetched || currentTmdbId <= 0 || hydratedEpisodeSourceTmdbId() === currentTmdbId) return;
+        if (!selection) return;
+
+        setPendingEpisodeSourceMode(selection.source);
+        setPendingEpisodeGroupId(episodeGroupsQuery.data?.selectedEpisodeGroupId ?? "");
         setPendingTvdbSeasonType(selection.tvdbSeasonType ?? "default");
-        const tvdbId = selection.tvdbId;
-        const tvdbSeriesName = selection.tvdbSeriesName;
-        if (selection.source === "tvdb" && tvdbId && tvdbSeriesName) {
+        if (selection.source === "tvdb" && selection.tvdbId && selection.tvdbSeriesName) {
             setPendingTvdbMatch({
-                tvdbId,
-                title: tvdbSeriesName,
+                tvdbId: selection.tvdbId,
+                title: selection.tvdbSeriesName,
                 year: null,
                 posterPath: null,
                 overview: null,
             });
-        } else {
-            setPendingTvdbMatch(selection.suggestedTvdbSeries ?? null);
+            return;
         }
+
+        setPendingTvdbMatch(selection.suggestedTvdbSeries ?? null);
+    };
+
+    createEffect(() => {
+        const currentTmdbId = tmdbId();
+        const selection = episodeSourceQuery.data;
+        if (!selection || !episodeSourceQuery.isFetched || !episodeGroupsQuery.isFetched || currentTmdbId <= 0 || hydratedEpisodeSourceTmdbId() === currentTmdbId) return;
+        syncPendingOrderingFromActive();
         setHydratedEpisodeSourceTmdbId(currentTmdbId);
+    });
+
+    createEffect(() => {
+        const currentTmdbId = tmdbId();
+        if (currentTmdbId <= 0 || hydratedOpenSeasonTmdbId() === currentTmdbId) return;
+        setOpenSeasonNumbers(new Set([focusedSeasonNumber() ?? 1]));
+        setHydratedOpenSeasonTmdbId(currentTmdbId);
     });
 
     const categorizedBySeason = createMemo(() => {
@@ -449,21 +503,50 @@ export default function TvShowDetailsPage() {
     });
     const activeEpisodeSource = createMemo(() => episodeSourceQuery.data);
     const activeEpisodeSourceLabel = createMemo(() => activeEpisodeSource()?.sourceLabel ?? "TMDb");
-    const isEpisodeSourceBusy = createMemo(() => episodeSourceMutation.isPending);
-    const isEpisodeGroupBusy = createMemo(() => episodeGroupMutation.isPending);
+    const pendingEpisodeSourceLabel = createMemo(() => pendingEpisodeSourceMode() === "tvdb" ? "TVDB" : "TMDb");
+    const isEpisodeOrderingBusy = createMemo(() => episodeOrderingMutation.isPending);
     const selectedTvdbMatch = createMemo(() => pendingTvdbMatch() ?? episodeSourceQuery.data?.suggestedTvdbSeries ?? null);
     const pendingTvdbMatchesActive = createMemo(() => {
         const active = activeEpisodeSource();
         const pending = selectedTvdbMatch();
-        if (!active || active.source !== "tvdb" || !pending) return false;
+        if (!active || pendingEpisodeSourceMode() !== "tvdb" || !pending) return false;
+        if (active.source !== "tvdb") return false;
         return active.tvdbId === pending.tvdbId && (active.tvdbSeasonType ?? "default") === pendingTvdbSeasonType();
+    });
+
+    const currentEpisodeGroup = createMemo(() => {
+        const id = episodeGroupsQuery.data?.selectedEpisodeGroupId;
+        if (!id) return null;
+        return (episodeGroupsQuery.data?.groups ?? []).find((g) => g.id === id) ?? null;
+    });
+
+    const pendingEpisodeGroup = createMemo(() => {
+        const id = pendingEpisodeGroupId();
+        if (!id) return null;
+        return (episodeGroupsQuery.data?.groups ?? []).find((g) => g.id === id) ?? null;
+    });
+
+    const pendingOrderingDirty = createMemo(() => {
+        const active = activeEpisodeSource();
+        if (!active) return false;
+        if (pendingEpisodeSourceMode() !== active.source) return true;
+        if (pendingEpisodeGroupId() !== (episodeGroupsQuery.data?.selectedEpisodeGroupId ?? "")) return true;
+        if (pendingEpisodeSourceMode() !== "tvdb") return false;
+        const pending = selectedTvdbMatch();
+        return (active.tvdbId ?? null) !== (pending?.tvdbId ?? null)
+            || (active.tvdbSeriesName ?? null) !== (pending?.title ?? null)
+            || (active.tvdbSeasonType ?? "default") !== pendingTvdbSeasonType();
+    });
+
+    const canApplyPendingOrdering = createMemo(() => {
+        if (isEpisodeOrderingBusy() || !pendingOrderingDirty()) return false;
+        if (pendingEpisodeSourceMode() !== "tvdb") return true;
+        return Boolean(selectedTvdbMatch());
     });
 
     const selectedEpisodeGroup = createMemo(() => {
         if (activeEpisodeSource()?.source === "tvdb") return null;
-        const id = episodeGroupsQuery.data?.selectedEpisodeGroupId;
-        if (!id) return null;
-        return (episodeGroupsQuery.data?.groups ?? []).find((g) => g.id === id) ?? null;
+        return currentEpisodeGroup();
     });
     const displayedEpisodeTotal = createMemo(() => selectedEpisodeGroup()?.episodeCount ?? showQuery.data?.episodeCount ?? 0);
     const scannedSeasonCount = createMemo(() => new Set(seasonGroupsToRender().filter((g) => g.seasonNumber > 0 && g.cards.some((c) => c.kind === "file")).map((g) => g.seasonNumber)).size);
@@ -476,7 +559,7 @@ export default function TvShowDetailsPage() {
     };
 
     const closeConfirmation = () => {
-        if (isEpisodeSourceBusy() || isEpisodeGroupBusy()) return;
+        if (isEpisodeOrderingBusy()) return;
         setConfirmDialog(null);
     };
 
@@ -487,47 +570,58 @@ export default function TvShowDetailsPage() {
         setConfirmDialog(null);
     };
 
-    const handleEpisodeGroupChange = (v: string) => {
-        const cur = episodeGroupsQuery.data?.selectedEpisodeGroupId ?? "";
-        const n = v.length > 0 ? v : null;
-        if ((n ?? "") === cur) return;
-        requestConfirmation({
-            title: "Change episode grouping?",
-            description: "This will remove and recreate this show's mapped episodes and symlinks using the selected TMDb group.",
-            confirmLabel: "Change grouping",
-            tone: "warning",
-            onConfirm: () => episodeGroupMutation.mutate(n),
-        });
-    };
-    const handleUseTmdbEpisodeSource = () => {
-        if (activeEpisodeSource()?.source === "tmdb") return;
-        requestConfirmation({
-            title: "Switch back to TMDb order?",
-            description: "MediaFlick will rebuild this show's mapped episodes and symlinks using the standard TMDb season order.",
-            confirmLabel: "Use TMDb order",
-            tone: "default",
-            onConfirm: () => episodeSourceMutation.mutate({ source: "tmdb" }),
-        });
-    };
-    const handleUseTvdbEpisodeSource = () => {
-        const match = selectedTvdbMatch();
-        if (!match) return;
-        requestConfirmation({
-            title: "Switch to TVDB order?",
-            description: `MediaFlick will rebuild this show's mapped episodes and symlinks using ${match.title} with the ${tvdbSeasonTypeOptions.find((option) => option.value === pendingTvdbSeasonType())?.label ?? "Default"} season order.`,
-            confirmLabel: "Use TVDB order",
-            tone: "warning",
-            onConfirm: () => episodeSourceMutation.mutate({
+    const buildPendingOrderingRequest = (): EpisodeOrderingSelectionRequest | null => {
+        if (pendingEpisodeSourceMode() === "tvdb") {
+            const match = selectedTvdbMatch();
+            if (!match) return null;
+            return {
                 source: "tvdb",
                 tvdbId: match.tvdbId,
                 tvdbSeriesName: match.title,
                 tvdbSeasonType: pendingTvdbSeasonType(),
-            }),
+                episodeGroupId: pendingEpisodeGroupId() || null,
+            };
+        }
+
+        return {
+            source: "tmdb",
+            episodeGroupId: pendingEpisodeGroupId() || null,
+        };
+    };
+
+    const resetPendingOrdering = () => {
+        syncPendingOrderingFromActive();
+    };
+
+    const requestApplyPendingOrdering = () => {
+        const request = buildPendingOrderingRequest();
+        if (!request) return;
+
+        const tmdbGroupLabel = pendingEpisodeGroup()?.name ?? "Default TMDb order";
+        const description = request.source === "tvdb"
+            ? `MediaFlick will rebuild this show's mapped episodes and symlinks using ${request.tvdbSeriesName} with the ${tvdbSeasonTypeOptions.find((option) => option.value === pendingTvdbSeasonType())?.label ?? "Default"} season order.`
+            : `MediaFlick will rebuild this show's mapped episodes and symlinks using ${tmdbGroupLabel}.`;
+
+        requestConfirmation({
+            title: "Apply episode ordering changes?",
+            description,
+            confirmLabel: "Apply changes",
+            tone: request.source === "tvdb" ? "warning" : "default",
+            onConfirm: () => episodeOrderingMutation.mutate(request),
         });
     };
+
     const openReassign = (seasonNumber: number | null) => {
         setReassignSeasonNumber(seasonNumber);
         setReassignOpen(true);
+    };
+    const setSeasonOpen = (seasonNumber: number, isOpen: boolean) => {
+        setOpenSeasonNumbers((current) => {
+            const next = new Set(current);
+            if (isOpen) next.add(seasonNumber);
+            else next.delete(seasonNumber);
+            return next;
+        });
     };
 
     return (
@@ -561,6 +655,7 @@ export default function TvShowDetailsPage() {
                                             <div class="inline-flex flex-wrap items-center gap-2">
                                                 <Pill variant="info">TV Show</Pill>
                                                 <Pill variant={showStatusVariant(show().status)}>Status: {show().status ?? "Unknown"}</Pill>
+                                                <JellyfinSyncPill sync={show().jellyfin} />
                                                 <Pill>TMDb {show().tmdbId}</Pill>
                                                 <Show when={show().tvdbId}><Pill variant="info">TVDB {show().tvdbId}</Pill></Show>
                                                 <Pill variant="info">Episodes: {activeEpisodeSourceLabel()}</Pill>
@@ -601,6 +696,13 @@ export default function TvShowDetailsPage() {
                                 </div>
                             </section>
 
+                            <JellyfinSyncPanel
+                                sync={show().jellyfin}
+                                mediaLabel="series"
+                                onRecheck={() => recheckJellyfinMutation.mutate()}
+                                recheckBusy={recheckJellyfinMutation.isPending}
+                            />
+
                             <div class="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
                                 <DetailPanel eyebrow="Overview" title="Series notes">
                                     <div class="space-y-3">
@@ -637,49 +739,49 @@ export default function TvShowDetailsPage() {
                                 </DetailPanel>
                             </div>
 
-                            <DetailPanel eyebrow="Ordering" title="Episode source" aside={isEpisodeSourceBusy() ? "Rebuilding" : activeEpisodeSourceLabel()}>
+                            <DetailPanel eyebrow="Ordering" title="Episode source" aside={isEpisodeOrderingBusy() ? "Applying" : pendingEpisodeSourceLabel()}>
                                 <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
                                     <div class="space-y-4">
-                                        <p class="text-sm leading-relaxed text-text-secondary">TMDb stays canonical for show identity. Use TVDB only when you need a different episode order for this specific show.</p>
+                                        <p class="text-sm leading-relaxed text-text-secondary">TMDb stays canonical for show identity. Stage your source and order changes together, then rebuild once so Jellyfin only sees the final layout.</p>
 
                                         <div class="grid gap-3 sm:grid-cols-2">
                                             <button
                                                 type="button"
-                                                disabled={isEpisodeSourceBusy() || activeEpisodeSource()?.source === "tmdb"}
-                                                onClick={handleUseTmdbEpisodeSource}
-                                                class={`flex min-h-[8.5rem] flex-col items-start justify-between rounded-xl border px-4 py-4 text-left transition ${activeEpisodeSource()?.source === "tmdb" ? "border-info/35 bg-info/10 text-text-primary" : "border-border-default bg-surface-0/35 text-text-primary hover:border-border-hover"} disabled:cursor-not-allowed disabled:opacity-60`}
+                                                disabled={isEpisodeOrderingBusy()}
+                                                onClick={() => setPendingEpisodeSourceMode("tmdb")}
+                                                class={`flex min-h-[8.5rem] flex-col items-start justify-between rounded-xl border px-4 py-4 text-left transition ${pendingEpisodeSourceMode() === "tmdb" ? "border-info/35 bg-info/10 text-text-primary" : "border-border-default bg-surface-0/35 text-text-primary hover:border-border-hover"} disabled:cursor-not-allowed disabled:opacity-60`}
                                             >
                                                 <div class="flex w-full items-start justify-between gap-3">
                                                     <div>
                                                         <p class="text-sm font-semibold">TMDb standard order</p>
                                                         <p class="mt-1 text-sm leading-relaxed text-text-secondary">Default discovery and canonical metadata for this show.</p>
                                                     </div>
-                                                    <span class={`rounded-md border px-2 py-1 text-[0.68rem] font-medium ${activeEpisodeSource()?.source === "tmdb" ? "border-info/30 bg-info/10 text-info" : "border-border-default bg-surface-2 text-text-tertiary"}`}>
-                                                        {activeEpisodeSource()?.source === "tmdb" ? "Current" : "Available"}
+                                                    <span class={`rounded-md border px-2 py-1 text-[0.68rem] font-medium ${pendingEpisodeSourceMode() === "tmdb" ? "border-info/30 bg-info/10 text-info" : "border-border-default bg-surface-2 text-text-tertiary"}`}>
+                                                        {activeEpisodeSource()?.source === "tmdb" && pendingEpisodeSourceMode() === "tmdb" ? "Current" : pendingEpisodeSourceMode() === "tmdb" ? "Pending" : "Available"}
                                                     </span>
                                                 </div>
-                                                <p class="text-xs text-text-tertiary">{selectedEpisodeGroup() ? `Episode group override: ${selectedEpisodeGroup()?.name}` : "Uses the default TMDb episode order unless you choose a TMDb group below."}</p>
+                                                <p class="text-xs text-text-tertiary">{pendingEpisodeGroup() ? `Will use TMDb group: ${pendingEpisodeGroup()?.name}` : "Will use the default TMDb order unless you choose a group below."}</p>
                                             </button>
 
                                             <button
                                                 type="button"
-                                                disabled={isEpisodeSourceBusy() || !selectedTvdbMatch() || pendingTvdbMatchesActive()}
-                                                onClick={handleUseTvdbEpisodeSource}
-                                                class={`flex min-h-[8.5rem] flex-col items-start justify-between rounded-xl border px-4 py-4 text-left transition ${activeEpisodeSource()?.source === "tvdb" ? "border-warning/28 bg-warning-muted/12 text-text-primary" : "border-border-default bg-surface-0/35 text-text-primary hover:border-border-hover"} disabled:cursor-not-allowed disabled:opacity-60`}
+                                                disabled={isEpisodeOrderingBusy()}
+                                                onClick={() => setPendingEpisodeSourceMode("tvdb")}
+                                                class={`flex min-h-[8.5rem] flex-col items-start justify-between rounded-xl border px-4 py-4 text-left transition ${pendingEpisodeSourceMode() === "tvdb" ? "border-warning/28 bg-warning-muted/12 text-text-primary" : "border-border-default bg-surface-0/35 text-text-primary hover:border-border-hover"} disabled:cursor-not-allowed disabled:opacity-60`}
                                             >
                                                 <div class="flex w-full items-start justify-between gap-3">
                                                     <div>
                                                         <p class="text-sm font-semibold">TVDB alternate order</p>
                                                         <p class="mt-1 text-sm leading-relaxed text-text-secondary">Apply a selected TVDB series and season type for episode mapping.</p>
                                                     </div>
-                                                    <span class={`rounded-md border px-2 py-1 text-[0.68rem] font-medium ${activeEpisodeSource()?.source === "tvdb" ? "border-warning/25 bg-warning-muted/15 text-warning" : "border-border-default bg-surface-2 text-text-tertiary"}`}>
-                                                        {activeEpisodeSource()?.source === "tvdb" ? "Current" : selectedTvdbMatch() ? "Ready" : "Select first"}
+                                                    <span class={`rounded-md border px-2 py-1 text-[0.68rem] font-medium ${pendingEpisodeSourceMode() === "tvdb" ? "border-warning/25 bg-warning-muted/15 text-warning" : "border-border-default bg-surface-2 text-text-tertiary"}`}>
+                                                        {activeEpisodeSource()?.source === "tvdb" && pendingEpisodeSourceMode() === "tvdb" ? "Current" : pendingEpisodeSourceMode() === "tvdb" ? "Pending" : selectedTvdbMatch() ? "Ready" : "Select first"}
                                                     </span>
                                                 </div>
                                                 <p class="text-xs text-text-tertiary">
                                                     {selectedTvdbMatch()
                                                         ? `${selectedTvdbMatch()?.title} · ${tvdbSeasonTypeOptions.find((option) => option.value === pendingTvdbSeasonType())?.label ?? "Default"}`
-                                                        : "Search for a TVDB series below before switching this show to TVDB ordering."}
+                                                        : "Search for a TVDB series below before applying TVDB ordering."}
                                                 </p>
                                             </button>
                                         </div>
@@ -688,7 +790,7 @@ export default function TvShowDetailsPage() {
                                             <div class="flex flex-wrap items-start justify-between gap-3">
                                                 <div>
                                                     <h3 class="text-sm font-semibold text-text-primary">TVDB lookup</h3>
-                                                    <p class="mt-1 text-sm text-text-secondary">Pick the TVDB series match first, then choose which season ordering MediaFlick should use.</p>
+                                                    <p class="mt-1 text-sm text-text-secondary">Pick the TVDB series first if the pending source should use TVDB ordering.</p>
                                                 </div>
                                                 <Show when={selectedTvdbMatch()}>
                                                     {(match) => (
@@ -708,7 +810,10 @@ export default function TvShowDetailsPage() {
                                                         class="mt-1"
                                                         tmdbId={tmdbId()}
                                                         initialQuery={show().title}
-                                                        onSelect={(result) => setPendingTvdbMatch(result)}
+                                                        onSelect={(result) => {
+                                                            setPendingTvdbMatch(result);
+                                                            setPendingEpisodeSourceMode("tvdb");
+                                                        }}
                                                         placeholder="Search TVDB for an alternate episode order..."
                                                     />
                                                 </label>
@@ -718,7 +823,10 @@ export default function TvShowDetailsPage() {
                                                     <select
                                                         class="mt-1 block w-full rounded-lg border border-border-default bg-surface-3 px-3.5 py-2.5 text-sm text-text-primary transition focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
                                                         value={pendingTvdbSeasonType()}
-                                                        onChange={(e) => setPendingTvdbSeasonType(e.currentTarget.value as TvdbSeasonType)}
+                                                        onChange={(e) => {
+                                                            setPendingTvdbSeasonType(e.currentTarget.value as TvdbSeasonType);
+                                                            if (selectedTvdbMatch()) setPendingEpisodeSourceMode("tvdb");
+                                                        }}
                                                     >
                                                         <For each={tvdbSeasonTypeOptions}>{(option) => <option value={option.value}>{option.label}</option>}</For>
                                                     </select>
@@ -726,34 +834,71 @@ export default function TvShowDetailsPage() {
                                             </div>
                                         </div>
 
-                                        <Show when={activeEpisodeSource()?.source !== "tvdb" && (episodeGroupsQuery.data?.groups.length ?? 0) > 1}>
+                                        <Show when={(episodeGroupsQuery.data?.groups.length ?? 0) > 1}>
                                             <div class="rounded-xl border border-border-subtle bg-surface-0/28 p-4">
                                                 <div class="flex flex-wrap items-start justify-between gap-3">
                                                     <div>
                                                         <h3 class="text-sm font-semibold text-text-primary">TMDb group override</h3>
-                                                        <p class="mt-1 text-sm text-text-secondary">If you stay on TMDb, you can still switch to one of TMDb’s alternate episode groups.</p>
+                                                        <p class="mt-1 text-sm text-text-secondary">Choose the TMDb group you want ready for the next TMDb apply, even if the current source is TVDB.</p>
                                                     </div>
-                                                    <Show when={selectedEpisodeGroup()}>
+                                                    <Show when={pendingEpisodeGroup()}>
                                                         {(g) => <Pill variant="info">{g().episodeCount} episodes</Pill>}
                                                     </Show>
                                                 </div>
                                                 <select
                                                     class="mt-4 block w-full max-w-xl rounded-lg border border-border-default bg-surface-3 px-3.5 py-2.5 text-sm text-text-primary transition focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
-                                                    value={episodeGroupsQuery.data?.selectedEpisodeGroupId ?? ""}
-                                                    disabled={isEpisodeGroupBusy()}
-                                                    onChange={(e) => handleEpisodeGroupChange(e.currentTarget.value)}
+                                                    value={pendingEpisodeGroupId()}
+                                                    disabled={isEpisodeOrderingBusy()}
+                                                    onChange={(e) => {
+                                                        setPendingEpisodeGroupId(e.currentTarget.value);
+                                                        setPendingEpisodeSourceMode("tmdb");
+                                                    }}
                                                 >
                                                     <option value="">Default TMDb order</option>
                                                     <For each={episodeGroupsQuery.data?.groups ?? []}>{(g) => <option value={g.id}>{g.name}</option>}</For>
                                                 </select>
-                                                <Show when={selectedEpisodeGroup()}>
-                                                    {(g) => <p class="mt-3 text-sm text-text-secondary">Current TMDb group: <span class="font-medium text-text-primary">{g().name}</span></p>}
+                                                <Show when={currentEpisodeGroup()}>
+                                                    {(g) => <p class="mt-3 text-sm text-text-secondary">Current saved TMDb group: <span class="font-medium text-text-primary">{g().name}</span></p>}
                                                 </Show>
                                             </div>
                                         </Show>
 
-                                        <Show when={isEpisodeSourceBusy() || isEpisodeGroupBusy()}>
-                                            <p class="text-xs text-text-secondary animate-pulse">Rebuilding episodes and symlinks...</p>
+                                        <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface-0/28 p-4">
+                                            <div>
+                                                <p class="text-sm font-semibold text-text-primary">Pending apply</p>
+                                                <p class="mt-1 text-sm text-text-secondary">
+                                                    {pendingEpisodeSourceMode() === "tvdb"
+                                                        ? selectedTvdbMatch()
+                                                            ? `Will rebuild to TVDB using ${selectedTvdbMatch()?.title} and ${tvdbSeasonTypeOptions.find((option) => option.value === pendingTvdbSeasonType())?.label ?? "Default"}.`
+                                                            : "Select a TVDB series before applying TVDB ordering."
+                                                        : `Will rebuild to TMDb using ${pendingEpisodeGroup()?.name ?? "the default TMDb order"}.`}
+                                                </p>
+                                                <Show when={pendingOrderingDirty()} fallback={<p class="mt-2 text-xs text-text-tertiary">No pending ordering changes.</p>}>
+                                                    <p class="mt-2 text-xs text-warning">Applying now rebuilds the show once and refreshes Jellyfin from the final state.</p>
+                                                </Show>
+                                            </div>
+                                            <div class="flex flex-wrap gap-2">
+                                                <button
+                                                    type="button"
+                                                    disabled={isEpisodeOrderingBusy() || !pendingOrderingDirty()}
+                                                    onClick={resetPendingOrdering}
+                                                    class="inline-flex min-h-11 items-center justify-center rounded-xl border border-border-default bg-surface-1/70 px-4 py-2 text-sm text-text-secondary transition hover:border-border-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                                                >
+                                                    Reset
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    disabled={!canApplyPendingOrdering()}
+                                                    onClick={requestApplyPendingOrdering}
+                                                    class="inline-flex min-h-11 items-center justify-center rounded-xl border border-accent/30 bg-accent/12 px-4 py-2 text-sm font-medium text-accent transition hover:border-accent hover:bg-accent/18 hover:text-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
+                                                >
+                                                    {isEpisodeOrderingBusy() ? "Applying..." : "Apply changes"}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <Show when={isEpisodeOrderingBusy()}>
+                                            <p class="text-xs text-text-secondary animate-pulse">Rebuilding episodes, symlinks, and Jellyfin state...</p>
                                         </Show>
                                     </div>
 
@@ -786,21 +931,38 @@ export default function TvShowDetailsPage() {
                                         </dl>
 
                                         <div class="mt-5 border-t border-border-subtle pt-4">
-                                            <p class="text-[0.7rem] font-medium uppercase tracking-[0.14em] text-text-tertiary">Pending TVDB selection</p>
-                                            <Show
-                                                when={selectedTvdbMatch()}
-                                                fallback={<p class="mt-2 text-sm leading-relaxed text-text-secondary">Choose a TVDB series if this show needs a different episode order than TMDb provides.</p>}
-                                            >
-                                                {(match) => (
-                                                    <div class="mt-2 space-y-2">
-                                                        <p class="text-sm font-medium text-text-primary">{match().title}</p>
-                                                        <p class="text-sm text-text-secondary">TVDB #{match().tvdbId}{match().year ? ` · ${match().year}` : ""}</p>
-                                                        <p class="text-sm text-text-secondary">Season type: {tvdbSeasonTypeOptions.find((option) => option.value === pendingTvdbSeasonType())?.label ?? "Default"}</p>
-                                                        <Show when={pendingTvdbMatchesActive()}>
-                                                            <p class="text-sm text-warning">This selection is already active.</p>
-                                                        </Show>
+                                            <p class="text-[0.7rem] font-medium uppercase tracking-[0.14em] text-text-tertiary">Pending apply</p>
+                                            <h3 class="mt-2 text-lg font-semibold text-text-primary">{pendingEpisodeSourceLabel()}</h3>
+                                            <dl class="mt-4 space-y-3 text-sm">
+                                                <div>
+                                                    <dt class="text-text-tertiary">Mode</dt>
+                                                    <dd class="mt-1 text-text-primary">{pendingEpisodeSourceMode() === "tvdb" ? "TVDB episode order" : "TMDb standard order"}</dd>
+                                                </div>
+                                                <Show
+                                                    when={pendingEpisodeSourceMode() === "tvdb"}
+                                                    fallback={
+                                                        <div>
+                                                            <dt class="text-text-tertiary">TMDb group</dt>
+                                                            <dd class="mt-1 text-text-primary">{pendingEpisodeGroup()?.name ?? "Default TMDb order"}</dd>
+                                                        </div>
+                                                    }
+                                                >
+                                                    <div>
+                                                        <dt class="text-text-tertiary">TVDB series</dt>
+                                                        <dd class="mt-1 text-text-primary">{selectedTvdbMatch()?.title ?? "Select a TVDB series"}</dd>
                                                     </div>
-                                                )}
+                                                    <div>
+                                                        <dt class="text-text-tertiary">Season type</dt>
+                                                        <dd class="mt-1 text-text-primary">{tvdbSeasonTypeOptions.find((option) => option.value === pendingTvdbSeasonType())?.label ?? "Default"}</dd>
+                                                    </div>
+                                                </Show>
+                                            </dl>
+
+                                            <Show when={pendingEpisodeSourceMode() === "tvdb" && pendingTvdbMatchesActive()}>
+                                                <p class="mt-3 text-sm text-warning">The pending TVDB selection already matches the current one.</p>
+                                            </Show>
+                                            <Show when={pendingOrderingDirty()}>
+                                                <p class="mt-3 text-sm text-info">Changes are staged and will not rebuild anything until you apply them.</p>
                                             </Show>
                                         </div>
                                     </aside>
@@ -848,7 +1010,8 @@ export default function TvShowDetailsPage() {
                                                 <details
                                                     id={`season-${group.seasonNumber}`}
                                                     class="group overflow-hidden rounded-[1.4rem] border border-border-subtle bg-surface-0/25"
-                                                    open={group.seasonNumber === (focusedSeasonNumber() ?? 1)}
+                                                    open={openSeasonNumbers().has(group.seasonNumber)}
+                                                    onToggle={(event) => setSeasonOpen(group.seasonNumber, event.currentTarget.open)}
                                                 >
                                                     <summary class="flex cursor-pointer list-none items-center gap-4 px-4 py-4 [&::-webkit-details-marker]:hidden">
                                                         <Show when={posterUrl(seasonMeta?.posterPath, "w154")} fallback={<div class="flex h-24 w-16 items-center justify-center rounded-xl border border-border-default bg-surface-3 px-1 text-center text-[0.62rem] font-mono uppercase tracking-wider text-text-tertiary">{seasonLabel}</div>}>
@@ -902,7 +1065,7 @@ export default function TvShowDetailsPage() {
                                                     <div class="border-t border-border-subtle px-3.5 py-3 space-y-1.5">
                                                         <For each={annotateSeasonCardsWithSourceDividers(group.cards)}>
                                                             {(entry) => entry.card.kind === "file"
-                                                                ? <EpisodeFileRow file={entry.card.file} sourceDividerPath={entry.sourceDividerPath} />
+                                                                ? <EpisodeFileRow file={entry.card.file} sourceDividerPath={entry.sourceDividerPath} jellyfinSync={show().jellyfin ?? null} />
                                                                 : entry.card.kind === "missing"
                                                                     ? <MissingEpisodeRow seasonNumber={group.seasonNumber} episodeNumber={entry.card.episodeNumber} episodeName={entry.card.episodeName} airDate={entry.card.airDate} showTitle={show().title} showImdbId={show().imdbId} />
                                                                     : <UpcomingEpisodeRow seasonNumber={group.seasonNumber} episodeNumber={entry.card.episodeNumber} episodeName={entry.card.episodeName} airDate={entry.card.airDate} />}
@@ -921,7 +1084,7 @@ export default function TvShowDetailsPage() {
                                 <Show when={(tvFilesQuery.data?.uncategorizedFiles.length ?? 0) === 0}><p class="py-6 text-center text-sm text-text-tertiary">No uncategorized files connected to this show.</p></Show>
                                 <div class="space-y-1.5">
                                     <For each={annotateFilesWithSourceDividers(tvFilesQuery.data?.uncategorizedFiles ?? [])}>
-                                        {(entry) => <EpisodeFileRow file={entry.file} sourceDividerPath={entry.sourceDividerPath} />}
+                                        {(entry) => <EpisodeFileRow file={entry.file} sourceDividerPath={entry.sourceDividerPath} jellyfinSync={show().jellyfin ?? null} />}
                                     </For>
                                 </div>
                             </DetailPanel>
@@ -939,10 +1102,11 @@ export default function TvShowDetailsPage() {
                                 files={activeReassignFiles()}
                                 preselectedTmdbId={tmdbId()}
                                 reassignOldTmdbId={tmdbId()}
+                                backgroundOnSave
                             />
                             <ActionConfirmDialog
                                 state={confirmDialog()}
-                                busy={isEpisodeSourceBusy() || isEpisodeGroupBusy()}
+                                busy={isEpisodeOrderingBusy()}
                                 onClose={closeConfirmation}
                                 onConfirm={confirmPendingAction}
                             />

@@ -128,4 +128,25 @@ async function ensureSchema(db: ReturnType<typeof drizzle<typeof schema>>): Prom
   await db.run(
     sql`CREATE INDEX IF NOT EXISTS "ix_tv_episode_source_selections_tvdb_id" ON "tv_episode_source_selections" ("tvdb_id")`,
   )
+
+  await db.run(sql`
+    CREATE TABLE IF NOT EXISTS "jellyfin_sync_state" (
+      "media_type" TEXT NOT NULL,
+      "tmdb_id" INTEGER NOT NULL,
+      "jellyfin_item_id" TEXT NULL,
+      "jellyfin_library_id" TEXT NULL,
+      "state" TEXT NOT NULL DEFAULT 'unknown',
+      "matched_by" TEXT NULL,
+      "last_checked_at" TEXT NULL,
+      "last_notified_at" TEXT NULL,
+      "last_error" TEXT NULL,
+      "details_json" TEXT NULL
+    )
+  `)
+  await db.run(
+    sql`CREATE UNIQUE INDEX IF NOT EXISTS "ux_jellyfin_sync_state_media_tmdb" ON "jellyfin_sync_state" ("media_type", "tmdb_id")`,
+  )
+  await db.run(
+    sql`CREATE INDEX IF NOT EXISTS "ix_jellyfin_sync_state_state" ON "jellyfin_sync_state" ("state")`,
+  )
 }

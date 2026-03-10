@@ -1,11 +1,12 @@
-import { lstat, mkdir, readdir, readlink, rm, symlink, unlink } from "node:fs/promises"
-import { dirname, extname, join } from "node:path"
+import { lstat, mkdir, readdir, readlink, rmdir, symlink, unlink } from "node:fs/promises"
+import { dirname, extname, join, resolve } from "node:path"
 import type { MediaType } from "@/shared/types"
 
 interface SymlinkMeta {
   title: string
   year: number | null
   imdbId: string | null
+  tvdbId?: number | null
   seasonNumber?: number | null
   episodeNumber?: number | null
   episodeNumber2?: number | null
@@ -48,7 +49,8 @@ function formatTvPath(meta: SymlinkMeta, extension: string): string {
     throw new Error("TV metadata is incomplete")
   }
 
-  const showFolder = `${cleanFileName(meta.title)} (${meta.year})`
+  const tvdbTag = meta.tvdbId ? ` [tvdbid-${meta.tvdbId}]` : ""
+  const showFolder = `${cleanFileName(meta.title)} (${meta.year})${tvdbTag}`
   const seasonFolder = `Season ${String(meta.seasonNumber).padStart(2, "0")}`
 
   let fileBase = `${cleanFileName(meta.title)} - S${String(meta.seasonNumber).padStart(2, "0")}E${String(meta.episodeNumber).padStart(2, "0")}`
@@ -99,14 +101,99 @@ export async function createSymlinkAt(sourceFile: string, destinationFile: strin
   await symlink(sourceFile, destinationFile)
 }
 
-export async function removeSymlinkIfExists(path: string): Promise<void> {
+export async function removeSymlinkIfExists(path: string, destinationRoot?: string): Promise<void> {
   try {
     const stat = await lstat(path)
     if (stat.isSymbolicLink()) {
       await unlink(path)
+      if (destinationRoot) {
+        await pruneEmptyParentDirectories(path, destinationRoot)
+      }
     }
   } catch {
   }
+}
+
+export async function removeSymlinksForSource(
+  destinationRoot: string,
+  sourceFile: string,
+  exceptPath?: string,
+): Promise<void> {
+  const normalizedRoot = resolve(destinationRoot)
+  const normalizedSource = resolve(sourceFile)
+  const normalizedExceptPath = exceptPath ? resolve(exceptPath) : null
+
+  async function walk(path: string): Promise<void> {
+    let entries: string[] = []
+    try {
+      entries = await readdir(path)
+    } catch {
+      return
+    }
+
+    for (const entry of entries) {
+      const fullPath = join(path, entry)
+      let stat
+      try {
+        stat = await lstat(fullPath)
+      } catch {
+        continue
+      }
+
+      if (stat.isDirectory()) {
+        await walk(fullPath)
+        continue
+      }
+
+      if (!stat.isSymbolicLink()) {
+        continue
+      }
+
+      try {
+        const target = await readlink(fullPath)
+        const normalizedTarget = resolve(dirname(fullPath), target)
+        if (normalizedTarget !== normalizedSource) {
+          continue
+        }
+        if (normalizedExceptPath && resolve(fullPath) === normalizedExceptPath) {
+          continue
+        }
+
+        await unlink(fullPath)
+        await pruneEmptyParentDirectories(fullPath, normalizedRoot)
+      } catch {
+      }
+    }
+  }
+
+  await walk(normalizedRoot)
+}
+
+async function pruneEmptyParentDirectories(path: string, destinationRoot: string): Promise<void> {
+  const normalizedRoot = resolve(destinationRoot)
+  let current = resolve(dirname(path))
+
+  while (isWithinRoot(current, normalizedRoot) && current !== normalizedRoot) {
+    try {
+      const entries = await readdir(current)
+      if (entries.length > 0) {
+        return
+      }
+      await rmdir(current)
+    } catch {
+      return
+    }
+
+    const parent = dirname(current)
+    if (parent === current) {
+      return
+    }
+    current = parent
+  }
+}
+
+function isWithinRoot(path: string, root: string): boolean {
+  return path === root || path.startsWith(`${root}/`)
 }
 
 export async function cleanupDeadSymlinks(root: string): Promise<void> {
@@ -132,7 +219,7 @@ export async function cleanupDeadSymlinks(root: string): Promise<void> {
         try {
           const after = await readdir(fullPath)
           if (after.length === 0) {
-            await rm(fullPath, { recursive: false, force: true })
+            await rmdir(fullPath)
           }
         } catch {
         }

@@ -1,102 +1,88 @@
 import { useQuery } from "@tanstack/solid-query";
 import { For, Show, createMemo, createSignal } from "solid-js";
-import { Signal, Tv2 } from "lucide-solid";
-import { CardSkeleton, Pill } from "@/components/common-ui";
+import { Tv2 } from "lucide-solid";
+import { CardSkeleton, JellyfinSyncBadge, Pill } from "@/components/common-ui";
 import { CollectionHero, MediaShelfCard } from "@/components/media-shared";
 import { mediaApi } from "@/lib/api";
+import type { JellyfinSyncSummary, MediaInfo } from "@/lib/types";
 
-type PillVariant = "default" | "success" | "info" | "warning" | "error";
-
-function showStatusVariant(status: string | null | undefined): PillVariant {
+function showStatusVariant(status: string | null | undefined): "default" | "success" | "info" | "warning" | "error" {
     const normalized = status?.trim().toLowerCase();
     if (normalized === "returning series" || normalized === "in production") return "info";
-    if (normalized === "canceled") return "error";
+    if (normalized === "ended") return "success";
+    if (normalized === "canceled" || normalized === "cancelled") return "error";
     if (normalized === "planned" || normalized === "pilot") return "warning";
     return "default";
 }
 
-function episodeCoverageDisplay(
-    episodeCount: number | undefined,
-    episodeCountScanned: number | undefined,
-): { available: boolean; label: string; percent: number; barClass: string; textClass: string } {
-    const total = Math.max(0, episodeCount ?? 0);
-    if (total <= 0) return { available: false, label: "", percent: 0, barClass: "bg-border-default", textClass: "text-text-secondary" };
-    const scanned = Math.max(0, episodeCountScanned ?? 0);
-    const percent = Math.min(100, (scanned / total) * 100);
-    if (scanned >= total) return { available: true, label: `${scanned} / ${total} Episodes`, percent, barClass: "bg-success", textClass: "text-success" };
-    if (scanned === 0) return { available: true, label: `${scanned} / ${total} Episodes`, percent, barClass: "bg-error", textClass: "text-error" };
-    return { available: true, label: `${scanned} / ${total} Episodes`, percent, barClass: "bg-warning", textClass: "text-warning" };
+function showLifecycleLabel(status: string | null | undefined): string | null {
+    const normalized = status?.trim().toLowerCase();
+    if (normalized === "returning series" || normalized === "in production") return "Ongoing";
+    if (normalized === "ended") return "Ended";
+    if (normalized === "canceled" || normalized === "cancelled") return "Cancelled";
+    return null;
+}
+
+function showCoveragePercent(show: Pick<MediaInfo, "episodeCount" | "episodeCountScanned">): number {
+    const total = show.episodeCount ?? 0;
+    const scanned = show.episodeCountScanned ?? 0;
+    if (total <= 0) return 0;
+    return Math.max(0, Math.min(100, (scanned / total) * 100));
 }
 
 function TvShowPosterCard(props: {
     href: string;
     tmdbId: number;
-    fallbackTitle: string;
-    fallbackYear: number | null;
-    fallbackPosterPath: string | null | undefined;
+    title: string;
+    year: number | null;
+    posterPath: string | null | undefined;
+    jellyfin: JellyfinSyncSummary | null;
 }) {
+    const displayTitle = createMemo(() => props.year ? `${props.title} (${props.year})` : props.title);
     const showQuery = useQuery(() => ({
-        queryKey: ["show", props.tmdbId],
+        queryKey: ["show-card", props.tmdbId],
         queryFn: () => mediaApi.getShow(props.tmdbId),
-        staleTime: 15 * 60 * 1000,
-        enabled: Number.isInteger(props.tmdbId) && props.tmdbId > 0,
+        staleTime: 5 * 60 * 1000,
     }));
-
-    const posterPath = createMemo(() => showQuery.data?.posterPath ?? props.fallbackPosterPath);
-    const displayTitle = createMemo(() => {
-        const title = showQuery.data?.title ?? props.fallbackTitle;
-        const year = showQuery.data?.year ?? props.fallbackYear;
-        return year ? `${title} (${year})` : title;
+    const lifecycleLabel = createMemo(() => showLifecycleLabel(showQuery.data?.status));
+    const coveragePercent = createMemo(() => showQuery.data ? showCoveragePercent(showQuery.data) : 0);
+    const episodeCoverageLabel = createMemo(() => {
+        const scanned = showQuery.data?.episodeCountScanned ?? 0;
+        const total = showQuery.data?.episodeCount ?? 0;
+        if (total <= 0) return "Episode totals unavailable";
+        return `${scanned}/${total} episodes scanned`;
     });
-    const statusLabel = createMemo(() => {
-        const status = showQuery.data?.status;
-        if (!status || status.trim().length === 0) return null;
-        return status.trim();
-    });
-    const genresLine = createMemo(() => {
-        const genres = showQuery.data?.genres ?? [];
-        if (genres.length === 0) return null;
-        return genres.slice(0, 3).join(", ");
-    });
-    const coverage = createMemo(() => episodeCoverageDisplay(showQuery.data?.episodeCount, showQuery.data?.episodeCountScanned));
 
     return (
         <MediaShelfCard
             href={props.href}
             title={displayTitle()}
-            posterPath={posterPath()}
+            posterPath={props.posterPath}
             eyebrow="TV Show"
-            subtitle={genresLine() ?? "Open the series to inspect seasons, files, and alternative episode orderings."}
-            footer={`TMDb ${props.tmdbId}`}
+            subtitle="Open the series to inspect seasons, files, and alternative episode orderings."
             tone="tv"
             topRight={
-                <Show
-                    when={statusLabel()}
-                    fallback={
-                        <div class="inline-flex items-center gap-2 rounded-full border border-white/12 bg-black/30 px-3 py-1.5 text-[0.68rem] font-mono uppercase tracking-[0.14em] text-white/70">
-                            <Signal size={13} />
-                            <span>Cataloged</span>
-                        </div>
-                    }
-                >
-                    {(status) => <Pill variant={showStatusVariant(status())} solid>{status()}</Pill>}
-                </Show>
+                <JellyfinSyncBadge sync={props.jellyfin} compact />
             }
         >
-            <Show
-                when={coverage().available}
-                fallback={<div class="flex items-center justify-between gap-3 text-xs text-white/70"><span>Metadata available</span><span class="rounded-full border border-white/12 bg-white/8 px-2 py-1">Open show</span></div>}
-            >
-                <div>
-                    <div class="h-1.5 overflow-hidden rounded-full bg-white/15">
-                        <div class={`h-full rounded-full transition-all duration-300 ${coverage().barClass}`} style={{ width: `${coverage().percent}%` }} />
+            <div class="space-y-3 text-xs text-white/80">
+                <div class="flex flex-wrap items-center gap-2">
+                    <Show when={lifecycleLabel()}>
+                        {(label) => <Pill variant={showStatusVariant(showQuery.data?.status)}>{label()}</Pill>}
+                    </Show>
+                </div>
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between gap-3 text-[0.72rem] text-white/70">
+                        <span>{episodeCoverageLabel()}</span>
+                        <Show when={showQuery.data?.episodeCount && showQuery.data.episodeCount > 0}>
+                            <span>{Math.round(coveragePercent())}%</span>
+                        </Show>
                     </div>
-                    <div class="mt-2 flex items-center justify-between gap-3">
-                        <p class={`text-[0.72rem] font-semibold ${coverage().textClass}`}>{coverage().label}</p>
-                        <span class="text-[0.68rem] font-mono uppercase tracking-[0.14em] text-white/58">Season view</span>
+                    <div class="h-2 overflow-hidden rounded-full bg-white/10">
+                        <div class="h-full rounded-full bg-info transition-[width] duration-300" style={{ width: `${coveragePercent()}%` }} />
                     </div>
                 </div>
-            </Show>
+            </div>
         </MediaShelfCard>
     );
 }
@@ -167,7 +153,7 @@ export default function TvShowsPage() {
 
             <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
                 <For each={filteredTitles()}>
-                    {(item) => <TvShowPosterCard href={`/shows/${item.tmdbId}`} tmdbId={item.tmdbId} fallbackTitle={item.title ?? "Unknown title"} fallbackYear={item.year} fallbackPosterPath={item.posterPath} />}
+                    {(item) => <TvShowPosterCard href={`/shows/${item.tmdbId}`} tmdbId={item.tmdbId} title={item.title ?? "Unknown title"} year={item.year} posterPath={item.posterPath} jellyfin={item.jellyfin} />}
                 </For>
             </div>
         </section>

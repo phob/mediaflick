@@ -5,6 +5,9 @@ import { loadEnv } from "@/config/env"
 import { createDb } from "@/db/client"
 import { FilePoller } from "@/modules/file-ingest/file-poller"
 import { startRuntimeJobs } from "@/modules/file-ingest/runtime-jobs"
+import { JellyfinClient } from "@/modules/jellyfin/jellyfin-client"
+import { JellyfinSyncCoordinator } from "@/modules/jellyfin/jellyfin-sync-coordinator"
+import { JellyfinSyncRepo } from "@/modules/jellyfin/jellyfin-sync-repo"
 import { TmdbClient } from "@/modules/media-lookup/tmdb-client"
 import { TvdbClient } from "@/modules/media-lookup/tvdb-client"
 import { getInitialHealthEvents } from "@/modules/realtime/health-snapshot"
@@ -24,8 +27,10 @@ const initialConfig = await configStore.get()
 const db = await createDb(env.databasePath)
 const wsHub = createWsHub(logger, () => getInitialHealthEvents(configStore))
 const scannedFilesRepo = new ScannedFilesRepo(db)
+const jellyfinSyncRepo = new JellyfinSyncRepo(db)
 const tmdbFactory = (apiKey: string) => new TmdbClient(apiKey)
 const tvdbFactory = () => new TvdbClient(TVDB_API_KEY)
+const jellyfinFactory = (config: typeof initialConfig.jellyfin) => new JellyfinClient(config, logger)
 
 const context: AppContext = {
   env,
@@ -34,12 +39,19 @@ const context: AppContext = {
   configStore,
   wsHub,
   scannedFilesRepo,
+  jellyfin: jellyfinFactory(initialConfig.jellyfin),
+  jellyfinFactory,
+  jellyfinSyncRepo,
+  jellyfinSyncCoordinator: null as unknown as JellyfinSyncCoordinator,
   tmdb: tmdbFactory(initialConfig.tmDb.apiKey),
   tmdbFactory,
   tvdb: tvdbFactory(),
   tvdbFactory,
   poller: null as unknown as FilePoller,
 }
+
+const jellyfinSyncCoordinator = new JellyfinSyncCoordinator(context)
+context.jellyfinSyncCoordinator = jellyfinSyncCoordinator
 
 const poller = new FilePoller(context)
 context.poller = poller
@@ -65,6 +77,12 @@ logger.info("Bun backend started", {
   rootDir: env.rootDir,
   configPath: env.configPath,
   dbPath: env.databasePath,
+})
+logger.info("Jellyfin integration configured", {
+  enabled: initialConfig.jellyfin.enabled,
+  baseUrl: initialConfig.jellyfin.baseUrl,
+  apiKeyConfigured: initialConfig.jellyfin.apiKey.trim().length > 0,
+  requestTimeoutMs: initialConfig.jellyfin.requestTimeoutMs,
 })
 
 // Backfill posterPath for existing rows that have a tmdbId but no poster yet

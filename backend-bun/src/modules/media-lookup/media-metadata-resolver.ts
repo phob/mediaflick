@@ -15,7 +15,7 @@ import {
   parseSourceEpisodeTuple,
   type SourceEpisodeTuple,
 } from "@/modules/media-lookup/tv-season-remapper"
-import type { EpisodeRemapInfo } from "@/shared/types"
+import type { EpisodeRemapInfo, TvEpisodeSourceSelection, TvdbSeasonType } from "@/shared/types"
 
 interface GroupEpisodePlacement {
   seasonNumber: number
@@ -51,6 +51,7 @@ export interface ResolveTvMetadataInput {
   episodeNumber2?: number | null
   imdbIdFallback?: string | null
   sourceFile?: string
+  orderingSnapshot?: TvOrderingSnapshot | null
 }
 
 export interface ResolvedTvMetadata {
@@ -66,6 +67,28 @@ export interface ResolvedTvMetadata {
   episodeNumber2: number | null
   episodeTitle: string | null
   episodeRemap: EpisodeRemapInfo | null
+}
+
+export interface TvOrderingSnapshot {
+  episodeSource: TvEpisodeSourceSelection
+  episodeGroupId: string | null
+  episodeGroupName?: string | null
+}
+
+interface TvdbSourceSnapshot {
+  tvdbId: number
+  seasonType: TvdbSeasonType
+}
+
+function selectedTvdbSourceFromSnapshot(snapshot?: TvOrderingSnapshot | null): TvdbSourceSnapshot | null {
+  if (!snapshot || snapshot.episodeSource.source !== "tvdb" || !snapshot.episodeSource.tvdbId) {
+    return null
+  }
+
+  return {
+    tvdbId: snapshot.episodeSource.tvdbId,
+    seasonType: snapshot.episodeSource.tvdbSeasonType ?? "default",
+  }
 }
 
 export class MediaMetadataResolver {
@@ -111,18 +134,22 @@ export class MediaMetadataResolver {
 
   async resolveTv(input: ResolveTvMetadataInput): Promise<ResolvedTvMetadata> {
     const tmdb = this.tmdbClient()
+    const orderingSnapshot = input.orderingSnapshot ?? null
     const sourceTuple: SourceEpisodeTuple = {
       seasonNumber: input.seasonNumber,
       episodeNumber: input.episodeNumber,
       episodeNumber2: input.episodeNumber2 ?? null,
     }
-    const remappedSource = await this.resolveSeasonCompactionRemap(input.tmdbId, sourceTuple, input.sourceFile)
+    const remappedSource = await this.resolveSeasonCompactionRemap(input.tmdbId, sourceTuple, input.sourceFile, orderingSnapshot)
     const normalizedTuple = remappedSource.remapped
 
-    const [show, externalIds, primaryPlacement] = await Promise.all([
+    const [show, externalIds, selectedTvdbSource, primaryPlacement] = await Promise.all([
       tmdb.getTv(input.tmdbId),
       tmdb.getTvExternalIds(input.tmdbId),
-      this.resolveEpisodePlacement(input.tmdbId, normalizedTuple.seasonNumber, normalizedTuple.episodeNumber),
+      orderingSnapshot
+        ? Promise.resolve(selectedTvdbSourceFromSnapshot(orderingSnapshot))
+        : this.episodeSourceService.getTvdbSeries(input.tmdbId),
+      this.resolveEpisodePlacement(input.tmdbId, normalizedTuple.seasonNumber, normalizedTuple.episodeNumber, orderingSnapshot),
     ])
 
     let secondaryEpisodeNumber: number | null = null
@@ -132,6 +159,7 @@ export class MediaMetadataResolver {
           input.tmdbId,
           normalizedTuple.seasonNumber,
           normalizedTuple.episodeNumber2,
+          orderingSnapshot,
         )
         if (secondaryPlacement.seasonNumber === primaryPlacement.seasonNumber) {
           secondaryEpisodeNumber = secondaryPlacement.episodeNumber
@@ -145,7 +173,7 @@ export class MediaMetadataResolver {
 
     return {
       tmdbId: show.id,
-      tvdbId: primaryPlacement.tvdbEpisodeId,
+      tvdbId: selectedTvdbSource?.tvdbId ?? externalIds.tvdb_id ?? null,
       imdbId: externalIds.imdb_id ?? input.imdbIdFallback ?? null,
       title: show.name,
       year: tmdb.tvYear(show),
@@ -163,6 +191,7 @@ export class MediaMetadataResolver {
     tmdbId: number,
     sourceTuple: SourceEpisodeTuple,
     sourceFile?: string,
+    orderingSnapshot?: TvOrderingSnapshot | null,
   ): Promise<{ remapped: SourceEpisodeTuple; info: EpisodeRemapInfo | null }> {
     const parsedFromSource = sourceFile ? parseSourceEpisodeMatch(sourceFile) : null
     const inputMatchesSource =
@@ -181,7 +210,9 @@ export class MediaMetadataResolver {
     const normalizedSourceTitleHint = normalizeTitle(parsedFromSource.titleHint)
 
     const [sourceSelection, rows, sourceDirectoryTuples] = await Promise.all([
-      this.episodeSourceService.getTvdbSeries(tmdbId),
+      orderingSnapshot
+        ? Promise.resolve(selectedTvdbSourceFromSnapshot(orderingSnapshot))
+        : this.episodeSourceService.getTvdbSeries(tmdbId),
       this.db
         .select({ sourceFile: scannedFiles.sourceFile })
         .from(scannedFiles)
@@ -379,8 +410,11 @@ export class MediaMetadataResolver {
     tmdbId: number,
     seasonNumber: number,
     episodeNumber: number,
+    orderingSnapshot?: TvOrderingSnapshot | null,
   ): Promise<ResolvedEpisodePlacement> {
-    const selectedTvdbSource = await this.episodeSourceService.getTvdbSeries(tmdbId)
+    const selectedTvdbSource = orderingSnapshot
+      ? selectedTvdbSourceFromSnapshot(orderingSnapshot)
+      : await this.episodeSourceService.getTvdbSeries(tmdbId)
     if (selectedTvdbSource) {
       const episode = (await this.tvdbClient()
         .getSeriesEpisodes(selectedTvdbSource.tvdbId, selectedTvdbSource.seasonType, { season: seasonNumber }))
@@ -403,7 +437,9 @@ export class MediaMetadataResolver {
       }
     }
 
-    const selectedEpisodeGroupId = await this.getSelectedEpisodeGroupId(tmdbId)
+    const selectedEpisodeGroupId = orderingSnapshot
+      ? orderingSnapshot.episodeGroupId
+      : await this.getSelectedEpisodeGroupId(tmdbId)
 
     if (!selectedEpisodeGroupId) {
       const defaultEpisode = await this.tmdbClient().getTvEpisode(tmdbId, seasonNumber, episodeNumber)

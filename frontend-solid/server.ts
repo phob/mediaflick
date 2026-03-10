@@ -1,6 +1,6 @@
 import { extname, join } from "node:path"
 
-const rootDir = process.cwd()
+const rootDir = import.meta.dir
 const distDir = join(rootDir, "dist")
 const port = Number(process.env.PORT ?? "3002")
 const backendHttpOrigin = process.env.BACKEND_HTTP_ORIGIN ?? process.env.BACKEND_URL ?? "http://127.0.0.1:5000"

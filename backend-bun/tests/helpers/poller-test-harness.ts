@@ -3,6 +3,9 @@ import { join } from "node:path"
 import type { AppContext } from "../../src/app/context"
 import type { RuntimeConfig } from "../../src/config/runtime-config"
 import { FilePoller } from "../../src/modules/file-ingest/file-poller"
+import type { JellyfinFolder, JellyfinItem } from "../../src/modules/jellyfin/jellyfin-client"
+import { JellyfinSyncCoordinator } from "../../src/modules/jellyfin/jellyfin-sync-coordinator"
+import { JellyfinSyncRepo } from "../../src/modules/jellyfin/jellyfin-sync-repo"
 import type {
   RealtimeEvent,
   WsHub,
@@ -13,6 +16,7 @@ import type {
   TmdbMovieExternalIds,
   TmdbMovieResult,
 } from "../../src/modules/media-lookup/tmdb-client"
+import type { TvdbClient } from "../../src/modules/media-lookup/tvdb-client"
 import { ScannedFilesRepo } from "../../src/modules/scanned-files/scanned-files-repo"
 import type { Logger } from "../../src/shared/logger"
 import { createTestDb, type TestDbHandle } from "./test-db"
@@ -37,6 +41,7 @@ export interface PollerTestHarness {
   sourceDir: string
   destinationDir: string
   versionPath: string
+  jellyfinCalls: Array<{ method: string; payload?: unknown }>
   runOnce: () => Promise<void>
   writeSourceMovie: (name: string, contents?: string) => Promise<string>
   readSymlinkTarget: (path: string) => Promise<string>
@@ -48,6 +53,13 @@ interface MovieStubOptions {
   details?: TmdbMovieDetails
   externalIds?: TmdbMovieExternalIds
   searchMovie?: (title: string) => Promise<TmdbMovieResult[]>
+}
+
+interface JellyfinStubOptions {
+  enabled?: boolean
+  mediaFolders?: JellyfinFolder[]
+  itemsByType?: Partial<Record<"Movie" | "Series", JellyfinItem[]>>
+  seriesEpisodesBySeason?: Record<number, JellyfinItem[]>
 }
 
 function createRuntimeConfig(
@@ -69,6 +81,12 @@ function createRuntimeConfig(
           mediaType: "Movies",
         },
       ],
+    },
+    jellyfin: {
+      enabled: true,
+      baseUrl: "http://jellyfin.test",
+      apiKey: "test-jellyfin-key",
+      requestTimeoutMs: 5000,
     },
     tmDb: {
       apiKey: "test-key",
@@ -141,6 +159,77 @@ export function createMovieTmdbStub(options: MovieStubOptions = {}): TmdbClient 
   } as unknown as TmdbClient
 }
 
+function createTvdbStub(): TvdbClient {
+  return {
+    searchSeries: async () => [],
+    getSeriesExtended: async () => ({
+      id: 0,
+      name: "",
+      overview: null,
+      image: null,
+      firstAired: null,
+      year: null,
+      seasons: [],
+    }),
+    getSeriesEpisodes: async () => [],
+    seriesImage: () => null,
+    episodeImage: () => null,
+  } as unknown as TvdbClient
+}
+
+function createJellyfinStub(
+  calls: Array<{ method: string; payload?: unknown }>,
+  options: JellyfinStubOptions = {},
+) {
+  const mediaFolders = options.mediaFolders ?? [
+    {
+      id: "movies-folder",
+      name: "Movies",
+      path: "/organized",
+      collectionType: "movies",
+    },
+  ]
+
+  return {
+    isEnabled: () => options.enabled ?? true,
+    getMediaFolders: async () => {
+      calls.push({ method: "getMediaFolders" })
+      return mediaFolders
+    },
+    reportMovieAdded: async (payload: unknown) => {
+      calls.push({ method: "reportMovieAdded", payload })
+    },
+    reportMovieUpdated: async (payload: unknown) => {
+      calls.push({ method: "reportMovieUpdated", payload })
+    },
+    reportSeriesAdded: async (payload: unknown) => {
+      calls.push({ method: "reportSeriesAdded", payload })
+    },
+    reportSeriesUpdated: async (payload: unknown) => {
+      calls.push({ method: "reportSeriesUpdated", payload })
+    },
+    reportMediaUpdated: async (payload: unknown) => {
+      calls.push({ method: "reportMediaUpdated", payload })
+    },
+    refreshItem: async (payload: unknown) => {
+      calls.push({ method: "refreshItem", payload })
+    },
+    findItems: async (input: { includeItemTypes: "Movie" | "Series" }) => {
+      calls.push({ method: "findItems", payload: input })
+      return options.itemsByType?.[input.includeItemTypes] ?? []
+    },
+    getSeriesEpisodes: async (_seriesId: string, seasonNumber: number) => {
+      calls.push({ method: "getSeriesEpisodes", payload: seasonNumber })
+      return (options.seriesEpisodesBySeason?.[seasonNumber] ?? []).map(item => ({
+        ...item,
+        seasonNumber,
+        episodeNumber: null,
+      }))
+    },
+    foldersForDestination: (folders: JellyfinFolder[]) => folders,
+  }
+}
+
 function createWsHub(events: BroadcastEvent[]): WsHub {
   return {
     tryUpgrade: () => false,
@@ -158,12 +247,14 @@ function createWsHub(events: BroadcastEvent[]): WsHub {
 
 export async function createPollerTestHarness(
   tmdb: TmdbClient = createMovieTmdbStub(),
+  jellyfinOptions: JellyfinStubOptions = {},
 ): Promise<PollerTestHarness> {
   const handle = await createTestDb("poller")
   const sourceDir = join(handle.rootDir, "source")
   const destinationDir = join(handle.rootDir, "destination")
   const versionPath = join(handle.rootDir, "zurg.version")
   const events: BroadcastEvent[] = []
+  const jellyfinCalls: Array<{ method: string; payload?: unknown }> = []
 
   await mkdir(sourceDir, { recursive: true })
   await mkdir(destinationDir, { recursive: true })
@@ -188,10 +279,18 @@ export async function createPollerTestHarness(
     } as AppContext["configStore"],
     wsHub: createWsHub(events),
     scannedFilesRepo: new ScannedFilesRepo(handle.db),
+    jellyfin: createJellyfinStub(jellyfinCalls, jellyfinOptions) as AppContext["jellyfin"],
+    jellyfinFactory: () => createJellyfinStub(jellyfinCalls, jellyfinOptions) as AppContext["jellyfin"],
+    jellyfinSyncRepo: new JellyfinSyncRepo(handle.db),
+    jellyfinSyncCoordinator: null as never,
     tmdb,
     tmdbFactory: () => tmdb,
+    tvdb: createTvdbStub(),
+    tvdbFactory: () => createTvdbStub(),
     poller: null as never,
   }
+
+  context.jellyfinSyncCoordinator = new JellyfinSyncCoordinator(context)
 
   const poller = new FilePoller(context)
   context.poller = poller
@@ -204,6 +303,7 @@ export async function createPollerTestHarness(
     sourceDir,
     destinationDir,
     versionPath,
+    jellyfinCalls,
     runOnce: async () => {
       poller.start(config)
       await poller.stop()

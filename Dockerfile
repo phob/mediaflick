@@ -1,8 +1,10 @@
-FROM oven/bun:1.3.1-alpine AS frontend-build
+FROM oven/bun:1.3.1-alpine AS frontend-deps
 WORKDIR /build/frontend-solid
 
 COPY frontend-solid/package.json frontend-solid/bun.lock ./
 RUN bun install --frozen-lockfile
+
+FROM frontend-deps AS frontend-build
 
 COPY frontend-solid/ ./
 RUN bun run build
@@ -25,14 +27,14 @@ ENV NODE_ENV=production \
     BACKEND_BUN_DB_PATH=/app/backend-bun/config/plexscan.db
 
 COPY --from=backend-deps /build/backend-bun/node_modules /app/backend-bun/node_modules
-COPY backend-bun/package.json backend-bun/bun.lock backend-bun/tsconfig.json /app/backend-bun/
+COPY backend-bun/tsconfig.json /app/backend-bun/tsconfig.json
 COPY backend-bun/src /app/backend-bun/src
 COPY backend-bun/config /app/backend-bun/config
-RUN mkdir -p /app/backend-bun/logs
+RUN mkdir -p /app/backend-bun/logs /app/frontend-solid
 
-COPY frontend-solid/package.json frontend-solid/server.ts /app/frontend-solid/
+COPY frontend-solid/server.ts /app/frontend-solid/server.ts
 COPY --from=frontend-build /build/frontend-solid/dist /app/frontend-solid/dist
 
-EXPOSE 3867
+EXPOSE 3867 5000
 
-CMD ["sh", "-c", "set -e; PORT=${BACKEND_PORT} bun run --cwd /app/backend-bun start & backend_pid=$!; trap 'kill ${backend_pid} >/dev/null 2>&1 || true' INT TERM EXIT; PORT=${FRONTEND_PORT} BACKEND_HTTP_ORIGIN=http://127.0.0.1:${BACKEND_PORT} BACKEND_WS_ORIGIN=ws://127.0.0.1:${BACKEND_PORT} bun run --cwd /app/frontend-solid start"]
+CMD ["sh", "-c", "set -e; PORT=${BACKEND_PORT} bun /app/backend-bun/src/app/server.ts & backend_pid=$!; trap 'kill ${backend_pid} >/dev/null 2>&1 || true' INT TERM EXIT; PORT=${FRONTEND_PORT} BACKEND_HTTP_ORIGIN=http://127.0.0.1:${BACKEND_PORT} BACKEND_WS_ORIGIN=ws://127.0.0.1:${BACKEND_PORT} bun /app/frontend-solid/server.ts"]

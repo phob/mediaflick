@@ -7,17 +7,22 @@ import { normalizeTitle } from "@/modules/detection/normalization";
 import { detectMovieFromFileName } from "@/modules/detection/movie-detection";
 import { SeriesIdentityService } from "@/modules/detection/series-identity-service";
 import { detectTvEpisode } from "@/modules/detection/tv-detection";
+import type { JellyfinSyncBatch } from "@/modules/jellyfin/jellyfin-sync-coordinator";
 import {
     seriesAliases,
     seriesIdentityMap,
 } from "@/db/schema";
-import { MediaMetadataResolver } from "@/modules/media-lookup/media-metadata-resolver";
+import {
+    MediaMetadataResolver,
+    type TvOrderingSnapshot,
+} from "@/modules/media-lookup/media-metadata-resolver";
 import {
     buildDestinationPath,
     cleanupDeadSymlinks,
     createSymlinkAt,
     isDestinationConflictError,
     removeSymlinkIfExists,
+    removeSymlinksForSource,
 } from "@/modules/symlink/symlink-service";
 import type { RuntimeConfig } from "@/config/runtime-config";
 import type { MediaType } from "@/shared/types";
@@ -104,6 +109,8 @@ export class FilePoller {
     private currentRun: Promise<void> | null = null;
     private currentConfig: RuntimeConfig | null = null;
     private readonly metadataResolver: MediaMetadataResolver;
+    private readonly tvShowRebuildQueue = new Map<number, Promise<void>>();
+    private activeManualRebuilds = 0;
 
     constructor(private readonly context: AppContext) {
         this.metadataResolver = new MediaMetadataResolver(
@@ -188,82 +195,147 @@ export class FilePoller {
 
     async rebuildTvShow(
         tmdbId: number,
+        options?: { orderingSnapshot?: TvOrderingSnapshot | null },
     ): Promise<{ removedCount: number; reprocessedCount: number }> {
-        const config = await this.context.configStore.get();
-        const mapping = config.plex.folderMappings.find(
-            (item) => item.mediaType === "TvShows",
-        );
-        if (!mapping) {
-            throw new Error("No TvShows destination folder mapping configured");
-        }
+        const previous = this.tvShowRebuildQueue.get(tmdbId) ?? Promise.resolve();
+        const queued = previous
+            .catch(() => {})
+            .then(() => this.runTvShowRebuild(
+                tmdbId,
+                options?.orderingSnapshot ?? null,
+            ));
+        const queueMarker = queued.then(() => {}, () => {});
+        this.tvShowRebuildQueue.set(tmdbId, queueMarker);
 
-        const [directTracked, allTvFiles, aliasSet] = await Promise.all([
-            this.context.scannedFilesRepo.listByTmdbId(tmdbId, "TvShows"),
-            this.context.scannedFilesRepo.listByMediaType("TvShows"),
-            this.getShowAliasSet(tmdbId),
-        ]);
-        const showSourceFolders = new Set(
-            directTracked.map((item) => dirname(item.sourceFile)),
-        );
-
-        const relatedTracked = allTvFiles.filter((file) => {
-            if (file.tmdbId === tmdbId) {
-                return true;
-            }
-
-            if (showSourceFolders.has(dirname(file.sourceFile))) {
-                return true;
-            }
-
-            if (file.tmdbId !== null || aliasSet.size === 0) {
-                return false;
-            }
-
-            const candidates = this.extractTvAliasCandidates(file.sourceFile);
-            return candidates.some((candidate) => aliasSet.has(candidate));
-        });
-
-        const sourceFiles = [
-            ...new Set(
-                (relatedTracked.length > 0
-                    ? relatedTracked
-                    : directTracked
-                ).map((item) => item.sourceFile),
-            ),
-        ];
-        const sourceFileSet = new Set(sourceFiles);
-        const rowsToDelete = allTvFiles.filter((item) =>
-            sourceFileSet.has(item.sourceFile),
-        );
-
-        for (const item of rowsToDelete) {
-            if (item.destFile) {
-                await removeSymlinkIfExists(item.destFile);
+        try {
+            return await queued;
+        } finally {
+            if (this.tvShowRebuildQueue.get(tmdbId) === queueMarker) {
+                this.tvShowRebuildQueue.delete(tmdbId);
             }
         }
+    }
 
-        if (rowsToDelete.length > 0) {
-            const deletedRows = await this.context.scannedFilesRepo.deleteByIds(
-                rowsToDelete.map((item) => item.id),
+    private async runTvShowRebuild(
+        tmdbId: number,
+        orderingSnapshot: TvOrderingSnapshot | null,
+    ): Promise<{ removedCount: number; reprocessedCount: number }> {
+        this.activeManualRebuilds += 1;
+
+        try {
+            if (this.currentRun) {
+                await this.currentRun;
+            }
+
+            const jellyfinBatch = this.context.jellyfinSyncCoordinator.beginBatch();
+            const config = await this.context.configStore.get();
+            const mapping = config.plex.folderMappings.find(
+                (item) => item.mediaType === "TvShows",
             );
-            for (const item of deletedRows) {
-                this.context.wsHub.broadcast("file.removed", item);
+            if (!mapping) {
+                throw new Error("No TvShows destination folder mapping configured");
             }
+
+            const [directTracked, allTvFiles, aliasSet] = await Promise.all([
+                this.context.scannedFilesRepo.listByTmdbId(tmdbId, "TvShows"),
+                this.context.scannedFilesRepo.listByMediaType("TvShows"),
+                this.getShowAliasSet(tmdbId),
+            ]);
+            const showSourceFolders = new Set(
+                directTracked.map((item) => dirname(item.sourceFile)),
+            );
+
+            const relatedTracked = allTvFiles.filter((file) => {
+                if (file.tmdbId === tmdbId) {
+                    return true;
+                }
+
+                if (showSourceFolders.has(dirname(file.sourceFile))) {
+                    return true;
+                }
+
+                if (file.tmdbId !== null || aliasSet.size === 0) {
+                    return false;
+                }
+
+                const candidates = this.extractTvAliasCandidates(file.sourceFile);
+                return candidates.some((candidate) => aliasSet.has(candidate));
+            });
+
+            const sourceFiles = [
+                ...new Set(
+                    (relatedTracked.length > 0
+                        ? relatedTracked
+                        : directTracked
+                    ).map((item) => item.sourceFile),
+                ),
+            ];
+            const sourceFileSet = new Set(sourceFiles);
+            const rowsToDelete = allTvFiles.filter((item) =>
+                sourceFileSet.has(item.sourceFile),
+            );
+
+            for (const item of rowsToDelete) {
+                this.context.jellyfinSyncCoordinator.recordChange(jellyfinBatch, {
+                    mediaType: "TvShows",
+                    tmdbId: item.tmdbId,
+                    tvdbId: item.tvdbId,
+                    imdbId: item.imdbId,
+                    title: item.title,
+                    action: "deleted",
+                    oldDestFile: item.destFile,
+                    seasonNumber: item.seasonNumber,
+                    episodeNumber: item.episodeNumber,
+                    episodeNumber2: item.episodeNumber2,
+                    structural: true,
+                });
+                if (item.destFile) {
+                    await removeSymlinkIfExists(
+                        item.destFile,
+                        mapping.destinationFolder,
+                    );
+                }
+            }
+
+            if (rowsToDelete.length > 0) {
+                const deletedRows = await this.context.scannedFilesRepo.deleteByIds(
+                    rowsToDelete.map((item) => item.id),
+                );
+                for (const item of deletedRows) {
+                    this.context.wsHub.broadcast("file.removed", item);
+                }
+            }
+
+            for (const sourceFile of sourceFiles) {
+                await removeSymlinksForSource(
+                    mapping.destinationFolder,
+                    sourceFile,
+                );
+            }
+
+            await processWithLimit(sourceFiles, 8, (sourceFile) =>
+                this.processFile(
+                    sourceFile,
+                    mapping.destinationFolder,
+                    "TvShows",
+                    jellyfinBatch,
+                    orderingSnapshot,
+                ),
+            );
+            await cleanupDeadSymlinks(mapping.destinationFolder);
+            await this.context.jellyfinSyncCoordinator.flush(jellyfinBatch);
+
+            return {
+                removedCount: rowsToDelete.length,
+                reprocessedCount: sourceFiles.length,
+            };
+        } finally {
+            this.activeManualRebuilds -= 1;
         }
-
-        await processWithLimit(sourceFiles, 8, (sourceFile) =>
-            this.processFile(sourceFile, mapping.destinationFolder, "TvShows"),
-        );
-        await cleanupDeadSymlinks(mapping.destinationFolder);
-
-        return {
-            removedCount: rowsToDelete.length,
-            reprocessedCount: sourceFiles.length,
-        };
     }
 
     private async run(): Promise<void> {
-        if (this.isRunning || !this.currentConfig) {
+        if (this.isRunning || this.activeManualRebuilds > 0 || !this.currentConfig) {
             return;
         }
 
@@ -280,6 +352,7 @@ export class FilePoller {
 
     private async runInternal(): Promise<void> {
         try {
+            const jellyfinBatch = this.context.jellyfinSyncCoordinator.beginBatch();
             const config = await this.context.configStore.get();
             this.currentConfig = config;
 
@@ -302,8 +375,9 @@ export class FilePoller {
             this.context.wsHub.broadcast("zurg.version", Date.now());
 
             for (const mapping of config.plex.folderMappings) {
-                await this.reconcileMapping(mapping);
+                await this.reconcileMapping(mapping, jellyfinBatch);
             }
+            await this.context.jellyfinSyncCoordinator.flush(jellyfinBatch);
         } catch (error) {
             this.context.logger.error("File polling failed", {
                 error: String(error),
@@ -311,7 +385,10 @@ export class FilePoller {
         }
     }
 
-    private async reconcileMapping(mapping: FolderMapping): Promise<void> {
+    private async reconcileMapping(
+        mapping: FolderMapping,
+        jellyfinBatch: JellyfinSyncBatch,
+    ): Promise<void> {
         if (!(await fileExists(mapping.sourceFolder))) {
             this.context.logger.warn(
                 "Source folder not found, skipping mapping reconciliation",
@@ -348,9 +425,15 @@ export class FilePoller {
                 file,
                 mapping.destinationFolder,
                 mapping.mediaType,
+                jellyfinBatch,
             ),
         );
-        await this.pruneDeletedSources(tracked, currentSourceFiles);
+        await this.pruneDeletedSources(
+            tracked,
+            currentSourceFiles,
+            jellyfinBatch,
+            mapping.destinationFolder,
+        );
         await cleanupDeadSymlinks(mapping.destinationFolder);
     }
 
@@ -359,8 +442,18 @@ export class FilePoller {
             id: number;
             sourceFile: string;
             destFile: string | null;
+            mediaType?: MediaType | null;
+            tmdbId?: number | null;
+            tvdbId?: number | null;
+            imdbId?: string | null;
+            title?: string | null;
+            seasonNumber?: number | null;
+            episodeNumber?: number | null;
+            episodeNumber2?: number | null;
         }>,
         currentSourceFiles: Set<string>,
+        jellyfinBatch: JellyfinSyncBatch,
+        destinationRoot: string,
     ): Promise<void> {
         if (tracked.length === 0) {
             return;
@@ -375,8 +468,23 @@ export class FilePoller {
         }
 
         for (const item of deletedTracked) {
+            if (item.mediaType === "Movies" || item.mediaType === "TvShows") {
+                this.context.jellyfinSyncCoordinator.recordChange(jellyfinBatch, {
+                    mediaType: item.mediaType,
+                    tmdbId: item.tmdbId ?? null,
+                    tvdbId: item.tvdbId ?? null,
+                    imdbId: item.imdbId ?? null,
+                    title: item.title ?? null,
+                    action: "deleted",
+                    oldDestFile: item.destFile,
+                    seasonNumber: item.seasonNumber ?? null,
+                    episodeNumber: item.episodeNumber ?? null,
+                    episodeNumber2: item.episodeNumber2 ?? null,
+                    structural: true,
+                });
+            }
             if (item.destFile) {
-                await removeSymlinkIfExists(item.destFile);
+                await removeSymlinkIfExists(item.destFile, destinationRoot);
             }
         }
 
@@ -392,6 +500,8 @@ export class FilePoller {
         sourceFile: string,
         destinationFolder: string,
         mediaType: MediaType,
+        jellyfinBatch: JellyfinSyncBatch,
+        orderingSnapshot?: TvOrderingSnapshot | null,
     ): Promise<void> {
         let fileInfo;
         try {
@@ -528,6 +638,15 @@ export class FilePoller {
                     });
 
                 if (updated) {
+                    this.context.jellyfinSyncCoordinator.recordChange(jellyfinBatch, {
+                        mediaType: "Movies",
+                        tmdbId: movie.tmdbId,
+                        tvdbId: null,
+                        imdbId: movie.imdbId,
+                        title: movie.title,
+                        action: "added",
+                        newDestFile: destinationPath,
+                    });
                     this.context.wsHub.broadcast("file.updated", updated);
                     this.logProcessingOutcome({
                         id: tracked.id,
@@ -568,6 +687,7 @@ export class FilePoller {
                     episodeNumber2: detected.episodeNumber2,
                     imdbIdFallback: detected.imdbId,
                     sourceFile,
+                    orderingSnapshot,
                 });
 
                 const destinationPath = buildDestinationPath(
@@ -578,6 +698,7 @@ export class FilePoller {
                         title: show.title,
                         year: show.year,
                         imdbId: show.imdbId,
+                        tvdbId: show.tvdbId,
                         seasonNumber: show.seasonNumber,
                         episodeNumber: show.episodeNumber,
                         episodeNumber2: show.episodeNumber2,
@@ -606,6 +727,18 @@ export class FilePoller {
                     });
 
                 if (updated) {
+                    this.context.jellyfinSyncCoordinator.recordChange(jellyfinBatch, {
+                        mediaType: "TvShows",
+                        tmdbId: show.tmdbId,
+                        tvdbId: show.tvdbId,
+                        imdbId: show.imdbId,
+                        title: show.title,
+                        action: "added",
+                        newDestFile: destinationPath,
+                        seasonNumber: show.seasonNumber,
+                        episodeNumber: show.episodeNumber,
+                        episodeNumber2: show.episodeNumber2,
+                    });
                     this.context.wsHub.broadcast("file.updated", updated);
                     this.logProcessingOutcome({
                         id: tracked.id,

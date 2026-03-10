@@ -50,6 +50,45 @@ describe("FilePoller movie ingest integration", () => {
       "file.added",
       "file.updated",
     ])
+    expect(harness.jellyfinCalls.map(call => call.method)).toEqual([
+      "reportMovieAdded",
+      "reportMediaUpdated",
+      "getMediaFolders",
+      "findItems",
+    ])
+    const jellyfinState = await harness.context.jellyfinSyncRepo.findByMediaTmdbId("Movies", 101)
+    expect(jellyfinState?.state).toBe("pending")
+  })
+
+  test("marks a new movie in sync when Jellyfin lookup matches the destination path", async () => {
+    const jellyfinOptions: Parameters<typeof createPollerTestHarness>[1] = {
+      itemsByType: {
+        Movie: [],
+      },
+    }
+    harness = await createPollerTestHarness(
+      createMovieTmdbStub(),
+      jellyfinOptions,
+    )
+    const sourceFile = await harness.writeSourceMovie("Great.Movie.2024.1080p.mkv")
+    jellyfinOptions.itemsByType!.Movie = [
+      {
+        id: "jf-movie-1",
+        name: "Great Movie",
+        path: join(harness.destinationDir, "Great Movie (2024)"),
+        providerIds: {
+          tmdb: "101",
+          imdb: "tt1234567",
+        },
+      },
+    ]
+
+    await harness.runOnce()
+
+    const jellyfinState = await harness.context.jellyfinSyncRepo.findByMediaTmdbId("Movies", 101)
+    expect(jellyfinState?.state).toBe("inSync")
+    expect(jellyfinState?.jellyfinItemId).toBe("jf-movie-1")
+    expect((await harness.context.scannedFilesRepo.findBySource(sourceFile))?.destFile).toContain("Great Movie (2024)")
   })
 
   test("does not create duplicate rows when the same source is seen on a later poll", async () => {
@@ -86,8 +125,13 @@ describe("FilePoller movie ingest integration", () => {
     expect(await harness.readSymlinkTarget(firstTracked!.destFile!)).toBe(firstSource)
   })
 
-  test("removes the tracked row and symlink when the source disappears", async () => {
-    harness = await createPollerTestHarness()
+  test("marks deleted movies out of sync when Jellyfin still has the item", async () => {
+    const jellyfinOptions: Parameters<typeof createPollerTestHarness>[1] = {
+      itemsByType: {
+        Movie: [],
+      },
+    }
+    harness = await createPollerTestHarness(createMovieTmdbStub(), jellyfinOptions)
     const sourceFile = await harness.writeSourceMovie("Great.Movie.2024.mkv")
 
     await harness.runOnce()
@@ -96,13 +140,28 @@ describe("FilePoller movie ingest integration", () => {
     const destinationPath = tracked?.destFile
     expect(destinationPath).not.toBeNull()
 
+    jellyfinOptions.itemsByType!.Movie = [
+      {
+        id: "jf-movie-1",
+        name: "Great Movie",
+        path: join(harness.destinationDir, "Great Movie (2024)"),
+        providerIds: {
+          tmdb: "101",
+          imdb: "tt1234567",
+        },
+      },
+    ]
+
     await rm(sourceFile)
     await harness.runOnce()
 
     const afterDelete = await harness.context.scannedFilesRepo.findBySource(sourceFile)
+    const jellyfinState = await harness.context.jellyfinSyncRepo.findByMediaTmdbId("Movies", 101)
     expect(afterDelete).toBeNull()
     await expect(access(destinationPath!)).rejects.toThrow()
     expect(harness.events.some(item => item.event === "file.removed")).toBe(true)
+    expect(jellyfinState?.state).toBe("outOfSync")
+    expect(jellyfinState?.jellyfinItemId).toBe("jf-movie-1")
   })
 
   test("marks unmatched movies as failed without creating a symlink", async () => {

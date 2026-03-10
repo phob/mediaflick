@@ -5,7 +5,7 @@ import {
     remapRangeSummary,
     sourceGroupLabel,
 } from "@/lib/media-helpers";
-import type { MediaStatus, ScannedFile } from "@/lib/types";
+import type { JellyfinSyncDetails, JellyfinSyncState, JellyfinSyncSummary, MediaStatus, ScannedFile } from "@/lib/types";
 
 export function StatusDot(props: { online: boolean }) {
     return <span class={`inline-block w-2 h-2 rounded-full ${props.online ? "bg-success" : "bg-error"}`} />;
@@ -73,4 +73,96 @@ export function StatusBadge(props: { status: MediaStatus }) {
     };
 
     return <Pill variant={variant()}>{props.status}</Pill>;
+}
+
+export function JellyfinIcon(props: { class?: string }) {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" class={props.class ?? "h-4 w-4"}>
+            <defs>
+                <linearGradient id="jellyfin-outer" x1="4" y1="20" x2="20" y2="4" gradientUnits="userSpaceOnUse">
+                    <stop offset="0" stop-color="#25C6F7" />
+                    <stop offset="0.5" stop-color="#7A5CFF" />
+                    <stop offset="1" stop-color="#B06AFB" />
+                </linearGradient>
+                <linearGradient id="jellyfin-inner" x1="9" y1="16.5" x2="15.5" y2="9" gradientUnits="userSpaceOnUse">
+                    <stop offset="0" stop-color="#FF8A3D" />
+                    <stop offset="1" stop-color="#A855F7" />
+                </linearGradient>
+            </defs>
+            <path
+                d="M12 4.2c.42 0 .82.22 1.03.59l6.58 11.39c.42.72-.1 1.62-.93 1.62H5.32c-.83 0-1.35-.9-.93-1.62l6.58-11.39c.21-.37.61-.59 1.03-.59Z"
+                stroke="url(#jellyfin-outer)"
+                stroke-width="2.2"
+                stroke-linejoin="round"
+            />
+            <path
+                d="M12 8.45c.26 0 .51.14.64.37l3.17 5.49c.26.45-.07 1.01-.58 1.01H8.77c-.51 0-.84-.56-.58-1.01l3.17-5.49c.13-.23.38-.37.64-.37Z"
+                fill="url(#jellyfin-inner)"
+            />
+        </svg>
+    );
+}
+
+function jellyfinVariant(state: JellyfinSyncState): PillVariant {
+    if (state === "inSync") return "success";
+    if (state === "pending") return "warning";
+    if (state === "outOfSync" || state === "missing") return "error";
+    if (state === "error") return "error";
+    return "default";
+}
+
+function jellyfinLabel(state: JellyfinSyncState): string {
+    if (state === "inSync") return "In Jellyfin";
+    if (state === "pending") return "Waiting for Jellyfin";
+    if (state === "outOfSync") return "Needs Jellyfin review";
+    if (state === "missing") return "Not in Jellyfin";
+    if (state === "error") return "Jellyfin check failed";
+    return "Jellyfin status unknown";
+}
+
+export function JellyfinSyncPill(props: { sync: JellyfinSyncDetails | null | undefined }) {
+    return (
+        <Show when={props.sync}>
+            {(sync) => (
+                <Pill variant={jellyfinVariant(sync().state)}>
+                    <span class="inline-flex items-center gap-1.5">
+                        <JellyfinIcon class="h-3.5 w-3.5" />
+                        <span>{jellyfinLabel(sync().state)}</span>
+                    </span>
+                </Pill>
+            )}
+        </Show>
+    );
+}
+
+export function JellyfinSyncBadge(props: {
+    sync: Pick<JellyfinSyncDetails, "state"> | Pick<JellyfinSyncSummary, "state"> | null | undefined;
+    compact?: boolean;
+}) {
+    const badgeClass = (state: JellyfinSyncState) => (
+        state === "inSync"
+            ? "border-cyan-300/30 bg-cyan-300/12 text-cyan-100"
+            : state === "pending"
+                ? "border-yellow-300/30 bg-yellow-300/12 text-yellow-100"
+                : state === "missing" || state === "outOfSync" || state === "error"
+                    ? "border-rose-300/30 bg-rose-300/12 text-rose-100"
+                    : "border-border-default bg-surface-3 text-text-secondary"
+    );
+
+    return (
+        <Show when={props.sync}>
+            {(sync) => (
+                <span
+                    class={`inline-flex items-center rounded-full border text-[0.68rem] font-mono uppercase tracking-[0.14em] ${props.compact ? "px-2 py-2" : "gap-1.5 px-2.5 py-1"} ${badgeClass(sync().state)}`}
+                    title={jellyfinLabel(sync().state)}
+                    aria-label={jellyfinLabel(sync().state)}
+                >
+                    <JellyfinIcon class="h-3.5 w-3.5" />
+                    <Show when={!props.compact}>
+                        <span>{jellyfinLabel(sync().state)}</span>
+                    </Show>
+                </span>
+            )}
+        </Show>
+    );
 }

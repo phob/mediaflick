@@ -5,6 +5,7 @@ import { TvdbSearchInput } from "@/components/tvdb-search-input";
 import { mediaApi } from "@/lib/api";
 import { parseEpisodeInfo } from "@/lib/filename-parser";
 import { fileName } from "@/lib/media-helpers";
+import { pushAppNotification } from "@/lib/notifications";
 import type {
     BulkUpdateApplyResponse,
     BulkUpdateItem,
@@ -62,6 +63,7 @@ export function IdentifyModal(props: {
     files: ScannedFile[];
     preselectedTmdbId?: number;
     reassignOldTmdbId?: number;
+    backgroundOnSave?: boolean;
 }) {
     const queryClient = useQueryClient();
     const [mode, setMode] = createSignal<"TvShows" | "Movies">(props.initialMode);
@@ -295,9 +297,8 @@ export function IdentifyModal(props: {
             setSaveResult(validationError);
             return;
         }
-        setSaving(true);
-        setSaveResult(null);
-        try {
+
+        const runSave = async () => {
             let episodeSourceUpdated = false;
             if (mode() === "TvShows" && selectedTvShowTmdbId()) {
                 const tmdbId = selectedTvShowTmdbId()!;
@@ -331,11 +332,46 @@ export function IdentifyModal(props: {
             if (result.failed.length > 0) parts.push(`${result.failed.length} file(s) failed.`);
             if (result.identityUpdated) parts.push("Series identity updated.");
             if (episodeSourceUpdated) parts.push("Episode source updated.");
-            setSaveResult(parts.join(" "));
 
             for (const key of ["titles", "show", "movie", "tv-files", "movie-files", "unidentified-files", "tv-seasons", "tv-episode-source", "triage-inbox", "wanted-shows", "sidebar-badges"]) {
                 void queryClient.invalidateQueries({ queryKey: [key] });
             }
+
+            return { result, message: parts.join(" ") };
+        };
+
+        if (props.backgroundOnSave) {
+            pushAppNotification({
+                title: mode() === "TvShows" ? "Show reassignment started" : "Movie reassignment started",
+                message: "MediaFlick is updating files and Jellyfin in the background.",
+                tone: "info",
+            });
+            const task = runSave()
+                .then(({ result, message }) => {
+                    pushAppNotification({
+                        title: result.failed.length === 0 ? "Reassignment finished" : "Reassignment finished with issues",
+                        message,
+                        tone: result.failed.length === 0 ? "success" : "error",
+                    });
+                })
+                .catch((err) => {
+                    pushAppNotification({
+                        title: "Reassignment failed",
+                        message: err instanceof Error ? err.message : "Unknown error",
+                        tone: "error",
+                    });
+                    console.error("Background identify save failed", err);
+                });
+            props.onClose();
+            void task;
+            return;
+        }
+
+        setSaving(true);
+        setSaveResult(null);
+        try {
+            const { result, message } = await runSave();
+            setSaveResult(message);
 
             if (result.failed.length === 0) setTimeout(() => props.onClose(), 1500);
         } catch (err) {

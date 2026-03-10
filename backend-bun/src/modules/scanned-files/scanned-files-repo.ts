@@ -392,7 +392,7 @@ export class ScannedFilesRepo {
     return existing.map(mapRow)
   }
 
-  async listForTmdbTitles(mediaType?: MediaType, searchTerm?: string): Promise<Array<{ tmdbId: number | null; title: string | null; posterPath: string | null }>> {
+  async listForTmdbTitles(mediaType?: MediaType, searchTerm?: string): Promise<Array<{ tmdbId: number | null; title: string | null; year: number | null; posterPath: string | null }>> {
     const conditions = [eq(scannedFiles.status, "Success"), isNotNull(scannedFiles.tmdbId)]
 
     if (mediaType) {
@@ -405,7 +405,7 @@ export class ScannedFilesRepo {
     }
 
     const rows = await this.db
-      .select({ tmdbId: scannedFiles.tmdbId, title: scannedFiles.title, posterPath: scannedFiles.posterPath })
+      .select({ tmdbId: scannedFiles.tmdbId, title: scannedFiles.title, year: scannedFiles.year, posterPath: scannedFiles.posterPath })
       .from(scannedFiles)
       .where(and(...conditions))
       .orderBy(
@@ -415,7 +415,7 @@ export class ScannedFilesRepo {
         desc(scannedFiles.updatedAt),
       )
 
-    const byTmdbId = new Map<number, { tmdbId: number | null; title: string | null; posterPath: string | null }>()
+    const byTmdbId = new Map<number, { tmdbId: number | null; title: string | null; year: number | null; posterPath: string | null }>()
     for (const row of rows) {
       if (row.tmdbId == null || byTmdbId.has(row.tmdbId)) {
         continue

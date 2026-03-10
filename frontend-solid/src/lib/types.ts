@@ -17,6 +17,13 @@ export interface PlexConfig {
   processNewFolderDelay: number
 }
 
+export interface JellyfinConfig {
+  enabled: boolean
+  baseUrl: string
+  apiKey: string
+  requestTimeoutMs: number
+}
+
 export interface TMDbConfig {
   apiKey: string
 }
@@ -32,9 +39,65 @@ export interface ZurgConfig {
 
 export interface ConfigurationPayload {
   plex: PlexConfig
+  jellyfin: JellyfinConfig
   tmDb: TMDbConfig
   mediaDetection: MediaDetectionConfig
   zurg: ZurgConfig
+}
+
+export interface DirectoryBrowserEntry {
+  name: string
+  path: string
+  kind: "directory" | "file"
+}
+
+export interface DirectoryBrowserResponse {
+  path: string
+  parentPath: string | null
+  directories: DirectoryBrowserEntry[]
+  files: DirectoryBrowserEntry[]
+}
+
+export type JellyfinSyncState = "unknown" | "pending" | "inSync" | "outOfSync" | "missing" | "error"
+export type JellyfinMatchSource = "providerId" | "path" | "title"
+export type JellyfinSyncIssue =
+  | "none"
+  | "pendingJellyfin"
+  | "missingInJellyfin"
+  | "pathMismatch"
+  | "episodeMismatch"
+  | "pathAndEpisodeMismatch"
+  | "localMissing"
+  | "verificationError"
+
+export interface JellyfinSyncSummary {
+  state: JellyfinSyncState
+  lastCheckedAt: string | null
+  jellyfinItemId: string | null
+}
+
+export interface JellyfinSyncDetails extends JellyfinSyncSummary {
+  jellyfinLibraryId: string | null
+  matchedBy: JellyfinMatchSource | null
+  lastNotifiedAt: string | null
+  lastError: string | null
+  message: string | null
+  issue?: JellyfinSyncIssue | null
+  jellyfinPath?: string | null
+  localPaths?: string[]
+  localDirectories?: string[]
+  verifiedEpisodes?: number
+  missingEpisodes?: number
+  touchedSeasons?: number[]
+  seasonDiagnostics?: JellyfinSeasonSync[]
+}
+
+export interface JellyfinSeasonSync {
+  seasonNumber: number
+  localEpisodeCount: number
+  jellyfinEpisodeCount: number
+  verifiedEpisodes: number
+  missingEpisodes: number
 }
 
 export interface MediaTitleItem {
@@ -42,6 +105,7 @@ export interface MediaTitleItem {
   title: string | null
   year: number | null
   posterPath: string | null
+  jellyfin: JellyfinSyncSummary | null
 }
 
 export interface MediaCastMember {
@@ -79,6 +143,7 @@ export interface MediaInfo {
   episodeCountScanned?: number
   seasonCount?: number
   seasonCountScanned?: number
+  jellyfin?: JellyfinSyncDetails | null
 }
 
 export interface EpisodeInfo {
@@ -211,6 +276,21 @@ export interface EpisodeSourceChangeResponse extends TvEpisodeSourceSelection {
   reprocessedCount: number
 }
 
+export interface EpisodeOrderingSelectionRequest {
+  source: TvEpisodeSourceType
+  tvdbId?: number | null
+  tvdbSeriesName?: string | null
+  tvdbSeasonType?: TvdbSeasonType | null
+  episodeGroupId?: string | null
+}
+
+export interface EpisodeOrderingChangeResponse extends TvEpisodeSourceSelection {
+  selectedEpisodeGroupId: string | null
+  selectedEpisodeGroupName: string | null
+  removedCount: number
+  reprocessedCount: number
+}
+
 export interface EpisodeGroupChangeResponse {
   tmdbId: number
   selectedEpisodeGroupId: string | null
@@ -220,7 +300,7 @@ export interface EpisodeGroupChangeResponse {
 }
 
 export interface RealtimeEnvelope {
-  type: "file.added" | "file.updated" | "file.removed" | "heartbeat" | "zurg.version"
+  type: "file.added" | "file.updated" | "file.removed" | "library.changed" | "heartbeat" | "zurg.version"
   payload: unknown
 }
 

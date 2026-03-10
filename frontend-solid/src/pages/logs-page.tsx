@@ -175,6 +175,16 @@ export default function LogsPage() {
                     >
                         Last 15 min
                     </button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setLogsMinLevel("Debug");
+                            setLogsSearchTerm("Jellyfin");
+                        }}
+                        class="px-3 py-1 text-xs rounded-full border border-border-default bg-surface-3 text-text-secondary hover:text-text-primary hover:border-border-hover transition"
+                    >
+                        Jellyfin debug
+                    </button>
                 </div>
             </div>
 

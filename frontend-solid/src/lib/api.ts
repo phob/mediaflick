@@ -4,7 +4,10 @@ import type {
   BulkUpdateDryRunResponse,
   BulkUpdateRequest,
   ConfigurationPayload,
+  DirectoryBrowserResponse,
   EpisodeGroupChangeResponse,
+  EpisodeOrderingChangeResponse,
+  EpisodeOrderingSelectionRequest,
   EpisodeSourceChangeResponse,
   LogLevel,
   LogsResponse,
@@ -126,16 +129,24 @@ export const mediaApi = {
     return request(`/scannedfiles/${id}/diagnostics`)
   },
 
-  getMovie(tmdbId: number): Promise<MediaInfo> {
-    return request(`/medialookup/movies/${tmdbId}`)
+  getMovie(tmdbId: number, options?: { forceJellyfin?: boolean }): Promise<MediaInfo> {
+    const query = new URLSearchParams()
+    if (options?.forceJellyfin) {
+      query.set("forceJellyfin", "true")
+    }
+    return request(`/medialookup/movies/${tmdbId}${query.size > 0 ? `?${query.toString()}` : ""}`)
   },
 
   getMovieFiles(tmdbId: number): Promise<MovieFilesResponse> {
     return request(`/medialookup/movies/${tmdbId}/files`)
   },
 
-  getShow(tmdbId: number): Promise<MediaInfo> {
-    return request(`/medialookup/tvshows/${tmdbId}`)
+  getShow(tmdbId: number, options?: { forceJellyfin?: boolean }): Promise<MediaInfo> {
+    const query = new URLSearchParams()
+    if (options?.forceJellyfin) {
+      query.set("forceJellyfin", "true")
+    }
+    return request(`/medialookup/tvshows/${tmdbId}${query.size > 0 ? `?${query.toString()}` : ""}`)
   },
 
   getShowEpisodeSource(tmdbId: number): Promise<TvEpisodeSourceSelection> {
@@ -171,6 +182,16 @@ export const mediaApi = {
     })
   },
 
+  setShowEpisodeOrdering(
+    tmdbId: number,
+    body: EpisodeOrderingSelectionRequest,
+  ): Promise<EpisodeOrderingChangeResponse> {
+    return request(`/medialookup/tvshows/${tmdbId}/episode-ordering`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    })
+  },
+
   searchTvdbShows(tmdbId: number, title: string): Promise<TvdbSearchResult[]> {
     const query = new URLSearchParams({ title: title.trim() })
     return request(`/medialookup/tvshows/${tmdbId}/tvdb/search?${query.toString()}`)
@@ -185,6 +206,11 @@ export const mediaApi = {
       method: "PUT",
       body: JSON.stringify(payload),
     })
+  },
+
+  browseDirectory(path: string): Promise<DirectoryBrowserResponse> {
+    const query = new URLSearchParams({ path })
+    return request(`/config/browse?${query.toString()}`)
   },
 
   getLogs(params: {

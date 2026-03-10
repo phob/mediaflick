@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/solid-query";
 import { Film, FolderTree, GalleryVerticalEnd, Star } from "lucide-solid";
 import { For, Show, createMemo, createSignal, type ParentProps } from "solid-js";
 import { IdentifyModal } from "@/components/identify-modal";
-import { FileRowIdentity, Pill, RowSkeleton, SourceSubgroupSeparator, StatusBadge } from "@/components/common-ui";
+import { JellyfinSyncPanel } from "@/components/jellyfin-sync-panel";
+import { FileRowIdentity, JellyfinSyncPill, Pill, RowSkeleton, SourceSubgroupSeparator, StatusBadge } from "@/components/common-ui";
 import { CastPanel, DetailPageBackdrop } from "@/components/media-shared";
 import { mediaApi } from "@/lib/api";
 import {
@@ -15,6 +16,7 @@ import {
     formatRuntime,
     posterUrl,
 } from "@/lib/media-helpers";
+import { pushAppNotification } from "@/lib/notifications";
 import type { ScannedFile } from "@/lib/types";
 
 function showStatusVariant(status: string | null | undefined): "default" | "success" | "info" | "warning" | "error" {
@@ -109,6 +111,24 @@ export default function MovieDetailsPage() {
             ]);
         },
     }));
+    const recheckJellyfinMutation = useMutation(() => ({
+        mutationFn: () => mediaApi.getMovie(tmdbId(), { forceJellyfin: true }),
+        onSuccess: (data) => {
+            queryClient.setQueryData(["movie", tmdbId()], data);
+            pushAppNotification({
+                title: "Jellyfin rechecked",
+                message: "Movie sync details were refreshed.",
+                tone: "success",
+            });
+        },
+        onError: (error) => {
+            pushAppNotification({
+                title: "Jellyfin recheck failed",
+                message: error instanceof Error ? error.message : "Unknown error",
+                tone: "error",
+            });
+        },
+    }));
 
     const primaryFiles = createMemo(() => filesQuery.data?.primaryFiles ?? []);
     const extraFiles = createMemo(() => filesQuery.data?.extraFiles ?? []);
@@ -146,6 +166,7 @@ export default function MovieDetailsPage() {
                                             <div class="inline-flex flex-wrap items-center gap-2">
                                                 <Pill variant="success">Movie</Pill>
                                                 <Pill variant={showStatusVariant(movie().status)}>Status: {movie().status ?? "Unknown"}</Pill>
+                                                <JellyfinSyncPill sync={movie().jellyfin} />
                                                 <Pill>TMDb {movie().tmdbId}</Pill>
                                                 <Pill>IMDb {movie().imdbId ?? "n/a"}</Pill>
                                             </div>
@@ -183,6 +204,13 @@ export default function MovieDetailsPage() {
                                     </div>
                                 </div>
                             </section>
+
+                            <JellyfinSyncPanel
+                                sync={movie().jellyfin}
+                                mediaLabel="movie"
+                                onRecheck={() => recheckJellyfinMutation.mutate()}
+                                recheckBusy={recheckJellyfinMutation.isPending}
+                            />
 
                             <div class="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
                                 <DetailPanel eyebrow="Story" title="Overview">
@@ -270,6 +298,7 @@ export default function MovieDetailsPage() {
                                 }}
                                 initialMode="Movies"
                                 files={primaryFiles()}
+                                backgroundOnSave
                             />
                         </>
                     )}
