@@ -32,9 +32,12 @@ COPY backend-bun/src /app/backend-bun/src
 COPY backend-bun/config /app/backend-bun/config
 RUN mkdir -p /app/backend-bun/logs /app/frontend-solid
 
+COPY docker-entrypoint.sh /usr/local/bin/mediaflick-entrypoint
+RUN chmod +x /usr/local/bin/mediaflick-entrypoint
+
 COPY frontend-solid/server.ts /app/frontend-solid/server.ts
 COPY --from=frontend-build /build/frontend-solid/dist /app/frontend-solid/dist
 
 EXPOSE 3867 5000
 
-CMD ["sh", "-c", "set -e; PORT=${BACKEND_PORT} bun /app/backend-bun/src/app/server.ts & backend_pid=$!; trap 'kill ${backend_pid} >/dev/null 2>&1 || true' INT TERM EXIT; PORT=${FRONTEND_PORT} BACKEND_HTTP_ORIGIN=http://127.0.0.1:${BACKEND_PORT} BACKEND_WS_ORIGIN=ws://127.0.0.1:${BACKEND_PORT} bun /app/frontend-solid/server.ts"]
+ENTRYPOINT ["/usr/local/bin/mediaflick-entrypoint"]
