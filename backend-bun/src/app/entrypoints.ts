@@ -5,6 +5,7 @@ export const ENTRYPOINTS = {
     filetracking: "/ws/filetracking",
   },
   api: {
+    version: "/api/version",
     config: "/api/config",
     configBrowse: "/api/config/browse",
     logs: "/api/logs",

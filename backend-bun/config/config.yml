@@ -11,6 +11,11 @@ plex:
     - sourceFolder: /mnt/zurg/shows
       destinationFolder: /mnt/organized2/tvseries
       mediaType: TvShows
+jellyfin:
+  enabled: false
+  baseUrl: http://localhost:8096
+  apiKey: 1cd8a2d12ab4472fb9e21b6cd78f4acd
+  requestTimeoutMs: 10000
 tmDb:
   apiKey: fc03d062b72e55cdc9ce9e7c0960544f
 mediaDetection:

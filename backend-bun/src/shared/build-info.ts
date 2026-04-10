@@ -1,16 +1,14 @@
-import { execFileSync } from "node:child_process"
 import { resolve } from "node:path"
-import tailwindcss from "@tailwindcss/vite"
-import { defineConfig } from "vite"
-import solid from "vite-plugin-solid"
 
-interface BuildInfo {
+export interface BuildInfo {
   version: string
   buildKind: "release" | "dev"
   gitTag: string | null
   commitSha: string | null
   dirty: boolean
 }
+
+const gitWorkdir = resolve(import.meta.dir, "../..")
 
 function readEnv(name: string): string | null {
   const value = process.env[name]?.trim()
@@ -29,30 +27,22 @@ function readEnvBoolean(name: string): boolean | null {
 }
 
 function runGit(args: string[]): string | null {
-  try {
-    const output = execFileSync("git", args, {
-      cwd: __dirname,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim()
-    return output.length > 0 ? output : null
-  } catch {
+  const result = Bun.spawnSync({
+    cmd: ["git", ...args],
+    cwd: gitWorkdir,
+    stdout: "pipe",
+    stderr: "pipe",
+  })
+
+  if (result.exitCode !== 0) {
     return null
   }
+
+  const output = new TextDecoder().decode(result.stdout).trim()
+  return output.length > 0 ? output : null
 }
 
-function resolveBuildInfo(): BuildInfo {
-  const version = readEnv("MEDIAFLICK_VERSION")
-  if (version) {
-    return {
-      version,
-      buildKind: readEnv("MEDIAFLICK_BUILD_KIND") === "release" ? "release" : "dev",
-      gitTag: readEnv("MEDIAFLICK_GIT_TAG"),
-      commitSha: readEnv("MEDIAFLICK_COMMIT_SHA"),
-      dirty: readEnvBoolean("MEDIAFLICK_GIT_DIRTY") ?? version.endsWith("-dirty"),
-    }
-  }
-
+function resolveVersionFromGit(): BuildInfo {
   const exactTag = runGit(["describe", "--tags", "--exact-match"])
   const latestTag = exactTag ?? runGit(["describe", "--tags", "--abbrev=0"])
   const commitSha = runGit(["rev-parse", "--short", "HEAD"])
@@ -101,17 +91,19 @@ function resolveBuildInfo(): BuildInfo {
   }
 }
 
-const buildInfo = resolveBuildInfo()
+export function resolveBuildInfo(): BuildInfo {
+  const version = readEnv("MEDIAFLICK_VERSION")
+  if (!version) {
+    return resolveVersionFromGit()
+  }
 
-export default defineConfig({
-  clearScreen: false,
-  define: {
-    __MEDIAFLICK_BUILD_INFO__: JSON.stringify(buildInfo),
-  },
-  plugins: [tailwindcss(), solid()],
-  resolve: {
-    alias: {
-      "@": resolve(__dirname, "src"),
-    },
-  },
-})
+  return {
+    version,
+    buildKind: readEnv("MEDIAFLICK_BUILD_KIND") === "release" ? "release" : "dev",
+    gitTag: readEnv("MEDIAFLICK_GIT_TAG"),
+    commitSha: readEnv("MEDIAFLICK_COMMIT_SHA"),
+    dirty: readEnvBoolean("MEDIAFLICK_GIT_DIRTY") ?? version.endsWith("-dirty"),
+  }
+}
+
+export const buildInfo = resolveBuildInfo()

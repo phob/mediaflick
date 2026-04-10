@@ -20,6 +20,7 @@ export function createRouter(context: AppContext) {
 
   app.get(ENTRYPOINTS.root, c => c.json({ message: "Mediaflick Bun backend is running" }))
   app.get(ENTRYPOINTS.health, c => c.json({ ok: true, ts: Date.now() }))
+  app.get(ENTRYPOINTS.api.version, c => c.json(context.buildInfo))
 
   app.route("/", createConfigRouter(context))
   app.route("/", createLogsRouter(context))

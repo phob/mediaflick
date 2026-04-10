@@ -11,6 +11,7 @@ import {
     Tv,
 } from "lucide-solid";
 import { For, Show, createMemo } from "solid-js";
+import { frontendBuildInfo, formatBuildInfoTooltip } from "@/lib/build-info";
 import { StatusDot } from "@/components/common-ui";
 
 type AppNavIcon =
@@ -178,6 +179,8 @@ export function SidebarNavigation(props: {
     onToggle: () => void;
     onNavigate?: () => void;
 }) {
+    const buildInfoTitle = formatBuildInfoTooltip(frontendBuildInfo);
+
     const badgeForHref = (href: string): number | null | undefined => {
         if (href === "/") return props.triageBadge;
         if (href === "/wanted") return props.wantedBadge;
@@ -188,9 +191,10 @@ export function SidebarNavigation(props: {
     return (
         <>
             <div class="side-brand-row">
-                <A href="/" onClick={() => props.onNavigate?.()} class="brand-lockup side-brand" title="MediaFlick">
+                <A href="/" onClick={() => props.onNavigate?.()} class="brand-lockup side-brand" title={buildInfoTitle}>
                     <span class="brand-kicker">Library Console</span>
                     <span class="brand-title">Media<span>Flick</span></span>
+                    <span class="brand-version">{frontendBuildInfo.version}</span>
                     <svg class="side-brand-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                         <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor" fill-opacity="0.9" />
                         <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />

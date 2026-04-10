@@ -9,10 +9,12 @@ import type { TmdbClient } from "@/modules/media-lookup/tmdb-client"
 import type { TvdbClient } from "@/modules/media-lookup/tvdb-client"
 import type { WsHub } from "@/modules/realtime/ws-hub"
 import type { ScannedFilesRepo } from "@/modules/scanned-files/scanned-files-repo"
+import type { BuildInfo } from "@/shared/build-info"
 import type { Logger } from "@/shared/logger"
 
 export interface AppContext {
   env: AppEnv
+  buildInfo: BuildInfo
   logger: Logger
   db: AppDb
   configStore: ConfigStore

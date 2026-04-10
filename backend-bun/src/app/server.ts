@@ -13,6 +13,7 @@ import { TvdbClient } from "@/modules/media-lookup/tvdb-client"
 import { getInitialHealthEvents } from "@/modules/realtime/health-snapshot"
 import { createWsHub } from "@/modules/realtime/ws-hub"
 import { ScannedFilesRepo } from "@/modules/scanned-files/scanned-files-repo"
+import { buildInfo } from "@/shared/build-info"
 import { createLogger } from "@/shared/logger"
 
 const TVDB_API_KEY = "4a4e01fa-2af9-4750-b7e0-d0f093c77013"
@@ -34,6 +35,7 @@ const jellyfinFactory = (config: typeof initialConfig.jellyfin) => new JellyfinC
 
 const context: AppContext = {
   env,
+  buildInfo,
   logger,
   db,
   configStore,
@@ -73,6 +75,11 @@ const server = Bun.serve({
 })
 
 logger.info("Bun backend started", {
+  version: buildInfo.version,
+  buildKind: buildInfo.buildKind,
+  gitTag: buildInfo.gitTag,
+  commitSha: buildInfo.commitSha,
+  dirty: buildInfo.dirty,
   port: env.port,
   rootDir: env.rootDir,
   configPath: env.configPath,

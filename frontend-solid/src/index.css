@@ -156,6 +156,16 @@
     color: var(--color-accent);
   }
 
+  .brand-version {
+    margin-top: 0.22rem;
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    line-height: 1.2;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-text-tertiary);
+  }
+
   .menu-toggle {
     display: inline-flex;
     align-items: center;
@@ -458,6 +468,7 @@
 
   .side-rail:not(.is-expanded) .brand-kicker,
   .side-rail:not(.is-expanded) .brand-title,
+  .side-rail:not(.is-expanded) .brand-version,
   .side-rail:not(.is-expanded) .side-section-title,
   .side-rail:not(.is-expanded) .side-link-label,
   .side-rail:not(.is-expanded) .side-link-badge {
