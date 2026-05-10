@@ -13,7 +13,7 @@
   "dependencies": {
     "@solidjs/router": "^0.15.4",
     "@tailwindcss/vite": "^4.2.1",
-    "@tanstack/solid-query": "^5.90.8",
+    "@tanstack/solid-query": "^5.91.1",
     "lucide-solid": "^0.577.0",
     "solid-js": "^1.9.10",
     "tailwindcss": "^4.2.1"
