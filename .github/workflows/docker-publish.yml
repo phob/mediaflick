@@ -6,6 +6,11 @@ on:
       - "v*"
       - "[0-9]*.[0-9]*.[0-9]*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build, for example v0.2.4. Leave blank to build the latest semver tag."
+        required: false
+        type: string
 
 env:
   REGISTRY: ghcr.io
@@ -21,6 +26,48 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release ref
+        id: release-ref
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          git fetch --tags --force
+
+          tag=""
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            tag="${GITHUB_REF_NAME}"
+          elif [ -n "${INPUT_TAG}" ]; then
+            tag="${INPUT_TAG}"
+          elif [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            tag="$(git tag --list --sort=-v:refname | grep -E '^(v)?[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)"
+          fi
+
+          if [ -n "${tag}" ]; then
+            if ! git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+              echo "Tag ${tag} does not exist" >&2
+              exit 1
+            fi
+            git checkout --detach "${tag}"
+            version="${tag#v}"
+            major_minor="$(printf '%s' "${version}" | cut -d. -f1,2)"
+            sha_short="$(git rev-parse --short HEAD)"
+            echo "is_release=true" >> "${GITHUB_OUTPUT}"
+            echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+            echo "version=${version}" >> "${GITHUB_OUTPUT}"
+            echo "major_minor=${major_minor}" >> "${GITHUB_OUTPUT}"
+            echo "sha_short=${sha_short}" >> "${GITHUB_OUTPUT}"
+          else
+            sha_short="$(git rev-parse --short HEAD)"
+            echo "is_release=false" >> "${GITHUB_OUTPUT}"
+            echo "tag=" >> "${GITHUB_OUTPUT}"
+            echo "version=" >> "${GITHUB_OUTPUT}"
+            echo "major_minor=" >> "${GITHUB_OUTPUT}"
+            echo "sha_short=${sha_short}" >> "${GITHUB_OUTPUT}"
+          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -40,23 +87,24 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix=,suffix=,format=short
+            type=raw,value=${{ steps.release-ref.outputs.version }},enable=${{ steps.release-ref.outputs.is_release }}
+            type=raw,value=${{ steps.release-ref.outputs.major_minor }},enable=${{ steps.release-ref.outputs.is_release }}
+            type=raw,value=${{ steps.release-ref.outputs.sha_short }}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Resolve MediaFlick build metadata
         id: build-meta
         run: |
-          sha_short="${GITHUB_SHA::7}"
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            echo "version=${GITHUB_REF_NAME}" >> "${GITHUB_OUTPUT}"
+          if [ "${{ steps.release-ref.outputs.is_release }}" = "true" ]; then
+            echo "version=${{ steps.release-ref.outputs.tag }}" >> "${GITHUB_OUTPUT}"
             echo "build_kind=release" >> "${GITHUB_OUTPUT}"
-            echo "git_tag=${GITHUB_REF_NAME}" >> "${GITHUB_OUTPUT}"
+            echo "git_tag=${{ steps.release-ref.outputs.tag }}" >> "${GITHUB_OUTPUT}"
           else
-            echo "version=dev+${sha_short}" >> "${GITHUB_OUTPUT}"
+            echo "version=dev+${{ steps.release-ref.outputs.sha_short }}" >> "${GITHUB_OUTPUT}"
             echo "build_kind=dev" >> "${GITHUB_OUTPUT}"
             echo "git_tag=" >> "${GITHUB_OUTPUT}"
           fi
-          echo "commit_sha=${sha_short}" >> "${GITHUB_OUTPUT}"
+          echo "commit_sha=${{ steps.release-ref.outputs.sha_short }}" >> "${GITHUB_OUTPUT}"
           echo "git_dirty=false" >> "${GITHUB_OUTPUT}"
 
       - name: Build and push Docker image
