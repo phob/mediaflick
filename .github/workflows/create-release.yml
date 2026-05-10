@@ -67,6 +67,6 @@ jobs:
         run: |
           gh release create "${{ steps.release.outputs.version }}" \
             --draft \
+            --verify-tag \
             --title "${{ steps.release.outputs.version }}" \
-            --notes "Draft release for ${{ steps.release.outputs.version }}. Run Docker Image CI to publish the container image." \
-            --target "${{ steps.release.outputs.version }}"
+            --notes "Draft release for ${{ steps.release.outputs.version }}. Run Docker Image CI to publish the container image."
