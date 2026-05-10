@@ -6,6 +6,13 @@ RUN bun install --frozen-lockfile
 
 FROM frontend-deps AS frontend-build
 
+ARG MEDIAFLICK_VERSION
+ARG MEDIAFLICK_BUILD_KIND
+ARG MEDIAFLICK_GIT_TAG
+ARG MEDIAFLICK_COMMIT_SHA
+ARG MEDIAFLICK_GIT_DIRTY
+
+COPY VERSION /build/VERSION
 COPY frontend-solid/ ./
 RUN bun run build
 
@@ -18,13 +25,23 @@ RUN bun install --frozen-lockfile --production
 FROM oven/bun:1.3.1-alpine AS runtime
 WORKDIR /app
 
+ARG MEDIAFLICK_VERSION
+ARG MEDIAFLICK_BUILD_KIND
+ARG MEDIAFLICK_GIT_TAG
+ARG MEDIAFLICK_COMMIT_SHA
+ARG MEDIAFLICK_GIT_DIRTY
+
 ENV NODE_ENV=production \
     FRONTEND_PORT=3867 \
     BACKEND_PORT=5000 \
     BACKEND_BUN_ROOT_DIR=/app/backend-bun \
     BACKEND_BUN_CONFIG_PATH=/app/backend-bun/config/config.yml \
     BACKEND_BUN_LOGS_DIR=/app/backend-bun/logs \
-    BACKEND_BUN_DB_PATH=/app/backend-bun/config/plexscan.db
+    BACKEND_BUN_DB_PATH=/app/backend-bun/config/plexscan.db \
+    MEDIAFLICK_BUILD_INFO_PATH=/app/build-info.json
+
+COPY VERSION /app/VERSION
+RUN bun -e 'const fs = require("node:fs"); const read = name => (process.env[name] || "").trim() || null; const fallbackVersion = fs.readFileSync("/app/VERSION", "utf8").trim(); const payload = { version: read("MEDIAFLICK_VERSION") || `${fallbackVersion}-local`, buildKind: read("MEDIAFLICK_BUILD_KIND") === "release" ? "release" : "dev", gitTag: read("MEDIAFLICK_GIT_TAG"), commitSha: read("MEDIAFLICK_COMMIT_SHA"), dirty: (read("MEDIAFLICK_GIT_DIRTY") || "false").toLowerCase() === "true" }; fs.writeFileSync("/app/build-info.json", `${JSON.stringify(payload)}\n`);'
 
 COPY --from=backend-deps /build/backend-bun/node_modules /app/backend-bun/node_modules
 COPY backend-bun/tsconfig.json /app/backend-bun/tsconfig.json

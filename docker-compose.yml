@@ -1,5 +1,6 @@
 services:
   mediaflick:
+    container_name: mediaflick
     build:
       context: .
       dockerfile: Dockerfile

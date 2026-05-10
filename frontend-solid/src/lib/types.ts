@@ -24,6 +24,13 @@ export interface JellyfinConfig {
   requestTimeoutMs: number
 }
 
+export type JellyfinConnectionTestStatus = "success" | "failed" | "notConfigured"
+
+export interface JellyfinConnectionTestResult {
+  status: JellyfinConnectionTestStatus
+  testedAt: string
+}
+
 export interface TMDbConfig {
   apiKey: string
 }
@@ -43,6 +50,10 @@ export interface ConfigurationPayload {
   tmDb: TMDbConfig
   mediaDetection: MediaDetectionConfig
   zurg: ZurgConfig
+}
+
+export interface ConfigurationUpdateResponse extends ConfigurationPayload {
+  jellyfinConnectionTest: JellyfinConnectionTestResult
 }
 
 export interface DirectoryBrowserEntry {

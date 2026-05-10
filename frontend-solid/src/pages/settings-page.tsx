@@ -11,7 +11,7 @@ import {
     mediaTypeOptions,
     parseIntOr,
 } from "@/lib/media-helpers";
-import type { ConfigurationPayload, FolderMappingConfig, MediaType } from "@/lib/types";
+import type { ConfigurationPayload, FolderMappingConfig, JellyfinConnectionTestResult, MediaType } from "@/lib/types";
 
 interface SecretInputProps {
     label: string;
@@ -79,6 +79,20 @@ function SecretInput(props: SecretInputProps) {
     );
 }
 
+function jellyfinTestPill(result: JellyfinConnectionTestResult | null) {
+    if (!result) return { variant: "default" as const, label: "Not tested yet" };
+    if (result.status === "success") return { variant: "success" as const, label: "Connection successful" };
+    if (result.status === "failed") return { variant: "error" as const, label: "Connection failed" };
+    return { variant: "default" as const, label: "Not configured" };
+}
+
+function jellyfinTestMessage(result: JellyfinConnectionTestResult | null): string {
+    if (!result) return "Save Jellyfin settings to run a backend connection test.";
+    if (result.status === "success") return "Mediaflick connected to Jellyfin with the saved API key.";
+    if (result.status === "failed") return "The backend could not connect to Jellyfin. View logs for error details.";
+    return "Enable Jellyfin sync and provide a base URL plus API key to run the connection test.";
+}
+
 function MappingCard(props: {
     mapping: FolderMappingConfig;
     index: number;
@@ -139,6 +153,7 @@ export default function SettingsPage() {
     const [showPlexToken, setShowPlexToken] = createSignal(false);
     const [showJellyfinApiKey, setShowJellyfinApiKey] = createSignal(false);
     const [showTmdbApiKey, setShowTmdbApiKey] = createSignal(false);
+    const [jellyfinConnectionTest, setJellyfinConnectionTest] = createSignal<JellyfinConnectionTestResult | null>(null);
 
     createEffect(() => {
         if (configQuery.data && !draft()) setDraft(cloneConfig(configQuery.data));
@@ -147,6 +162,7 @@ export default function SettingsPage() {
     const saveMutation = useMutation(() => ({
         mutationFn: (payload: ConfigurationPayload) => mediaApi.updateConfig(payload),
         onSuccess: async (updated) => {
+            setJellyfinConnectionTest(updated.jellyfinConnectionTest);
             setDraft(cloneConfig(updated));
             await queryClient.invalidateQueries({ queryKey: ["config"] });
         },
@@ -277,6 +293,13 @@ export default function SettingsPage() {
                                         <Field label="Timeout (ms)" labelClass={labelCls}>
                                             <input type="number" min="1000" class={inputCls} value={String(config().jellyfin.requestTimeoutMs)} onInput={(e) => patchDraft((c) => ({ ...c, jellyfin: { ...c.jellyfin, requestTimeoutMs: parseIntOr(e.currentTarget.value, c.jellyfin.requestTimeoutMs) } }))} />
                                         </Field>
+                                        <div class="rounded-lg border border-border-default bg-surface-3 px-3 py-3">
+                                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                                <span class="text-xs font-medium text-text-secondary">Backend connection test</span>
+                                                <Pill variant={jellyfinTestPill(jellyfinConnectionTest()).variant}>{jellyfinTestPill(jellyfinConnectionTest()).label}</Pill>
+                                            </div>
+                                            <p class="mt-2 text-xs leading-5 text-text-tertiary">{jellyfinTestMessage(jellyfinConnectionTest())}</p>
+                                        </div>
                                     </div>
                                 </div>
 

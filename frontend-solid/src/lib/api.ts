@@ -4,6 +4,7 @@ import type {
   BulkUpdateDryRunResponse,
   BulkUpdateRequest,
   ConfigurationPayload,
+  ConfigurationUpdateResponse,
   DirectoryBrowserResponse,
   EpisodeGroupChangeResponse,
   EpisodeOrderingChangeResponse,
@@ -201,7 +202,7 @@ export const mediaApi = {
     return request("/config")
   },
 
-  updateConfig(payload: ConfigurationPayload): Promise<ConfigurationPayload> {
+  updateConfig(payload: ConfigurationPayload): Promise<ConfigurationUpdateResponse> {
     return request("/config", {
       method: "PUT",
       body: JSON.stringify(payload),
