@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process"
+import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import tailwindcss from "@tailwindcss/vite"
 import { defineConfig } from "vite"
@@ -36,6 +37,15 @@ function runGit(args: string[]): string | null {
       stdio: ["ignore", "pipe", "ignore"],
     }).trim()
     return output.length > 0 ? output : null
+  } catch {
+    return null
+  }
+}
+
+function readFallbackVersion(): string | null {
+  try {
+    const version = readFileSync(resolve(__dirname, "../VERSION"), "utf8").trim()
+    return version.length > 0 ? version : null
   } catch {
     return null
   }
@@ -92,8 +102,9 @@ function resolveBuildInfo(): BuildInfo {
     }
   }
 
+  const fallbackVersion = readFallbackVersion()
   return {
-    version: dirty ? "dev-dirty" : "unknown",
+    version: fallbackVersion ? `${fallbackVersion}-local` : dirty ? "dev-dirty" : "unknown",
     buildKind: "dev",
     gitTag: latestTag,
     commitSha,

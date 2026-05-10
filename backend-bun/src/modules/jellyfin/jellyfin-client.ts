@@ -47,6 +47,11 @@ export interface JellyfinEpisode extends JellyfinItem {
   episodeNumber: number | null
 }
 
+export interface JellyfinConnectionTestResult {
+  status: "success" | "failed" | "notConfigured"
+  testedAt: string
+}
+
 function normalizeProviderIds(
   value: Record<string, string | null> | null | undefined,
 ): Record<string, string | null> {
@@ -89,6 +94,24 @@ export class JellyfinClient {
 
   isEnabled(): boolean {
     return this.config.enabled && this.config.baseUrl.trim().length > 0 && this.config.apiKey.trim().length > 0
+  }
+
+  async testConnection(): Promise<JellyfinConnectionTestResult> {
+    const testedAt = new Date().toISOString()
+    if (!this.isEnabled()) {
+      this.logger?.info("Jellyfin connection test skipped because Jellyfin is disabled or incomplete", {
+        enabled: this.config.enabled,
+        baseUrlConfigured: this.config.baseUrl.trim().length > 0,
+        apiKeyConfigured: this.config.apiKey.trim().length > 0,
+      })
+      return { status: "notConfigured", testedAt }
+    }
+
+    await this.get<unknown>("/System/Info")
+    this.logger?.info("Jellyfin connection test succeeded", {
+      baseUrl: this.config.baseUrl.replace(/\/+$/, ""),
+    })
+    return { status: "success", testedAt }
   }
 
   async getMediaFolders(force = false): Promise<JellyfinFolder[]> {

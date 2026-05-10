@@ -43,6 +43,22 @@ jobs:
             type=sha,prefix=,suffix=,format=short
             type=raw,value=latest,enable={{is_default_branch}}
 
+      - name: Resolve MediaFlick build metadata
+        id: build-meta
+        run: |
+          sha_short="${GITHUB_SHA::7}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "version=${GITHUB_REF_NAME}" >> "${GITHUB_OUTPUT}"
+            echo "build_kind=release" >> "${GITHUB_OUTPUT}"
+            echo "git_tag=${GITHUB_REF_NAME}" >> "${GITHUB_OUTPUT}"
+          else
+            echo "version=dev+${sha_short}" >> "${GITHUB_OUTPUT}"
+            echo "build_kind=dev" >> "${GITHUB_OUTPUT}"
+            echo "git_tag=" >> "${GITHUB_OUTPUT}"
+          fi
+          echo "commit_sha=${sha_short}" >> "${GITHUB_OUTPUT}"
+          echo "git_dirty=false" >> "${GITHUB_OUTPUT}"
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -50,5 +66,11 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            MEDIAFLICK_VERSION=${{ steps.build-meta.outputs.version }}
+            MEDIAFLICK_BUILD_KIND=${{ steps.build-meta.outputs.build_kind }}
+            MEDIAFLICK_GIT_TAG=${{ steps.build-meta.outputs.git_tag }}
+            MEDIAFLICK_COMMIT_SHA=${{ steps.build-meta.outputs.commit_sha }}
+            MEDIAFLICK_GIT_DIRTY=${{ steps.build-meta.outputs.git_dirty }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

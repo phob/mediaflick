@@ -5,6 +5,12 @@ import { ENTRYPOINTS } from "@/app/entrypoints"
 import type { AppContext } from "@/app/context"
 import { configSchema } from "@/config/runtime-config"
 import { parseJson } from "@/shared/http"
+import type { ConfigurationPayload } from "@/shared/types"
+import type { JellyfinConnectionTestResult } from "@/modules/jellyfin/jellyfin-client"
+
+interface ConfigUpdateResponse extends ConfigurationPayload {
+  jellyfinConnectionTest: JellyfinConnectionTestResult
+}
 
 interface BrowserEntry {
   name: string
@@ -83,9 +89,24 @@ export function createConfigRouter(context: AppContext) {
       apiKeyConfigured: updated.jellyfin.apiKey.trim().length > 0,
       requestTimeoutMs: updated.jellyfin.requestTimeoutMs,
     })
+    let jellyfinConnectionTest: JellyfinConnectionTestResult
+    try {
+      jellyfinConnectionTest = await context.jellyfin.testConnection()
+    } catch (error) {
+      context.logger.warn("Jellyfin connection test failed", {
+        enabled: updated.jellyfin.enabled,
+        baseUrl: updated.jellyfin.baseUrl,
+        apiKeyConfigured: updated.jellyfin.apiKey.trim().length > 0,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      jellyfinConnectionTest = {
+        status: "failed",
+        testedAt: new Date().toISOString(),
+      }
+    }
     context.poller.restart(updated)
 
-    return c.json(updated)
+    return c.json({ ...updated, jellyfinConnectionTest } satisfies ConfigUpdateResponse)
   })
 
   router.get(ENTRYPOINTS.api.configBrowse, async c => {

@@ -87,4 +87,39 @@ describe("JellyfinClient", () => {
     expect(requests[0]).toContain("fields=ProviderIds%2CPath")
     expect(items[0]?.providerIds.tmdb).toBe("101")
   })
+
+  test("tests connection through an authenticated system endpoint", async () => {
+    const requests: Array<{ url: string; init?: RequestInit }> = []
+    globalThis.fetch = (async (input, init) => {
+      requests.push({ url: String(input), init })
+      return Response.json({ Id: "user-1" })
+    }) as typeof fetch
+
+    const client = createClient()
+    const result = await client.testConnection()
+
+    expect(result.status).toBe("success")
+    expect(requests[0]?.url).toBe("http://jellyfin.local/System/Info")
+    expect((requests[0]?.init?.headers as Record<string, string>).Authorization).toContain("abc123")
+  })
+
+  test("skips connection test when Jellyfin is incomplete", async () => {
+    const requests: string[] = []
+    globalThis.fetch = (async (input) => {
+      requests.push(String(input))
+      return Response.json({})
+    }) as typeof fetch
+
+    const client = new JellyfinClient({
+      enabled: true,
+      baseUrl: "http://jellyfin.local",
+      apiKey: "",
+      requestTimeoutMs: 5000,
+    })
+
+    const result = await client.testConnection()
+
+    expect(result.status).toBe("notConfigured")
+    expect(requests).toHaveLength(0)
+  })
 })

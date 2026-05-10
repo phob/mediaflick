@@ -24,7 +24,8 @@ export async function getLogs(logDirectory: string, params: {
   to: Date | null
   limit: number
 }): Promise<unknown[]> {
-  const entries: unknown[] = []
+  const entries: Array<{ entry: unknown; sortTime: number; order: number }> = []
+  let order = 0
 
   let files: string[] = []
   try {
@@ -38,15 +39,11 @@ export async function getLogs(logDirectory: string, params: {
     .sort((a, b) => b.localeCompare(a))
 
   for (const fileName of logFiles) {
-    if (entries.length >= params.limit) break
-
     const filePath = join(logDirectory, fileName)
     const content = await readFile(filePath, "utf8")
     const lines = content.split("\n").filter(Boolean).reverse()
 
     for (const line of lines) {
-      if (entries.length >= params.limit) break
-
       let parsed: LogEntry
       try {
         parsed = JSON.parse(line)
@@ -76,9 +73,17 @@ export async function getLogs(logDirectory: string, params: {
         if (params.to && ts > params.to) continue
       }
 
-      entries.push(parsed)
+      const sortTime = parsed.Timestamp ? new Date(parsed.Timestamp).getTime() : Number.NEGATIVE_INFINITY
+      entries.push({
+        entry: parsed,
+        sortTime: Number.isNaN(sortTime) ? Number.NEGATIVE_INFINITY : sortTime,
+        order: order++,
+      })
     }
   }
 
   return entries
+    .sort((a, b) => b.sortTime - a.sortTime || a.order - b.order)
+    .slice(0, params.limit)
+    .map(({ entry }) => entry)
 }
